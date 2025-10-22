@@ -41,39 +41,25 @@ export const calculateTripCost = (trip) => {
   let total = 0;
   
   trip.days.forEach(day => {
-    // Costi categorie
+    // Costi categorie (escludi base e note)
     CATEGORIES.forEach(cat => {
       if (cat.id !== 'base' && cat.id !== 'note') {
         const cellData = trip.data[`${day.id}-${cat.id}`];
         if (cellData?.cost) {
           total += parseFloat(cellData.cost) || 0;
         }
-        
-        // Aggiungi altre spese se esistono
-        // Non cercare otherExpenses dentro cellData
-        // Le gestiamo separatamente dopo questo loop
-        trip.days.forEach(day => {
-  CATEGORIES.forEach(cat => {
-    if (cat.id !== 'base' && cat.id !== 'note') {
-      const cellData = trip.data[`${day.id}-${cat.id}`];
-      if (cellData?.cost) {
-        total += parseFloat(cellData.cost) || 0;
       }
+    });
+    
+    // Aggiungi altre spese del giorno (campo separato)
+    const otherExpenses = trip.data[`${day.id}-otherExpenses`];
+    if (otherExpenses && Array.isArray(otherExpenses)) {
+      otherExpenses.forEach(expense => {
+        if (expense.cost) {
+          total += parseFloat(expense.cost) || 0;
+        }
+      });
     }
-  });
-  
-  // Aggiungi altre spese del giorno (campo separato)
-  const otherExpenses = trip.data[`${day.id}-otherExpenses`];
-  if (otherExpenses && Array.isArray(otherExpenses)) {
-    otherExpenses.forEach(expense => {
-      if (expense.cost) {
-        total += parseFloat(expense.cost) || 0;
-      }
-    });
-  }
-});
-      }
-    });
   });
   
   return total;
@@ -113,19 +99,20 @@ export const getCostsByCategory = (trip) => {
           costs[cat.id].total += cost;
           if (cost > 0) costs[cat.id].count++;
         }
-        
-        // Conta altre spese
-        if (cellData?.otherExpenses && Array.isArray(cellData.otherExpenses)) {
-          cellData.otherExpenses.forEach(expense => {
-            if (expense.cost) {
-              const cost = parseFloat(expense.cost) || 0;
-              costs['other'].total += cost;
-              if (cost > 0) costs['other'].count++;
-            }
-          });
-        }
       }
     });
+    
+    // Conta altre spese dal campo separato
+    const otherExpenses = trip.data[`${day.id}-otherExpenses`];
+    if (otherExpenses && Array.isArray(otherExpenses)) {
+      otherExpenses.forEach(expense => {
+        if (expense.cost) {
+          const cost = parseFloat(expense.cost) || 0;
+          costs['other'].total += cost;
+          if (cost > 0) costs['other'].count++;
+        }
+      });
+    }
   });
   
   return costs;
