@@ -76,7 +76,7 @@ const HomeView = ({ trips, onCreateNew, onOpenTrip, onDeleteTrip, onExportTrip, 
 
       <div className="bg-white px-4 py-6 shadow-sm">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">I Miei Viaggi</h1>
+          <h1 className="text-3xl font-bold">🚀 I Miei Viaggi</h1>
           <button
             onClick={onOpenProfile}
             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
