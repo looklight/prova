@@ -1,47 +1,93 @@
-// ...existing code...
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import HomeView from './HomeView';
-import CalendarView from './CalendarView';
-import DayDetailView from './DayDetailView';
+import TripView from './TripView';
 import ProfileView from './ProfileView';
 import { CATEGORIES } from './constants';
+import { loadUserTrips, saveTrip, updateTrip, deleteTrip } from './firestoreService';
 
-const TravelPlannerApp = () => {
+const TravelPlannerApp = ({ user }) => {
   const [currentView, setCurrentView] = useState('home');
   const [trips, setTrips] = useState([]);
   const [currentTripId, setCurrentTripId] = useState(null);
-  const [selectedDayIndex, setSelectedDayIndex] = useState(0);
-  const [scrollToDayId, setScrollToDayId] = useState(null);
-  const [savedScrollPosition, setSavedScrollPosition] = useState(null);
-  const [enteredFromDayIndex, setEnteredFromDayIndex] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // Carica i viaggi al mount
+  useEffect(() => {
+    const loadTrips = async () => {
+      if (!user) return;
+      
+      try {
+        setLoading(true);
+        const userTrips = await loadUserTrips(user.uid);
+        setTrips(userTrips);
+      } catch (error) {
+        console.error('Errore caricamento viaggi:', error);
+        alert('Errore nel caricamento dei viaggi');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTrips();
+  }, [user]);
 
   const getCurrentTrip = () => trips.find(t => t.id === currentTripId);
   
-  const updateCurrentTrip = (updates) => {
-    setTrips(trips.map(t => t.id === currentTripId ? { ...t, ...updates } : t));
+  const updateCurrentTrip = async (updates) => {
+    try {
+      // Aggiorna localmente
+      setTrips(trips.map(t => t.id === currentTripId ? { ...t, ...updates } : t));
+      
+      // Salva su Firestore
+      await updateTrip(user.uid, currentTripId, updates);
+    } catch (error) {
+      console.error('Errore aggiornamento viaggio:', error);
+      alert('Errore nel salvataggio delle modifiche');
+    }
   };
 
-  const createNewTrip = () => {
-    const newTrip = {
-      id: Date.now(),
-      name: 'Nuovo Viaggio',
-      image: null,
-      startDate: new Date(),
-      days: [{ id: Date.now(), date: new Date(), number: 1 }],
-      data: {}
-    };
-    setTrips([...trips, newTrip]);
-    setCurrentTripId(newTrip.id);
-    setCurrentView('calendar');
+  const createNewTrip = async () => {
+    try {
+      const newTrip = {
+        id: Date.now(),
+        name: 'Nuovo Viaggio',
+        image: null,
+        startDate: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        days: [{ id: Date.now(), date: new Date(), number: 1 }],
+        data: {}
+      };
+      
+      // Salva su Firestore
+      await saveTrip(user.uid, newTrip);
+      
+      // Aggiorna stato locale
+      setTrips([newTrip, ...trips]);
+      setCurrentTripId(newTrip.id);
+      setCurrentView('trip');
+    } catch (error) {
+      console.error('Errore creazione viaggio:', error);
+      alert('Errore nella creazione del viaggio');
+    }
   };
 
-  const deleteTrip = (tripId) => {
-    setTrips(prevTrips => prevTrips.filter(t => t.id !== tripId));
+  const deleteTripHandler = async (tripId) => {
+    try {
+      // Elimina da Firestore
+      await deleteTrip(user.uid, tripId);
+      
+      // Aggiorna stato locale
+      setTrips(prevTrips => prevTrips.filter(t => t.id !== tripId));
+    } catch (error) {
+      console.error('Errore eliminazione viaggio:', error);
+      alert('Errore nell\'eliminazione del viaggio');
+    }
   };
 
   const openTrip = (tripId) => {
     setCurrentTripId(tripId);
-    setCurrentView('calendar');
+    setCurrentView('trip');
   };
 
   const exportTrip = (tripId) => {
@@ -85,9 +131,9 @@ const TravelPlannerApp = () => {
     URL.revokeObjectURL(url);
   };
 
-  const importTrip = (file) => {
+  const importTrip = async (file) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const importData = JSON.parse(e.target.result);
         
@@ -108,6 +154,8 @@ const TravelPlannerApp = () => {
           name: tripName,
           image: importData.trip.image || null,
           startDate: new Date(importData.trip.startDate),
+          createdAt: new Date(),
+          updatedAt: new Date(),
           days: importData.trip.days.map(day => ({
             id: Date.now() + Math.random(),
             date: new Date(day.date),
@@ -126,28 +174,45 @@ const TravelPlannerApp = () => {
                 title: categoryData.title || '',
                 cost: categoryData.cost || '',
                 notes: categoryData.notes || '',
-                bookingStatus: categoryData.bookingStatus || 'na'
+                bookingStatus: categoryData.bookingStatus || 'na',
+                transportMode: categoryData.transportMode || 'none',
+                links: categoryData.links || [],
+                images: categoryData.images || [],
+                videos: categoryData.videos || [],
+                mediaNotes: categoryData.mediaNotes || []
               };
             });
           }
         });
 
-        setTrips([...trips, newTrip]);
+        // Salva su Firestore
+        await saveTrip(user.uid, newTrip);
+        
+        // Aggiorna stato locale
+        setTrips([newTrip, ...trips]);
         alert(`✅ Viaggio "${tripName}" importato con successo!`);
       } catch (error) {
         console.error('Errore durante import:', error);
-        alert('❌ Errore durante l\\'importazione!\n\nIl file potrebbe essere corrotto o in un formato non supportato.');
+        alert('❌ Errore durante l\'importazione!\n\nIl file potrebbe essere corrotto o in un formato non supportato.');
       }
     };
     reader.readAsText(file);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-xl text-gray-600">Caricamento viaggi...</div>
+      </div>
+    );
+  }
 
   if (currentView === 'home') {
     return <HomeView 
       trips={trips} 
       onCreateNew={createNewTrip} 
       onOpenTrip={openTrip} 
-      onDeleteTrip={deleteTrip}
+      onDeleteTrip={deleteTripHandler}
       onExportTrip={exportTrip}
       onImportTrip={importTrip}
       onOpenProfile={() => setCurrentView('profile')}
@@ -161,47 +226,12 @@ const TravelPlannerApp = () => {
   const currentTrip = getCurrentTrip();
   if (!currentTrip) return null;
 
-  if (currentView === 'calendar') {
+  if (currentView === 'trip') {
     return (
-      <CalendarView
+      <TripView
         trip={currentTrip}
         onUpdateTrip={updateCurrentTrip}
-        onBack={() => setCurrentView('home')}
-        onOpenDay={(dayIndex, scrollPosition) => {
-          setSelectedDayIndex(dayIndex);
-          setEnteredFromDayIndex(dayIndex);
-          setSavedScrollPosition(scrollPosition);
-          setCurrentView('dayDetail');
-        }}
-        scrollToDayId={scrollToDayId}
-        savedScrollPosition={savedScrollPosition}
-        onScrollComplete={() => {
-          setScrollToDayId(null);
-          setSavedScrollPosition(null);
-        }}
-      />
-    );
-  }
-
-  if (currentView === 'dayDetail') {
-    return (
-      <DayDetailView
-        trip={currentTrip}
-        dayIndex={selectedDayIndex}
-        onUpdateTrip={updateCurrentTrip}
-        onBack={() => {
-          const isSameDay = selectedDayIndex === enteredFromDayIndex;
-          
-          if (isSameDay && savedScrollPosition !== null) {
-            setScrollToDayId(null);
-          } else {
-            setScrollToDayId(currentTrip.days[selectedDayIndex].id);
-            setSavedScrollPosition(null);
-          }
-          
-          setCurrentView('calendar');
-        }}
-        onChangeDayIndex={setSelectedDayIndex}
+        onBackToHome={() => setCurrentView('home')}
       />
     );
   }

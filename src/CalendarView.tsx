@@ -172,18 +172,25 @@ const CalendarView = ({ trip, onUpdateTrip, onBack, onOpenDay, scrollToDayId, sa
    * In modalità normale apre la vista dettaglio del giorno
    */
   const handleCellClick = (dayIndex, category) => {
-    if (!editMode) {
-      const currentScrollPosition = scrollContainerRef.current?.scrollLeft || 0;
-      onOpenDay(dayIndex, currentScrollPosition);
-      if (!isDesktop) {
-      // Scroll automatico alla categoria nella vista dettaglio
+  if (!editMode) {
+    const currentScrollPosition = scrollContainerRef.current?.scrollLeft || 0;
+    onOpenDay(dayIndex, currentScrollPosition, category.id); // Passa anche l'ID della categoria
+    
+    if (!isDesktop) {
+      // Scroll automatico alla categoria nella vista dettaglio (mobile)
       setTimeout(() => {
         const element = document.getElementById(`category-${category.id}`);
         element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 100);
-      }
+      }, 100);
+    } else {
+      // Scroll automatico alla categoria nella vista dettaglio (desktop)
+      setTimeout(() => {
+        const element = document.getElementById(`category-${category.id}`);
+        element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
     }
-  };
+  }
+};
   /**
    * Aggiorna la data di un giorno e propaga il cambiamento ai giorni successivi
    */
@@ -279,13 +286,13 @@ const CalendarView = ({ trip, onUpdateTrip, onBack, onOpenDay, scrollToDayId, sa
       margin: '0 auto',
       height: isDesktop ? '100%' : 'auto'
        }}>
-      <div className="bg-white px-4 py-4 shadow-sm sticky top-0 z-20">
+      <div className="bg-white px-2 py-4 shadow-sm sticky top-0 z-20">
         <div className="flex items-center justify-between mb-2">
-          {!isDesktop && onBack && (<button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full">
+          {onBack && (<button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full">
             <ChevronLeft size={24} />
           </button>
           )}
-          <div className="flex items-center gap-3 flex-1 min-w-0 mx-3">
+          <div className="flex items-center gap-2 flex-1 min-w-0 ml-0 mr-2">
             <div className="relative flex-shrink-0">
               <input
                 type="file"
@@ -319,7 +326,7 @@ const CalendarView = ({ trip, onUpdateTrip, onBack, onOpenDay, scrollToDayId, sa
               />
             ) : (
               <h1 
-                className="text-2xl font-bold cursor-pointer flex-1 min-w-0 truncate"
+                className="text-xl font-bold cursor-pointer flex-1 min-w-0 truncate"
                 onClick={() => setIsEditingTripName(true)}
               >
                 {trip.name}
@@ -333,9 +340,20 @@ const CalendarView = ({ trip, onUpdateTrip, onBack, onOpenDay, scrollToDayId, sa
               setSelectedDays([]);
               setMoveAfterIndex(null);
             }}
-            className={`p-2 rounded-full flex-shrink-0 ${editMode ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+            className={`rounded-full flex items-center gap-1 font-semibold transition-all shadow-sm flex-shrink-0 ${
+              editMode 
+                ? 'bg-green-100 text-green-600 hover:bg-green-200 px-2 py-2' 
+                : 'bg-gray-200 hover:bg-green-200 text-gray-700 hover:text-green-900 p-2'
+            }`}
           >
-            <Edit2 size={20} />
+            {editMode ? (
+              <>
+                <Check size={20} />
+                <span>Fine</span>
+              </>
+            ) : (
+              <Edit2 size={20} />
+            )}
           </button>
         </div>
 

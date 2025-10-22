@@ -166,20 +166,27 @@ const ProfileView = ({ onBack }) => {
           </div>
         </div>
 
-        {/* Logout */}
-        <div className="bg-white rounded-xl shadow mb-6">
-          <button
-            onClick={() => {
-              if (confirm('Vuoi davvero uscire?')) {
-                alert('Logout effettuato');
-                onBack();
-              }
-            }}
-            className="w-full p-4 text-red-500 font-semibold rounded-xl hover:bg-red-50 transition-colors"
-          >
-            Esci
-          </button>
-        </div>
+          {/* Logout */}
+          <div className="bg-white rounded-xl shadow mb-6">
+            <button
+              onClick={async () => {
+                if (confirm('Vuoi davvero uscire?')) {
+                  try {
+                    const { signOut } = await import('firebase/auth');
+                    const { auth } = await import('./firebase');
+                    await signOut(auth);
+                    // Il redirect alla login page è automatico (gestito da App.jsx)
+                  } catch (error) {
+                    console.error('Errore logout:', error);
+                    alert('Errore durante il logout');
+                  }
+                }
+              }}
+              className="w-full p-4 text-red-500 font-semibold rounded-xl hover:bg-red-50 transition-colors"
+            >
+              Esci
+            </button>
+          </div>
 
         {/* Footer */}
         <div className="text-center text-gray-400 text-xs pb-4">
@@ -190,7 +197,4 @@ const ProfileView = ({ onBack }) => {
   );
 };
 
-// Wrapper per demo
-export default function App() {
-  return <ProfileView onBack={() => alert('Torna indietro')} />;
-}
+export default ProfileView;

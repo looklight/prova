@@ -49,13 +49,21 @@ const TripView = ({ trip, onUpdateTrip }) => {
    * Gestisce l'apertura del dettaglio di un giorno
    * Su mobile cambia vista, su desktop solo aggiorna lo stato
    */
-  const handleOpenDay = (dayIndex, currentScrollPosition = null) => {
-    setSelectedDayIndex(dayIndex);
-    if (!isDesktop) {
-      setScrollPosition(currentScrollPosition);
-      setView('detail');
-    }
-  };
+  const handleOpenDay = (dayIndex, currentScrollPosition = null, categoryId = null) => {
+  setSelectedDayIndex(dayIndex);
+  if (!isDesktop) {
+    setScrollPosition(currentScrollPosition);
+    setView('detail');
+  }
+  
+  // Scroll alla categoria su desktop
+  if (isDesktop && categoryId) {
+    setTimeout(() => {
+      const element = document.getElementById(`category-${categoryId}`);
+      element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+  }
+};
 
   /**
    * Gestisce il ritorno al calendario da mobile
@@ -116,7 +124,7 @@ const TripView = ({ trip, onUpdateTrip }) => {
       <CalendarView
         trip={trip}
         onUpdateTrip={onUpdateTrip}
-        onBack={null} // Non usato in mobile
+        onBack={() => window.location.href = '/'}
         onOpenDay={handleOpenDay}
         scrollToDayId={scrollToDayId}
         savedScrollPosition={scrollPosition}
@@ -127,50 +135,49 @@ const TripView = ({ trip, onUpdateTrip }) => {
     );
   }
 
-  // ========== RENDERING DESKTOP ==========
-  return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Pannello Calendario - 60% larghezza */}
-      <div className="w-[60%] border-r border-gray-300 overflow-hidden flex flex-col">
-        <CalendarView
-          trip={trip}
-          onUpdateTrip={onUpdateTrip}
-          onBack={null} // Non usato in desktop
-          onOpenDay={handleOpenDay}
-          scrollToDayId={scrollToDayId}
-          savedScrollPosition={null}
-          onScrollComplete={handleScrollComplete}
-          isDesktop={true}
-          selectedDayIndex={selectedDayIndex}
-        />
-      </div>
-
-      {/* Pannello Dettaglio Giorno - 40% larghezza */}
-      <div className="w-[40%] overflow-hidden flex flex-col bg-white">
-        {selectedDayIndex !== null ? (
-          <DayDetailView
-            trip={trip}
-            dayIndex={selectedDayIndex}
-            onUpdateTrip={onUpdateTrip}
-            onBack={null} // Non usato in desktop
-            onChangeDayIndex={handleChangeDayIndex}
-            isDesktop={true}
-          />
-        ) : (
-          // Stato vuoto - nessun giorno selezionato
-          <div className="h-full flex items-center justify-center text-gray-400 bg-gray-50">
-            <div className="text-center px-6">
-              <Calendar size={64} className="mx-auto mb-4 opacity-30" />
-              <p className="text-lg font-medium text-gray-500">Seleziona un giorno</p>
-              <p className="text-sm text-gray-400 mt-2">
-                Clicca su una cella del calendario per visualizzare i dettagli
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
+// ========== RENDERING DESKTOP ==========
+return (
+  <div className="flex h-screen bg-gray-50">
+    {/* Pannello Calendario - 60% larghezza */}
+    <div className="w-[60%] border-r border-gray-300 overflow-hidden flex flex-col">
+      <CalendarView
+        trip={trip}
+        onUpdateTrip={onUpdateTrip}
+        onBack={() => window.location.href = '/'}
+        onOpenDay={handleOpenDay}
+        scrollToDayId={scrollToDayId}
+        savedScrollPosition={null}
+        onScrollComplete={handleScrollComplete}
+        isDesktop={true}
+        selectedDayIndex={selectedDayIndex}
+      />
     </div>
-  );
+
+    {/* Pannello Dettaglio Giorno - 40% larghezza */}
+    <div className="w-[40%] overflow-y-auto flex flex-col bg-white">
+      {selectedDayIndex !== null ? (
+        <DayDetailView
+          trip={trip}
+          dayIndex={selectedDayIndex}
+          onUpdateTrip={onUpdateTrip}
+          onBack={null}
+          onChangeDayIndex={handleChangeDayIndex}
+          isDesktop={true}
+        />
+      ) : (
+        <div className="h-full flex items-center justify-center text-gray-400 bg-gray-50">
+          <div className="text-center px-6">
+            <Calendar size={64} className="mx-auto mb-4 opacity-30" />
+            <p className="text-lg font-medium text-gray-500">Seleziona un giorno</p>
+            <p className="text-sm text-gray-400 mt-2">
+              Clicca su una cella del calendario per visualizzare i dettagli
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  </div>
+);
 };
 
 export default TripView;

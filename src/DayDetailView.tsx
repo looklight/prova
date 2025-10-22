@@ -235,30 +235,13 @@ const VideoEmbed = ({ video, onRemove }) => {
       bg: 'bg-black',
       icon: '🎵',
       name: 'TikTok'
+    },
+    youtube: {
+      bg: 'bg-red-600',
+      icon: '▶️',
+      name: 'YouTube'
     }
   };
-
-  if (video.platform === 'youtube') {
-    return (
-      <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-gray-100">
-        <iframe
-          width="100%"
-          height="100%"
-          src={`https://www.youtube.com/embed/${video.id}`}
-          frameBorder="0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-          className="w-full h-full"
-        />
-        <button 
-          onClick={onRemove}
-          className="absolute top-1 right-1 p-1 bg-black bg-opacity-50 hover:bg-opacity-70 rounded-full text-white z-10"
-        >
-          <X size={12} />
-        </button>
-      </div>
-    );
-  }
 
   const platform = platforms[video.platform];
   
@@ -397,15 +380,21 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
 
   const addLink = (categoryId) => {
     if (!linkInput.trim()) return;
-    
-    updateCategory(categoryId, 'links', [
-      ...categoryData[categoryId].links,
-      { url: linkInput, title: linkTitle || linkInput, id: Date.now() }
-    ]);
-    setLinkInput('');
-    setLinkTitle('');
-    setMediaDialogOpen(null);
-  };
+  
+    // Aggiungi https:// se manca il protocollo
+    let url = linkInput.trim();
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = 'https://' + url;
+  }
+  
+  updateCategory(categoryId, 'links', [
+    ...categoryData[categoryId].links,
+    { url: url, title: linkTitle || linkInput, id: Date.now() }
+  ]);
+  setLinkInput('');
+  setLinkTitle('');
+  setMediaDialogOpen(null);
+};
 
   const addImage = (categoryId, file) => {
     const reader = new FileReader();
@@ -473,18 +462,31 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
   };
 
   const removeOtherExpense = (id) => {
-    if (otherExpenses.length > 1) {
-      setOtherExpenses(prev => prev.filter(exp => exp.id !== id));
+  setOtherExpenses(prev => {
+    const filtered = prev.filter(exp => exp.id !== id);
+    // Assicurati che ci sia sempre almeno una riga vuota
+    if (filtered.length === 0) {
+      return [{ id: Date.now(), title: '', cost: '' }];
     }
-  };
+    return filtered;
+  });
+};
 
   const updateOtherExpense = (id, field, value) => {
-    setOtherExpenses(prev => 
-      prev.map(exp => 
-        exp.id === id ? { ...exp, [field]: value } : exp
-      )
+  setOtherExpenses(prev => {
+    const updated = prev.map(exp => 
+      exp.id === id ? { ...exp, [field]: value } : exp
     );
-  };
+    
+    // Se l'ultima spesa è stata compilata, aggiungi automaticamente una nuova riga vuota
+    const lastExpense = updated[updated.length - 1];
+    if (lastExpense.title.trim() !== '' || lastExpense.cost.trim() !== '') {
+      return [...updated, { id: Date.now(), title: '', cost: '' }];
+    }
+    
+    return updated;
+  });
+};
 
   const calculateDayCosts = () => {
     let total = 0;
@@ -516,7 +518,10 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
   const tripCost = calculateTotalTripCosts();
 
   return (
-    <div className="min-h-screen bg-gray-50" style={{ maxWidth: isDesktop ? '100%' : '430px', margin: '0 auto', height: isDesktop ? '100%' : 'auto' }}>
+    <div className={`bg-gray-50 ${isDesktop ? 'h-full overflow-y-auto' : 'min-h-screen'}`} style={{ 
+      maxWidth: isDesktop ? '100%' : '430px',
+      margin: '0 auto'
+    }}>
       <div className="bg-white px-4 py-4 shadow-sm sticky top-0 z-20">
         <div className="flex items-center justify-between mb-2">
           <button 
@@ -739,13 +744,6 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
         <div className="bg-white rounded-lg shadow p-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-semibold">💸 Altre Spese</h2>
-            <button
-              type="button"
-              onClick={addOtherExpense}
-              className="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-lg transition-colors"
-            >
-              +
-            </button>
           </div>
           
           <div className="space-y-2">
@@ -774,7 +772,7 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
                   </span>
                 </div>
                 
-                {otherExpenses.length > 1 && (
+                {(otherExpenses.length > 1 || expense.title.trim() !== '' || expense.cost.trim() !== '') && (
                   <button
                     type="button"
                     onClick={() => removeOtherExpense(expense.id)}
