@@ -256,12 +256,19 @@ const CalendarView = ({ trip, onUpdateTrip, onBack, onOpenDay, scrollToDayId, sa
   /**
    * Gestisce upload immagine del viaggio
    */
-  const handleImageUpload = (e) => {
+  const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => onUpdateTrip({ image: reader.result });
-      reader.readAsDataURL(file);
+      try {
+        const { resizeImage } = await import('./firestoreService');
+      
+        // 400x400px per copertina viaggio (appare piccola nell'header)
+        const resizedImage = await resizeImage(file, 400, 400, 0.85);
+        onUpdateTrip({ image: resizedImage });
+      } catch (error) {
+        console.error('Errore ridimensionamento:', error);
+        alert('Errore nel caricamento dell\'immagine');
+      }
     }
   };
 

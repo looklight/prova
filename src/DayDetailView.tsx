@@ -396,15 +396,21 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
   setMediaDialogOpen(null);
 };
 
-  const addImage = (categoryId, file) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
+  const addImage = async (categoryId, file) => {
+    try {
+      const { resizeImage } = await import('./firestoreService');
+    
+      // 1200x1200px per foto categorie, qualità 85% (riduce peso) 
+      const resizedImage = await resizeImage(file, 1200, 1200, 0.85);
+    
       updateCategory(categoryId, 'images', [
         ...categoryData[categoryId].images,
-        { url: e.target.result, name: file.name, id: Date.now() }
+        { url: resizedImage, name: file.name, id: Date.now() }
       ]);
-    };
-    reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Errore ridimensionamento:', error);
+      alert('Errore nel caricamento dell\'immagine');
+    }
   };
 
   const addVideo = (categoryId) => {

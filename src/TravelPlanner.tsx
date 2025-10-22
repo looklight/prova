@@ -220,7 +220,7 @@ const TravelPlannerApp = ({ user }) => {
   }
 
   if (currentView === 'profile') {
-    return <ProfileView onBack={() => setCurrentView('home')} />;
+    return <ProfileView onBack={() => setCurrentView('home')} user={user} />;
   }
 
   const currentTrip = getCurrentTrip();

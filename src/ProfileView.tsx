@@ -1,26 +1,62 @@
-import React, { useState } from 'react';
-import { ChevronLeft, User, Mail, Edit2, Check } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ChevronLeft, User, Mail, Edit2, Check, Loader } from 'lucide-react';
+import { auth } from './firebase';
+import { signOut } from 'firebase/auth';
+import { loadUserProfile, updateUserProfile, resizeImage } from './firestoreService';
 
-const ProfileView = ({ onBack }) => {
+const ProfileView = ({ onBack, user }) => {
   // Stati
-  const [userName, setUserName] = useState('Mario Rossi');
-  const [username, setUsername] = useState('mariorossi');
-  const [avatar, setAvatar] = useState(null);
-  const [editing, setEditing] = useState({ name: false, username: false });
-  const [temp, setTemp] = useState({ name: '', username: '' });
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState({ displayName: false, username: false });
+  const [temp, setTemp] = useState({ displayName: '', username: '' });
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-  // Dati utente (dovrebbero arrivare come props)
-  const userEmail = 'demo@esempio.com';
-  const userId = 'user-' + Date.now();
+  // Carica profilo al mount
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!user) return;
+      
+      try {
+        setLoading(true);
+        const userProfile = await loadUserProfile(user.uid, user.email);
+        setProfile(userProfile);
+      } catch (error) {
+        console.error('Errore caricamento profilo:', error);
+        alert('Errore nel caricamento del profilo');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  // Handler avatar
-  const handleAvatarUpload = (e) => {
+    loadProfile();
+  }, [user]);
+
+  // Handler avatar upload
+  const handleAvatarUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     
-    const reader = new FileReader();
-    reader.onloadend = () => setAvatar(reader.result);
-    reader.readAsDataURL(file);
+    try {
+      setUploadingAvatar(true);
+      
+      // Ridimensiona a 200x200px
+      const resizedAvatar = await resizeImage(file, 200, 200, 0.85);
+      
+      // Aggiorna localmente
+      setProfile({ ...profile, avatar: resizedAvatar });
+      
+      // Salva su Firestore
+      await updateUserProfile(user.uid, { avatar: resizedAvatar });
+      
+      console.log('✅ Avatar aggiornato');
+    } catch (error) {
+      console.error('Errore upload avatar:', error);
+      alert('Errore nel caricamento dell\'immagine');
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   // Handler generici per editing
@@ -34,25 +70,58 @@ const ProfileView = ({ onBack }) => {
     setTemp({ ...temp, [field]: '' });
   };
 
-  const saveEdit = (field) => {
+  const saveEdit = async (field) => {
     if (!temp[field].trim()) {
       cancelEdit(field);
       return;
     }
 
-    if (field === 'name') {
-      setUserName(temp.name.trim());
-    } else if (field === 'username') {
-      const clean = temp.username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
-      if (clean) setUsername(clean);
+    try {
+      setSaving(true);
+      
+      const updates = {};
+      
+      if (field === 'displayName') {
+        updates.displayName = temp.displayName.trim();
+      } else if (field === 'username') {
+        const clean = temp.username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+        if (!clean) {
+          alert('Username non valido. Usa solo lettere, numeri e underscore.');
+          return;
+        }
+        updates.username = clean;
+      }
+      
+      // Aggiorna localmente
+      setProfile({ ...profile, ...updates });
+      
+      // Salva su Firestore
+      await updateUserProfile(user.uid, updates);
+      
+      console.log('✅ Profilo aggiornato');
+    } catch (error) {
+      console.error('Errore aggiornamento:', error);
+      alert('Errore nel salvataggio');
+    } finally {
+      setSaving(false);
+      cancelEdit(field);
     }
-    
-    cancelEdit(field);
   };
 
   const handleKeyDown = (e, field) => {
     if (e.key === 'Enter') saveEdit(field);
     if (e.key === 'Escape') cancelEdit(field);
+  };
+
+  const handleLogout = async () => {
+    if (confirm('Vuoi davvero uscire?')) {
+      try {
+        await signOut(auth);
+      } catch (error) {
+        console.error('Errore logout:', error);
+        alert('Errore durante il logout');
+      }
+    }
   };
 
   // Componente EditableField riutilizzabile
@@ -70,20 +139,26 @@ const ProfileView = ({ onBack }) => {
             value={temp[field]}
             onChange={(e) => setTemp({ ...temp, [field]: e.target.value })}
             placeholder={placeholder}
-            className={`w-full px-3 py-1.5 rounded-lg text-gray-800 ${inputSize} font-semibold`}
+            className={`w-full px-3 py-1.5 rounded-lg text-gray-800 ${inputSize} font-semibold border-2 border-blue-400 focus:outline-none`}
             autoFocus
             onKeyDown={(e) => handleKeyDown(e, field)}
+            disabled={saving}
           />
           <div className="flex gap-2 mt-2">
             <button
               onClick={() => saveEdit(field)}
-              className="flex-1 px-3 py-1 bg-white text-blue-600 rounded-lg text-xs font-medium"
+              disabled={saving}
+              className="flex-1 px-3 py-1 bg-white text-blue-600 rounded-lg text-xs font-medium border border-blue-600 disabled:opacity-50"
             >
-              <Check size={14} className="inline mr-1" />
-              Salva
+              {saving ? (
+                <><Loader size={14} className="inline animate-spin mr-1" /> Salvo...</>
+              ) : (
+                <><Check size={14} className="inline mr-1" /> Salva</>
+              )}
             </button>
             <button
               onClick={() => cancelEdit(field)}
+              disabled={saving}
               className="flex-1 px-3 py-1 bg-white bg-opacity-20 rounded-lg text-xs font-medium"
             >
               Annulla
@@ -108,6 +183,25 @@ const ProfileView = ({ onBack }) => {
     );
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center" style={{ maxWidth: '430px', margin: '0 auto' }}>
+        <div className="text-xl text-gray-600 flex items-center gap-2">
+          <Loader size={24} className="animate-spin" />
+          Caricamento profilo...
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center" style={{ maxWidth: '430px', margin: '0 auto' }}>
+        <div className="text-xl text-red-600">Errore nel caricamento del profilo</div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50" style={{ maxWidth: '430px', margin: '0 auto' }}>
       {/* Header */}
@@ -125,68 +219,80 @@ const ProfileView = ({ onBack }) => {
         <div className="bg-gradient-to-br from-blue-500 to-purple-500 rounded-3xl shadow-lg p-6 mb-6 text-white">
           <div className="flex items-center gap-4 mb-4">
             {/* Avatar */}
-            <input
-              type="file"
-              id="avatar-upload"
-              accept="image/*"
-              onChange={handleAvatarUpload}
-              className="hidden"
-            />
-            <label htmlFor="avatar-upload" className="cursor-pointer block flex-shrink-0">
-              {avatar ? (
-                <img 
-                  src={avatar} 
-                  alt="Avatar" 
-                  className="w-20 h-20 rounded-full object-cover border-4 border-white border-opacity-30"
-                />
-              ) : (
-                <div className="w-20 h-20 bg-white bg-opacity-20 rounded-full flex items-center justify-center backdrop-blur-sm border-4 border-white border-opacity-30">
-                  <User size={40} className="text-white" />
-                </div>
-              )}
-            </label>
+            <div className="relative flex-shrink-0">
+              <input
+                type="file"
+                id="avatar-upload"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                className="hidden"
+                disabled={uploadingAvatar}
+              />
+              <label 
+                htmlFor="avatar-upload" 
+                className={`cursor-pointer block ${uploadingAvatar ? 'opacity-50' : ''}`}
+              >
+                {profile.avatar ? (
+                  <img 
+                    src={profile.avatar} 
+                    alt="Avatar" 
+                    className="w-20 h-20 rounded-full object-cover border-4 border-white border-opacity-30"
+                  />
+                ) : (
+                  <div className="w-20 h-20 bg-white bg-opacity-20 rounded-full flex items-center justify-center backdrop-blur-sm border-4 border-white border-opacity-30">
+                    {uploadingAvatar ? (
+                      <Loader size={32} className="text-white animate-spin" />
+                    ) : (
+                      <User size={40} className="text-white" />
+                    )}
+                  </div>
+                )}
+              </label>
+            </div>
             
             {/* Info Utente */}
             <div className="flex-1 min-w-0">
-              <EditableField field="name" value={userName} placeholder="Nome visualizzato" size="lg" />
-              <EditableField field="username" value={username} placeholder="username" prefix="@" size="sm" />
+              <EditableField 
+                field="displayName" 
+                value={profile.displayName} 
+                placeholder="Nome visualizzato" 
+                size="lg" 
+              />
+              <EditableField 
+                field="username" 
+                value={profile.username} 
+                placeholder="username" 
+                prefix="@" 
+                size="sm" 
+              />
               
               <div className="flex items-center gap-2 text-blue-100 text-xs mt-2">
                 <Mail size={12} />
-                <span className="truncate">{userEmail}</span>
+                <span className="truncate">{profile.email}</span>
               </div>
             </div>
           </div>
 
-          {/* User ID */}
+          {/* User ID e Date */}
           <div className="pt-3 border-t border-white border-opacity-20">
             <div className="text-xs text-blue-100 opacity-60 truncate">
-              ID: {userId}
+              Membro da: {new Date(profile.createdAt.seconds * 1000).toLocaleDateString('it-IT', { 
+                month: 'long', 
+                year: 'numeric' 
+              })}
             </div>
           </div>
         </div>
 
-          {/* Logout */}
-          <div className="bg-white rounded-xl shadow mb-6">
-            <button
-              onClick={async () => {
-                if (confirm('Vuoi davvero uscire?')) {
-                  try {
-                    const { signOut } = await import('firebase/auth');
-                    const { auth } = await import('./firebase');
-                    await signOut(auth);
-                    // Il redirect alla login page è automatico (gestito da App.jsx)
-                  } catch (error) {
-                    console.error('Errore logout:', error);
-                    alert('Errore durante il logout');
-                  }
-                }
-              }}
-              className="w-full p-4 text-red-500 font-semibold rounded-xl hover:bg-red-50 transition-colors"
-            >
-              Esci
-            </button>
-          </div>
+        {/* Logout */}
+        <div className="bg-white rounded-xl shadow mb-6">
+          <button
+            onClick={handleLogout}
+            className="w-full p-4 text-red-500 font-semibold rounded-xl hover:bg-red-50 transition-colors"
+          >
+            Esci
+          </button>
+        </div>
 
         {/* Footer */}
         <div className="text-center text-gray-400 text-xs pb-4">

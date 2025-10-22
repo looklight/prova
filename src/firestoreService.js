@@ -146,3 +146,78 @@ export const loadTrip = async (userId, tripId) => {
     throw error;
   }
 };
+
+// ============= FUNZIONI PER IL PROFILO =============
+
+/**
+ * Genera display name e username di default dall'email
+ */
+export const generateDefaultProfile = (email) => {
+  const emailPart = email.split('@')[0];
+  
+  // Display Name: email pulita con maiuscole
+  const displayName = emailPart
+    .replace(/[._-]/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
+  
+  // Username: email + numero random (4 cifre)
+  const cleanEmail = emailPart.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  const random = Math.floor(1000 + Math.random() * 9000);
+  const username = `${cleanEmail}_${random}`;
+  
+  return { displayName, username };
+};
+
+/**
+ * Crea o carica il profilo utente
+ */
+export const loadUserProfile = async (userId, userEmail) => {
+  try {
+    const profileRef = doc(db, 'users', userId, 'profile', 'info');
+    const snapshot = await getDoc(profileRef);
+    
+    if (snapshot.exists()) {
+      console.log('✅ Profilo esistente caricato');
+      return snapshot.data();
+    } else {
+      // Profilo non esiste, creane uno nuovo
+      const defaults = generateDefaultProfile(userEmail);
+      const newProfile = {
+        displayName: defaults.displayName,
+        username: defaults.username,
+        email: userEmail,
+        avatar: null,
+        bio: '',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      await setDoc(profileRef, newProfile);
+      console.log('✅ Nuovo profilo creato');
+      return newProfile;
+    }
+  } catch (error) {
+    console.error('❌ Errore caricamento profilo:', error);
+    throw error;
+  }
+};
+
+/**
+ * Aggiorna il profilo utente
+ */
+export const updateUserProfile = async (userId, updates) => {
+  try {
+    const profileRef = doc(db, 'users', userId, 'profile', 'info');
+    
+    const updateData = {
+      ...updates,
+      updatedAt: new Date()
+    };
+    
+    await updateDoc(profileRef, updateData);
+    console.log('✅ Profilo aggiornato');
+  } catch (error) {
+    console.error('❌ Errore aggiornamento profilo:', error);
+    throw error;
+  }
+};

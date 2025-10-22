@@ -5,7 +5,7 @@ import { Mail, Lock, Eye, EyeOff, MapPin, AlertCircle } from 'lucide-react';
 const BRAND_CONFIG = {
   name: 'I Miei Viaggi',
   subtitle: 'Accedi per gestire i tuoi viaggi',
-  copyright: '© 2025 🐓. Tutti i diritti riservati.'
+  copyright: '© 2025 Tutti i diritti riservati.'
 };
 
 const DEMO_CREDENTIALS = {
