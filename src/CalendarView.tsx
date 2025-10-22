@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Edit2, Check, Plus, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { CATEGORIES, TRANSPORT_OPTIONS } from './constants';
+import { calculateDayCost } from './costsUtils';
 
 /**
  * Componente principale per la visualizzazione calendario del viaggio
@@ -80,20 +81,6 @@ const CalendarView = ({ trip, onUpdateTrip, onBack, onOpenDay, scrollToDayId, sa
    */
   const getCellData = (dayId, categoryId) => {
     return trip.data[`${dayId}-${categoryId}`] || null;
-  };
-
-  /**
-   * Calcola il costo totale di un giorno sommando tutte le categorie
-   */
-  const calculateDayCost = (dayId) => {
-    let total = 0;
-    CATEGORIES.forEach(cat => {
-      const data = getCellData(dayId, cat.id);
-      if (data?.cost) {
-        total += parseFloat(data.cost) || 0;
-      }
-    });
-    return total.toFixed(2);
   };
 
   /**
@@ -603,7 +590,7 @@ const CalendarView = ({ trip, onUpdateTrip, onBack, onOpenDay, scrollToDayId, sa
                 <td key={`cost-${day.id}`} className={`p-1 text-center border-l text-sm ${
                   selectedDays.includes(trip.days.indexOf(day)) ? 'bg-blue-50' : ''
                 }`} style={{ height: '48px', width: '140px', minWidth: '140px', maxWidth: '140px' }}>
-                  {calculateDayCost(day.id)}€
+                  {calculateDayCost(day, trip.data).toFixed(2)}€
                 </td>
               ))}
             </tr>

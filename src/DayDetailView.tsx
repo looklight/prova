@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, Video, X } from 'lucide-react';
 import { CATEGORIES, TRANSPORT_OPTIONS } from './constants';
+import { calculateDayCost, calculateTripCost } from './costsUtils';
 
 // ============= ICONE CUSTOM =============
 const LinkIcon = ({ size = 24 }) => (
@@ -505,34 +506,9 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
   });
 };
 
-  const calculateDayCosts = () => {
-    let total = 0;
-    CATEGORIES.forEach(cat => {
-      if (cat.id !== 'base' && cat.id !== 'note') {
-        total += parseFloat(categoryData[cat.id].cost) || 0;
-      }
-    });
-    otherExpenses.forEach(expense => {
-      total += parseFloat(expense.cost) || 0;
-    });
-    return total;
-  };
-
-  const calculateTotalTripCosts = () => {
-    let total = 0;
-    trip.days.forEach(day => {
-      CATEGORIES.forEach(cat => {
-        if (cat.id !== 'base' && cat.id !== 'note') {
-          const cellData = trip.data[`${day.id}-${cat.id}`];
-          total += parseFloat(cellData?.cost) || 0;
-        }
-      });
-    });
-    return total;
-  };
-
-  const dayCost = calculateDayCosts();
-  const tripCost = calculateTotalTripCosts();
+// Calcolo del totale giornaliero e totale del viaggio
+  const dayCost = calculateDayCost(currentDay, trip.data);
+  const tripCost = calculateTripCost(trip);
 
   return (
     <div className={`bg-gray-50 ${isDesktop ? 'h-full overflow-y-auto' : 'min-h-screen'}`} style={{ 
