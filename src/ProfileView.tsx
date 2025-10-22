@@ -276,7 +276,7 @@ const ProfileView = ({ onBack, user }) => {
           {/* User ID e Date */}
           <div className="pt-3 border-t border-white border-opacity-20">
             <div className="text-xs text-blue-100 opacity-60 truncate">
-              Membro da: {new Date(profile.createdAt.seconds * 1000).toLocaleDateString('it-IT', { 
+              Membro da: {new Date(profile.createdAt).toLocaleDateString('it-IT', { 
                 month: 'long', 
                 year: 'numeric' 
               })}

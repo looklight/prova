@@ -334,8 +334,15 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
       };
     });
     setCategoryData(data);
-    setOtherExpenses([{ id: Date.now(), title: '', cost: '' }]);
-  }, [currentDay.id]);
+  
+    // Carica "Altre Spese" dal campo separato
+    const savedOtherExpenses = trip.data[`${currentDay.id}-otherExpenses`];
+    if (savedOtherExpenses && savedOtherExpenses.length > 0) {
+      setOtherExpenses(savedOtherExpenses);
+    } else {
+      setOtherExpenses([{ id: Date.now(), title: '', cost: '' }]);
+    }
+  }, [currentDay.id, trip.data]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -343,11 +350,15 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
       Object.keys(categoryData).forEach(catId => {
         newData[`${currentDay.id}-${catId}`] = categoryData[catId];
       });
+    
+      // Salva "Altre Spese" come campo separato
+      newData[`${currentDay.id}-otherExpenses`] = otherExpenses;
+    
       onUpdateTrip({ data: newData });
     }, 300);
-    
-    return () => clearTimeout(timer);
-  }, [categoryData, currentDay.id, onUpdateTrip, trip.data]);
+  
+  return () => clearTimeout(timer);
+}, [categoryData, otherExpenses, currentDay.id, onUpdateTrip, trip.data]);
 
   const updateCategory = (catId, field, value) => {
     setCategoryData(prev => ({
