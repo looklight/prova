@@ -39,6 +39,9 @@ export const calculateDayCost = (day, tripData) => {
  */
 export const calculateTripCost = (trip) => {
   let total = 0;
+
+  console.log('🔍 calculateTripCost - trip.days:', trip.days);
+  console.log('🔍 calculateTripCost - trip.data:', trip.data);
   
   trip.days.forEach(day => {
     // Costi categorie (escludi base e note)
