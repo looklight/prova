@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, Video, X } from 'lucide-react';
 import { CATEGORIES, TRANSPORT_OPTIONS } from './constants';
-import { calculateDayCost, calculateTripCost } from './costsUtils';
+import { calculateDayCost, calculateTripCost } from './costsUtils.js';
 
 // ============= ICONE CUSTOM =============
 const LinkIcon = ({ size = 24 }) => (

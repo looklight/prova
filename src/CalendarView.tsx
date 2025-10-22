@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Edit2, Check, Plus, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { CATEGORIES, TRANSPORT_OPTIONS } from './constants';
-import { calculateDayCost } from './costsUtils';
+import { calculateDayCost } from './costsUtils.js';
 
 /**
  * Componente principale per la visualizzazione calendario del viaggio
