@@ -39,32 +39,41 @@ export const calculateDayCost = (day, tripData) => {
  */
 export const calculateTripCost = (trip) => {
   let total = 0;
-
+  
   console.log('🔍 calculateTripCost - trip.days:', trip.days);
   console.log('🔍 calculateTripCost - trip.data:', trip.data);
   
   trip.days.forEach(day => {
+    console.log('🔍 Processing day:', day.id);
+    
     // Costi categorie (escludi base e note)
     CATEGORIES.forEach(cat => {
       if (cat.id !== 'base' && cat.id !== 'note') {
         const cellData = trip.data[`${day.id}-${cat.id}`];
         if (cellData?.cost) {
-          total += parseFloat(cellData.cost) || 0;
+          const cost = parseFloat(cellData.cost) || 0;
+          console.log(`  ✅ ${cat.id}: ${cost}€`);
+          total += cost;
         }
       }
     });
     
     // Aggiungi altre spese del giorno (campo separato)
     const otherExpenses = trip.data[`${day.id}-otherExpenses`];
+    console.log('🔍 otherExpenses for day:', otherExpenses);
+    
     if (otherExpenses && Array.isArray(otherExpenses)) {
       otherExpenses.forEach(expense => {
         if (expense.cost) {
-          total += parseFloat(expense.cost) || 0;
+          const cost = parseFloat(expense.cost) || 0;
+          console.log(`  💸 ${expense.title}: ${cost}€`);
+          total += cost;
         }
       });
     }
   });
   
+  console.log('🔍 Total calculated:', total);
   return total;
 };
 
