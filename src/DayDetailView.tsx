@@ -267,18 +267,25 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
 
   const addImage = async (categoryId, file) => {
     try {
-      const { resizeImage } = await import('./firestoreService');
+      const { uploadImage } = await import('./storageService');
     
-      // 1200x1200px per foto categorie, qualità 85% (riduce peso) 
-      const resizedImage = await resizeImage(file, 1200, 1200, 0.85);
+      // Mostra loading (opzionale)
+      // setImageLoading(true);
     
+      // Upload su Storage
+      const imageData = await uploadImage(file, trip.id, categoryId);
+    
+      // Aggiungi ai dati
       updateCategory(categoryId, 'images', [
         ...categoryData[categoryId].images,
-        { url: resizedImage, name: file.name, id: Date.now() }
+        imageData
       ]);
+    
+      // setImageLoading(false);
     } catch (error) {
-      console.error('Errore ridimensionamento:', error);
+      console.error('Errore upload immagine:', error);
       alert('Errore nel caricamento dell\'immagine');
+      // setImageLoading(false);
     }
   };
 
@@ -319,13 +326,28 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
     setMediaDialogOpen(null);
   };
 
-  const removeMedia = (categoryId, mediaType, itemId) => {
-    updateCategory(
-      categoryId,
-      mediaType,
-      categoryData[categoryId][mediaType].filter(item => item.id !== itemId)
-    );
-  };
+  const removeMedia = async (categoryId, mediaType, itemId) => {
+  const mediaArray = categoryData[categoryId][mediaType];
+  const mediaItem = mediaArray.find(item => item.id === itemId);
+  
+  // Se è un'immagine su Storage, eliminala
+  if (mediaType === 'images' && mediaItem?.path) {
+    try {
+      const { deleteImage } = await import('./storageService');
+      await deleteImage(mediaItem.path);
+    } catch (error) {
+      console.error('Errore eliminazione immagine da Storage:', error);
+      // Continua comunque a rimuoverla dai dati locali
+    }
+  }
+  
+  // Rimuovi dai dati
+  updateCategory(
+    categoryId,
+    mediaType,
+    mediaArray.filter(item => item.id !== itemId)
+  );
+};
 
   const addOtherExpense = () => {
     const newExpense = { 
