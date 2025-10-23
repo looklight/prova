@@ -2,31 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, Video, X } from 'lucide-react';
 import { CATEGORIES, TRANSPORT_OPTIONS } from './constants';
 import { calculateDayCost, calculateTripCost } from './costsUtils.js';
-
-// ============= ICONE CUSTOM =============
-const LinkIcon = ({ size = 24 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-  </svg>
-);
-
-const ImageIcon = ({ size = 24 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-    <circle cx="8.5" cy="8.5" r="1.5" />
-    <polyline points="21 15 16 10 5 21" />
-  </svg>
-);
-
-const FileTextIcon = ({ size = 24 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-    <polyline points="14 2 14 8 20 8" />
-    <line x1="16" y1="13" x2="8" y2="13" />
-    <line x1="16" y1="17" x2="8" y2="17" />
-  </svg>
-);
+import { LinkCard, ImageCard, NoteCard, VideoEmbed, LinkIcon, ImageIcon, FileTextIcon, extractVideoId } from './MediaCards';
 
 // ============= COSTANTI =============
 
@@ -65,6 +41,7 @@ const MediaButton = ({ icon: Icon, label, color, onClick, isLabel = false }) => 
   );
 };
 
+// ============= TOGGLE DI STATO DELLA CELLA =============
 const BookingToggle = ({ value, onChange }) => {
   const states = [
     { key: 'na', color: 'bg-gray-400', position: 0 },
@@ -107,6 +84,7 @@ const BookingToggle = ({ value, onChange }) => {
   );
 };
 
+// ============= TOGGLE MEZZO DI TRASPORTO =============
 const TransportSelector = ({ value, isOpen, onToggle, onChange }) => (
   <div className="relative">
     <button
@@ -164,127 +142,6 @@ const CostInput = ({ value, onChange }) => (
   </div>
 );
 
-// ============= COMPONENTI MEDIA =============
-const LinkCard = ({ link, onRemove }) => (
-  <div className="relative flex flex-col bg-gray-50 rounded-lg p-3 w-full aspect-square overflow-hidden">
-    <div className="flex items-start gap-2 flex-1 overflow-hidden">
-      <LinkIcon size={14} className="text-blue-500 flex-shrink-0 mt-0.5" />
-      <div className="flex-1 min-w-0 overflow-hidden">
-        <a 
-          href={link.url} 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="text-xs text-blue-600 hover:underline block"
-          style={{
-            display: '-webkit-box',
-            WebkitLineClamp: 5,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-            wordBreak: 'break-word'
-          }}
-        >
-          {link.title || link.url}
-        </a>
-      </div>
-    </div>
-    <button onClick={onRemove} className="absolute top-1 right-1 p-1 hover:bg-gray-200 rounded">
-      <X size={12} />
-    </button>
-  </div>
-);
-
-const ImageCard = ({ image, onRemove }) => (
-  <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-gray-100">
-    <img src={image.url} alt={image.name} className="w-full h-full object-cover" />
-    <button 
-      onClick={onRemove}
-      className="absolute top-1 right-1 p-1 bg-black bg-opacity-50 hover:bg-opacity-70 rounded-full text-white"
-    >
-      <X size={12} />
-    </button>
-  </div>
-);
-
-const NoteCard = ({ note, onRemove, onClick }) => (
-  <div 
-    onClick={onClick}
-    className="flex flex-col bg-amber-50 rounded-lg p-3 w-full border border-amber-200 cursor-pointer hover:bg-amber-100 transition-colors relative aspect-square"
-  >
-    <div className="flex-1 overflow-hidden">
-      <p className="text-[10px] leading-tight text-gray-700 line-clamp-6">{note.text}</p>
-    </div>
-    <button 
-      onClick={(e) => {
-        e.stopPropagation();
-        onRemove();
-      }} 
-      className="absolute top-1 right-1 p-1 hover:bg-amber-200 rounded"
-    >
-      <X size={12} />
-    </button>
-  </div>
-);
-
-const VideoEmbed = ({ video, onRemove }) => {
-  const platforms = {
-    instagram: {
-      bg: 'bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400',
-      icon: '📷',
-      name: 'Instagram'
-    },
-    tiktok: {
-      bg: 'bg-black',
-      icon: '🎵',
-      name: 'TikTok'
-    },
-    youtube: {
-      bg: 'bg-red-600',
-      icon: '▶️',
-      name: 'YouTube'
-    }
-  };
-
-  const platform = platforms[video.platform];
-  
-  return (
-    <div className={`relative w-full aspect-square rounded-lg overflow-hidden ${platform.bg}`}>
-      <div className="w-full h-full flex items-center justify-center">
-        <a 
-          href={video.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-white text-center p-4"
-        >
-          <div className="text-2xl mb-1">{platform.icon}</div>
-          <div className="text-xs font-semibold">{platform.name}</div>
-          <div className="text-xs opacity-75 mt-1">Tap per aprire</div>
-        </a>
-      </div>
-      <button 
-        onClick={onRemove}
-        className="absolute top-1 right-1 p-1 bg-black bg-opacity-50 hover:bg-opacity-70 rounded-full text-white"
-      >
-        <X size={12} />
-      </button>
-    </div>
-  );
-};
-
-// ============= UTILITY FUNCTIONS =============
-const extractVideoId = (url) => {
-  const patterns = [
-    { regex: /instagram\.com\/(p|reel|tv)\/([A-Za-z0-9_-]+)/, platform: 'instagram', idIndex: 2 },
-    { regex: /tiktok\.com\/.*\/video\/(\d+)/, platform: 'tiktok', idIndex: 1 },
-    { regex: /(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]+)/, platform: 'youtube', idIndex: 1 }
-  ];
-
-  for (const pattern of patterns) {
-    const match = url.match(pattern.regex);
-    if (match) return { platform: pattern.platform, id: match[pattern.idIndex] };
-  }
-  
-  return null;
-};
 
 // ============= COMPONENTE PRINCIPALE =============
 const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex, isDesktop = false }) => {
