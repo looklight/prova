@@ -215,7 +215,7 @@ const AuthPage = ({ onAuthSuccess }) => {
 
         {/* Footer */}
         <p className="text-center text-white text-sm mt-6">
-          © 2024 I Miei Viaggi. Tutti i diritti riservati.
+          © 2025 I Miei Viaggi. Tutti i diritti riservati.
         </p>
       </div>
     </div>
