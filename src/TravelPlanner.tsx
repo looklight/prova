@@ -3,7 +3,7 @@ import HomeView from './HomeView';
 import TripView from './TripView';
 import ProfileView from './ProfileView';
 import { CATEGORIES } from './constants';
-import { loadUserTrips, saveTrip, updateTrip, deleteTrip } from './firestoreService';
+import { subscribeToUserTrips, saveTrip, updateTrip, deleteTrip } from './firestoreService';
 
 const TravelPlannerApp = ({ user }) => {
   const [currentView, setCurrentView] = useState('home');
@@ -11,38 +11,54 @@ const TravelPlannerApp = ({ user }) => {
   const [currentTripId, setCurrentTripId] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Carica i viaggi al mount
+  // ⭐ MODIFICATO: Usa listener real-time invece di caricamento singolo
   useEffect(() => {
-    const loadTrips = async () => {
-      if (!user) return;
-      
-      try {
-        setLoading(true);
-        const userTrips = await loadUserTrips(user.uid);
-        setTrips(userTrips);
-      } catch (error) {
-        console.error('Errore caricamento viaggi:', error);
-        alert('Errore nel caricamento dei viaggi');
-      } finally {
+    if (!user) return;
+    
+    console.log('🔄 Inizializzazione listener real-time...');
+    setLoading(true);
+    
+    // Sottoscrivi ai viaggi con listener real-time
+    const unsubscribe = subscribeToUserTrips(
+      user.uid,
+      (updatedTrips) => {
+        // ⭐ Callback chiamata ogni volta che i dati cambiano su Firestore
+        console.log('📥 Viaggi aggiornati da Firestore:', updatedTrips.length);
+        setTrips(updatedTrips);
+        setLoading(false);
+      },
+      (error) => {
+        // Gestione errori del listener
+        console.error('❌ Errore listener viaggi:', error);
+        alert('Errore nella sincronizzazione dei viaggi');
         setLoading(false);
       }
+    );
+    
+    // ⭐ IMPORTANTE: Cleanup quando il componente si smonta o user cambia
+    return () => {
+      console.log('🔌 Disconnessione listener real-time');
+      unsubscribe();
     };
-
-    loadTrips();
   }, [user]);
 
   const getCurrentTrip = () => trips.find(t => t.id === currentTripId);
   
   const updateCurrentTrip = async (updates) => {
     try {
-      // Aggiorna localmente
+      // ⭐ MODIFICATO: Aggiorna SOLO su Firestore
+      // Il listener real-time aggiornerà automaticamente lo stato locale
+      await updateTrip(user.uid, currentTripId, updates);
+      
+      // ⭐ OPZIONALE: Aggiornamento ottimistico locale per UI immediata
+      // (il listener sovrascriverà con i dati reali da Firestore)
       setTrips(trips.map(t => t.id === currentTripId ? { ...t, ...updates } : t));
       
-      // Salva su Firestore
-      await updateTrip(user.uid, currentTripId, updates);
     } catch (error) {
-      console.error('Errore aggiornamento viaggio:', error);
+      console.error('❌ Errore aggiornamento viaggio:', error);
       alert('Errore nel salvataggio delle modifiche');
+      
+      // ⭐ In caso di errore, il listener manterrà i dati corretti da Firestore
     }
   };
 
@@ -62,12 +78,13 @@ const TravelPlannerApp = ({ user }) => {
       // Salva su Firestore
       await saveTrip(user.uid, newTrip);
       
-      // Aggiorna stato locale
+      // ⭐ Il listener aggiungerà automaticamente il viaggio allo stato
+      // Ma per UI immediata, lo aggiungiamo anche localmente
       setTrips([newTrip, ...trips]);
       setCurrentTripId(newTrip.id);
       setCurrentView('trip');
     } catch (error) {
-      console.error('Errore creazione viaggio:', error);
+      console.error('❌ Errore creazione viaggio:', error);
       alert('Errore nella creazione del viaggio');
     }
   };
@@ -77,10 +94,11 @@ const TravelPlannerApp = ({ user }) => {
       // Elimina da Firestore
       await deleteTrip(user.uid, tripId);
       
-      // Aggiorna stato locale
+      // ⭐ Il listener aggiornerà automaticamente lo stato
+      // Ma per UI immediata, rimuoviamo anche localmente
       setTrips(prevTrips => prevTrips.filter(t => t.id !== tripId));
     } catch (error) {
-      console.error('Errore eliminazione viaggio:', error);
+      console.error('❌ Errore eliminazione viaggio:', error);
       alert('Errore nell\'eliminazione del viaggio');
     }
   };
@@ -188,11 +206,12 @@ const TravelPlannerApp = ({ user }) => {
         // Salva su Firestore
         await saveTrip(user.uid, newTrip);
         
-        // Aggiorna stato locale
+        // ⭐ Il listener aggiungerà automaticamente il viaggio
+        // Ma per UI immediata, lo aggiungiamo anche localmente
         setTrips([newTrip, ...trips]);
         alert(`✅ Viaggio "${tripName}" importato con successo!`);
       } catch (error) {
-        console.error('Errore durante import:', error);
+        console.error('❌ Errore durante import:', error);
         alert('❌ Errore durante l\'importazione!\n\nIl file potrebbe essere corrotto o in un formato non supportato.');
       }
     };
