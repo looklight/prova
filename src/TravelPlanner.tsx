@@ -50,8 +50,6 @@ const TravelPlannerApp = ({ user }) => {
     }
     return trip;
   }, [trips, currentTripId]);
-
-  const getCurrentTrip = () => currentTrip;
   
   const updateCurrentTrip = async (updates) => {
     try {
@@ -262,21 +260,12 @@ const TravelPlannerApp = ({ user }) => {
     return <ProfileView onBack={() => setCurrentView('home')} user={user} />;
   }
 
-  const currentTrip = getCurrentTrip();
   if (!currentTrip) return null;
-
-  // ⭐ AGGIUNTO: Crea una key unica basata sui dati del viaggio
-  // Questo garantisce che TripView si aggiorni quando cambiano i dati
-  const tripDataKey = JSON.stringify({
-    id: currentTrip.id,
-    updatedAt: currentTrip.updatedAt?.getTime(),
-    dataKeys: Object.keys(currentTrip.data || {}).length
-  });
 
   if (currentView === 'trip') {
     return (
       <TripView
-        key={tripDataKey}
+        key={currentTripId}
         trip={currentTrip}
         onUpdateTrip={updateCurrentTrip}
         onBackToHome={() => setCurrentView('home')}
