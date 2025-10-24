@@ -123,13 +123,13 @@ export const saveTrip = async (userId, trip) => {
 
 /**
  * ⭐ MODIFICATA: Aggiorna un viaggio esistente
- * Ora usa setDoc con merge:true invece di updateDoc
- * Questo previene errori se il documento non esiste ancora
+ * Strategia: prima verifica se esiste, poi usa updateDoc o setDoc di conseguenza
  */
 export const updateTrip = async (userId, tripId, updates) => {
   try {
     const tripRef = doc(db, 'users', userId, 'trips', tripId.toString());
     
+    // Prepara i dati da salvare
     const updateData = {
       ...updates,
       updatedAt: new Date()
@@ -143,9 +143,17 @@ export const updateTrip = async (userId, tripId, updates) => {
       }));
     }
     
-    // ⭐ CAMBIATO: da updateDoc a setDoc con merge
-    // Questo crea il documento se non esiste, altrimenti aggiorna solo i campi specificati
-    await setDoc(tripRef, updateData, { merge: true });
+    // ⭐ Verifica se il documento esiste
+    const docSnap = await getDoc(tripRef);
+    
+    if (docSnap.exists()) {
+      // Documento esiste: usa updateDoc per fare merge corretto
+      await updateDoc(tripRef, updateData);
+    } else {
+      // Documento non esiste: usa setDoc per crearlo
+      await setDoc(tripRef, updateData);
+    }
+    
     console.log('✅ Viaggio aggiornato:', tripId);
   } catch (error) {
     console.error('❌ Errore aggiornamento viaggio:', error);

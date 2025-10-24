@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, Video, X } from 'lucide-react';
 import { CATEGORIES, TRANSPORT_OPTIONS } from './constants';
 import { calculateDayCost, calculateTripCost } from './costsUtils.js';
@@ -147,6 +147,10 @@ const CostInput = ({ value, onChange }) => (
 const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex, isDesktop = false }) => {
   const currentDay = trip.days[dayIndex];
   
+  // ⭐ AGGIUNTO: Ref per tracciare se abbiamo appena salvato localmente
+  const isSavingLocallyRef = useRef(false);
+  const lastSavedDataRef = useRef(null);
+  
   const [transportSelectorOpen, setTransportSelectorOpen] = useState({});
   const [mediaDialogOpen, setMediaDialogOpen] = useState(null);
   const [linkInput, setLinkInput] = useState('');
@@ -175,7 +179,14 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
     return data;
   });
 
+  // ⭐ MODIFICATO: Carica dati da trip.data solo se NON stiamo salvando localmente
   useEffect(() => {
+    // Se abbiamo appena salvato localmente, ignora questo aggiornamento
+    if (isSavingLocallyRef.current) {
+      isSavingLocallyRef.current = false;
+      return;
+    }
+
     const data = {};
     CATEGORIES.forEach(cat => {
       const existing = trip.data[`${currentDay.id}-${cat.id}`];
@@ -191,7 +202,13 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
         mediaNotes: []
       };
     });
-    setCategoryData(data);
+    
+    // ⭐ AGGIUNTO: Aggiorna solo se i dati sono effettivamente diversi
+    const dataString = JSON.stringify(data);
+    if (dataString !== lastSavedDataRef.current) {
+      setCategoryData(data);
+      lastSavedDataRef.current = dataString;
+    }
   
     // Carica "Altre Spese" dal campo separato
     const savedOtherExpenses = trip.data[`${currentDay.id}-otherExpenses`];
@@ -202,6 +219,7 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
     }
   }, [currentDay.id, trip.data]);
 
+  // ⭐ MODIFICATO: Marca che stiamo salvando localmente
   useEffect(() => {
     const timer = setTimeout(() => {
       const newData = { ...trip.data };
@@ -212,11 +230,18 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
       // Salva "Altre Spese" come campo separato
       newData[`${currentDay.id}-otherExpenses`] = otherExpenses;
     
+      // ⭐ AGGIUNTO: Marca che stiamo salvando localmente
+      isSavingLocallyRef.current = true;
+      lastSavedDataRef.current = JSON.stringify(categoryData);
+      
       onUpdateTrip({ data: newData });
     }, 300);
   
   return () => clearTimeout(timer);
-}, [categoryData, otherExpenses, currentDay.id, onUpdateTrip, trip.data]);
+  // ⭐ RIMOSSO trip.data dalle dependencies per evitare loop:
+  // Quando il listener aggiorna trip.data, questo useEffect NON deve re-triggerarsi
+  // Si triggera SOLO quando l'utente modifica categoryData/otherExpenses localmente
+}, [categoryData, otherExpenses, currentDay.id, onUpdateTrip]);
 
   const updateCategory = (catId, field, value) => {
     setCategoryData(prev => ({

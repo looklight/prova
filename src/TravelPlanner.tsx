@@ -53,23 +53,28 @@ const TravelPlannerApp = ({ user }) => {
   
   const updateCurrentTrip = async (updates) => {
     try {
-      // ⭐ MODIFICATO: NON aggiorniamo più lo stato locale prima del salvataggio
-      // Ci affidiamo SOLO al listener real-time per l'aggiornamento
-      // Questo previene race condition quando più dispositivi modificano contemporaneamente
+      console.log('💾 Salvataggio modifiche...', updates);
       
-      console.log('💾 Salvataggio modifiche su Firestore...', updates);
+      // ⭐ Aggiornamento ottimistico LOCALE per UI immediata
+      // Usa setTrips con callback per avere sempre lo stato più fresco
+      setTrips(prevTrips => 
+        prevTrips.map(t => 
+          t.id === currentTripId ? { ...t, ...updates } : t
+        )
+      );
       
-      // Salva DIRETTAMENTE su Firestore
+      // Salva su Firestore in background
       await updateTrip(user.uid, currentTripId, updates);
       
-      console.log('✅ Modifiche salvate, listener aggiornerà automaticamente lo stato');
+      console.log('✅ Modifiche salvate su Firestore');
       
-      // Il listener riceverà la notifica da Firestore e aggiornerà trips
-      // Questo garantisce che tutti i dispositivi vedano gli stessi dati
+      // Il listener riceverà la conferma e aggiornerà con i dati ufficiali
       
     } catch (error) {
       console.error('❌ Errore aggiornamento viaggio:', error);
       alert('Errore nel salvataggio delle modifiche');
+      
+      // In caso di errore, il listener ripristinerà i dati corretti
     }
   };
 
