@@ -8,13 +8,14 @@ import {
   updateDoc, 
   deleteDoc,
   query,
-  orderBy 
+  orderBy,
+  onSnapshot  // ⭐ NUOVO: per listener real-time
 } from 'firebase/firestore';
 
 // ============= FUNZIONI PER I VIAGGI =============
 
 /**
- * Carica tutti i viaggi di un utente
+ * Carica tutti i viaggi di un utente (snapshot singolo)
  */
 export const loadUserTrips = async (userId) => {
   try {
@@ -48,6 +49,51 @@ export const loadUserTrips = async (userId) => {
 };
 
 /**
+ * ⭐ NUOVA: Sottoscrivi ai viaggi in tempo reale
+ * Restituisce una funzione per cancellare la sottoscrizione
+ */
+export const subscribeToUserTrips = (userId, onTripsUpdate, onError) => {
+  try {
+    const tripsRef = collection(db, 'users', userId, 'trips');
+    const q = query(tripsRef, orderBy('createdAt', 'desc'));
+    
+    // Listener real-time
+    const unsubscribe = onSnapshot(q, 
+      (snapshot) => {
+        const trips = [];
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          trips.push({
+            id: doc.id,
+            ...data,
+            // Converti Timestamp Firebase in Date JavaScript
+            startDate: data.startDate?.toDate() || new Date(),
+            createdAt: data.createdAt?.toDate() || new Date(),
+            updatedAt: data.updatedAt?.toDate() || new Date(),
+            days: data.days.map(day => ({
+              ...day,
+              date: day.date?.toDate() || new Date()
+            }))
+          });
+        });
+        
+        console.log('🔄 Viaggi aggiornati in tempo reale:', trips.length);
+        onTripsUpdate(trips);
+      },
+      (error) => {
+        console.error('❌ Errore listener viaggi:', error);
+        if (onError) onError(error);
+      }
+    );
+    
+    return unsubscribe;
+  } catch (error) {
+    console.error('❌ Errore sottoscrizione viaggi:', error);
+    throw error;
+  }
+};
+
+/**
  * Salva un nuovo viaggio
  */
 export const saveTrip = async (userId, trip) => {
@@ -56,7 +102,7 @@ export const saveTrip = async (userId, trip) => {
     
     const tripData = {
       ...trip,
-      // Converti Date in Timestamp Firebase
+      // Mantieni le date così come sono (Firestore le gestirà)
       startDate: trip.startDate,
       createdAt: trip.createdAt || new Date(),
       updatedAt: new Date(),
@@ -76,7 +122,9 @@ export const saveTrip = async (userId, trip) => {
 };
 
 /**
- * Aggiorna un viaggio esistente
+ * ⭐ MODIFICATA: Aggiorna un viaggio esistente
+ * Ora usa setDoc con merge:true invece di updateDoc
+ * Questo previene errori se il documento non esiste ancora
  */
 export const updateTrip = async (userId, tripId, updates) => {
   try {
@@ -87,7 +135,7 @@ export const updateTrip = async (userId, tripId, updates) => {
       updatedAt: new Date()
     };
     
-    // Se ci sono days, converti le date
+    // Se ci sono days, assicurati che siano formattati correttamente
     if (updates.days) {
       updateData.days = updates.days.map(day => ({
         ...day,
@@ -95,7 +143,9 @@ export const updateTrip = async (userId, tripId, updates) => {
       }));
     }
     
-    await updateDoc(tripRef, updateData);
+    // ⭐ CAMBIATO: da updateDoc a setDoc con merge
+    // Questo crea il documento se non esiste, altrimenti aggiorna solo i campi specificati
+    await setDoc(tripRef, updateData, { merge: true });
     console.log('✅ Viaggio aggiornato:', tripId);
   } catch (error) {
     console.error('❌ Errore aggiornamento viaggio:', error);
@@ -203,7 +253,8 @@ export const loadUserProfile = async (userId, userEmail) => {
 };
 
 /**
- * Aggiorna il profilo utente
+ * ⭐ MODIFICATA: Aggiorna il profilo utente
+ * Ora usa setDoc con merge:true invece di updateDoc
  */
 export const updateUserProfile = async (userId, updates) => {
   try {
@@ -214,7 +265,8 @@ export const updateUserProfile = async (userId, updates) => {
       updatedAt: new Date()
     };
     
-    await updateDoc(profileRef, updateData);
+    // ⭐ CAMBIATO: da updateDoc a setDoc con merge
+    await setDoc(profileRef, updateData, { merge: true });
     console.log('✅ Profilo aggiornato');
   } catch (error) {
     console.error('❌ Errore aggiornamento profilo:', error);
