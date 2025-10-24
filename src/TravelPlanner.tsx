@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import HomeView from './HomeView';
 import TripView from './TripView';
 import ProfileView from './ProfileView';
@@ -42,23 +42,36 @@ const TravelPlannerApp = ({ user }) => {
     };
   }, [user]);
 
-  const getCurrentTrip = () => trips.find(t => t.id === currentTripId);
+  // ⭐ AGGIUNTO: Usa useMemo per garantire che currentTrip venga ricalcolato quando trips cambia
+  const currentTrip = useMemo(() => {
+    const trip = trips.find(t => t.id === currentTripId);
+    if (trip) {
+      console.log('🔄 currentTrip aggiornato:', trip.name, 'updatedAt:', trip.updatedAt);
+    }
+    return trip;
+  }, [trips, currentTripId]);
+
+  const getCurrentTrip = () => currentTrip;
   
   const updateCurrentTrip = async (updates) => {
     try {
-      // ⭐ MODIFICATO: Aggiorna SOLO su Firestore
-      // Il listener real-time aggiornerà automaticamente lo stato locale
+      // ⭐ MODIFICATO: NON aggiorniamo più lo stato locale prima del salvataggio
+      // Ci affidiamo SOLO al listener real-time per l'aggiornamento
+      // Questo previene race condition quando più dispositivi modificano contemporaneamente
+      
+      console.log('💾 Salvataggio modifiche su Firestore...', updates);
+      
+      // Salva DIRETTAMENTE su Firestore
       await updateTrip(user.uid, currentTripId, updates);
       
-      // ⭐ OPZIONALE: Aggiornamento ottimistico locale per UI immediata
-      // (il listener sovrascriverà con i dati reali da Firestore)
-      setTrips(trips.map(t => t.id === currentTripId ? { ...t, ...updates } : t));
+      console.log('✅ Modifiche salvate, listener aggiornerà automaticamente lo stato');
+      
+      // Il listener riceverà la notifica da Firestore e aggiornerà trips
+      // Questo garantisce che tutti i dispositivi vedano gli stessi dati
       
     } catch (error) {
       console.error('❌ Errore aggiornamento viaggio:', error);
       alert('Errore nel salvataggio delle modifiche');
-      
-      // ⭐ In caso di errore, il listener manterrà i dati corretti da Firestore
     }
   };
 
@@ -75,14 +88,18 @@ const TravelPlannerApp = ({ user }) => {
         data: {}
       };
       
+      console.log('💾 Creazione nuovo viaggio su Firestore...');
+      
       // Salva su Firestore
       await saveTrip(user.uid, newTrip);
       
-      // ⭐ Il listener aggiungerà automaticamente il viaggio allo stato
-      // Ma per UI immediata, lo aggiungiamo anche localmente
-      setTrips([newTrip, ...trips]);
+      console.log('✅ Viaggio creato, listener aggiornerà lo stato');
+      
+      // Il listener aggiungerà automaticamente il viaggio allo stato
+      // Imposta subito la vista per evitare lag percepibile
       setCurrentTripId(newTrip.id);
       setCurrentView('trip');
+      
     } catch (error) {
       console.error('❌ Errore creazione viaggio:', error);
       alert('Errore nella creazione del viaggio');
@@ -91,12 +108,15 @@ const TravelPlannerApp = ({ user }) => {
 
   const deleteTripHandler = async (tripId) => {
     try {
+      console.log('🗑️ Eliminazione viaggio da Firestore...');
+      
       // Elimina da Firestore
       await deleteTrip(user.uid, tripId);
       
-      // ⭐ Il listener aggiornerà automaticamente lo stato
-      // Ma per UI immediata, rimuoviamo anche localmente
-      setTrips(prevTrips => prevTrips.filter(t => t.id !== tripId));
+      console.log('✅ Viaggio eliminato, listener aggiornerà lo stato');
+      
+      // Il listener aggiornerà automaticamente lo stato rimuovendo il viaggio
+      
     } catch (error) {
       console.error('❌ Errore eliminazione viaggio:', error);
       alert('Errore nell\'eliminazione del viaggio');
@@ -206,9 +226,9 @@ const TravelPlannerApp = ({ user }) => {
         // Salva su Firestore
         await saveTrip(user.uid, newTrip);
         
-        // ⭐ Il listener aggiungerà automaticamente il viaggio
-        // Ma per UI immediata, lo aggiungiamo anche localmente
-        setTrips([newTrip, ...trips]);
+        console.log('✅ Viaggio importato, listener aggiornerà lo stato');
+        
+        // Il listener aggiungerà automaticamente il viaggio
         alert(`✅ Viaggio "${tripName}" importato con successo!`);
       } catch (error) {
         console.error('❌ Errore durante import:', error);
@@ -245,10 +265,18 @@ const TravelPlannerApp = ({ user }) => {
   const currentTrip = getCurrentTrip();
   if (!currentTrip) return null;
 
+  // ⭐ AGGIUNTO: Crea una key unica basata sui dati del viaggio
+  // Questo garantisce che TripView si aggiorni quando cambiano i dati
+  const tripDataKey = JSON.stringify({
+    id: currentTrip.id,
+    updatedAt: currentTrip.updatedAt?.getTime(),
+    dataKeys: Object.keys(currentTrip.data || {}).length
+  });
+
   if (currentView === 'trip') {
     return (
       <TripView
-        key={currentTrip.updatedAt?.getTime() || currentTripId}
+        key={tripDataKey}
         trip={currentTrip}
         onUpdateTrip={updateCurrentTrip}
         onBackToHome={() => setCurrentView('home')}
