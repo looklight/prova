@@ -248,6 +248,7 @@ const TravelPlannerApp = ({ user }) => {
   if (currentView === 'trip') {
     return (
       <TripView
+        key={currentTrip.updatedAt?.getTime() || currentTripId}
         trip={currentTrip}
         onUpdateTrip={updateCurrentTrip}
         onBackToHome={() => setCurrentView('home')}
