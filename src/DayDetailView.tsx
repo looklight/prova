@@ -250,15 +250,18 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
     }));
   };
 
+  // 🆕 MODIFICATA: Gestisce suggerimenti per tutte le categorie
   const getSuggestion = (categoryId) => {
+    // Per categoria Base: restituisce array di suggerimenti
+    if (categoryId === 'base') {
+      return getBaseSuggestions();
+    }
+    
+    // Per altre categorie: logica esistente (singolo suggerimento)
     if (dayIndex === 0) return null;
     
     const prevDay = trip.days[dayIndex - 1];
     const prevData = trip.data[`${prevDay.id}-${categoryId}`];
-    
-    if (categoryId === 'base') {
-      return prevData?.title || null;
-    }
     
     if (categoryId === 'pernottamento') {
       const currentBase = categoryData.base.title;
@@ -270,6 +273,41 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
     }
     
     return null;
+  };
+
+  // 🆕 NUOVA: Ottiene suggerimenti per categoria Base
+  const getBaseSuggestions = () => {
+    const suggestions = [];
+    
+    // Priorità 1: Giorno precedente
+    if (dayIndex > 0) {
+      const prevDay = trip.days[dayIndex - 1];
+      const prevData = trip.data[`${prevDay.id}-base`];
+      if (prevData?.title?.trim()) {
+        suggestions.push({
+          value: prevData.title,
+          icon: '📍',
+          type: 'previous',
+          label: 'ieri'
+        });
+      }
+    }
+    
+    // Priorità 2: Destinazioni dal metadata del viaggio
+    const destinations = trip.metadata?.destinations || [];
+    destinations.forEach(dest => {
+      // Non duplicare se è già il giorno precedente
+      if (!suggestions.some(s => s.value === dest)) {
+        suggestions.push({
+          value: dest,
+          icon: '🌍',
+          type: 'destination',
+          label: 'destinazione'
+        });
+      }
+    });
+    
+    return suggestions.length > 0 ? suggestions : null;
   };
 
   const addLink = (categoryId) => {
@@ -457,6 +495,8 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
       <div className="p-4 space-y-3">
         {CATEGORIES.map((category) => {
           const suggestion = getSuggestion(category.id);
+          // 🆕 Per Base, suggestion è un array; per altri è stringa o null
+          const isBaseSuggestions = category.id === 'base' && Array.isArray(suggestion);
           const showSuggestion = suggestion && !categoryData[category.id].title;
           
           return (
@@ -483,7 +523,27 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
                 )}
               </div>
               
-              {showSuggestion && (
+              {/* 🆕 Suggerimenti per categoria Base (tag multipli) */}
+              {showSuggestion && isBaseSuggestions && (
+                <div className="mb-3">
+                  <div className="text-xs text-gray-500 mb-2">💡 Suggerimenti:</div>
+                  <div className="flex flex-wrap gap-2">
+                    {suggestion.map((sugg, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => updateCategory('base', 'title', sugg.value)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded-full text-sm font-medium transition-colors"
+                      >
+                        <span>{sugg.icon}</span>
+                        <span>{sugg.value}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Suggerimenti per altre categorie (box singolo) */}
+              {showSuggestion && !isBaseSuggestions && (
                 <div 
                   onClick={() => updateCategory(category.id, 'title', suggestion)}
                   className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors"

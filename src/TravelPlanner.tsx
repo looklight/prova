@@ -10,6 +10,28 @@ const TravelPlannerApp = ({ user }) => {
   const [trips, setTrips] = useState([]);
   const [currentTripId, setCurrentTripId] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  // ⭐ AGGIUNTO: Monitora connessione
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      console.log('🟢 Connessione ripristinata');
+    };
+    
+    const handleOffline = () => {
+      setIsOnline(false);
+      console.log('🔴 Connessione persa - le modifiche saranno sincronizzate quando torni online');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // ⭐ MODIFICATO: Usa listener real-time invece di caricamento singolo
   useEffect(() => {
@@ -78,12 +100,22 @@ const TravelPlannerApp = ({ user }) => {
     }
   };
 
-  const createNewTrip = async () => {
+  const createNewTrip = async (metadata) => {
     try {
+      // 🆕 Usa i metadata dal modal (o valori di default se non forniti)
+      const finalName = metadata?.name || 'Nuovo Viaggio';
+      
       const newTrip = {
         id: Date.now(),
-        name: 'Nuovo Viaggio',
-        image: null,
+        name: finalName, // Retrocompatibilità
+        image: metadata?.image || null, // Retrocompatibilità
+        // 🆕 Nuova struttura metadata
+        metadata: {
+          name: finalName,
+          image: metadata?.image || null,
+          destinations: metadata?.destinations || [],
+          description: metadata?.description || ''
+        },
         startDate: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -91,9 +123,9 @@ const TravelPlannerApp = ({ user }) => {
         data: {}
       };
       
-      console.log('💾 Creazione nuovo viaggio su Firestore...');
+      console.log('💾 Creazione nuovo viaggio su Firestore...', newTrip.metadata);
       
-      // Salva su Firestore
+      // Salva su Firestore (saveTrip ora gestisce metadata e sharing automaticamente)
       await saveTrip(user.uid, newTrip);
       
       console.log('✅ Viaggio creato, listener aggiornerà lo stato');
@@ -258,6 +290,11 @@ const TravelPlannerApp = ({ user }) => {
       onExportTrip={exportTrip}
       onImportTrip={importTrip}
       onOpenProfile={() => setCurrentView('profile')}
+      currentUser={{
+        uid: user.uid,
+        displayName: user.displayName || 'Utente',
+        photoURL: user.photoURL
+      }}
     />;
   }
 
@@ -274,6 +311,11 @@ const TravelPlannerApp = ({ user }) => {
         trip={currentTrip}
         onUpdateTrip={updateCurrentTrip}
         onBackToHome={() => setCurrentView('home')}
+        currentUser={{
+          uid: user.uid,
+          displayName: user.displayName || 'Utente',
+          photoURL: user.photoURL
+        }}
       />
     );
   }

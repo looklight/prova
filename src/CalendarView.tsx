@@ -2,18 +2,21 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Edit2, Check, Plus, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { CATEGORIES, TRANSPORT_OPTIONS } from './constants';
 import { calculateDayCost } from './costsUtils.js';
+import TripMetadataModal from './TripMetadataModal';
 
 /**
  * Componente principale per la visualizzazione calendario del viaggio
  * Mostra una tabella con giorni come colonne e categorie come righe
  */
-const CalendarView = ({ trip, onUpdateTrip, onBack, onOpenDay, scrollToDayId, savedScrollPosition, onScrollComplete, isDesktop = false, selectedDayIndex = null }) => {
+const CalendarView = ({ trip, onUpdateTrip, onBack, onOpenDay, scrollToDayId, savedScrollPosition, onScrollComplete, isDesktop = false, selectedDayIndex = null, currentUser }) => {
   const [isEditingTripName, setIsEditingTripName] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [selectedDays, setSelectedDays] = useState([]);
   const [moveAfterIndex, setMoveAfterIndex] = useState(null);
   const [isScrolled, setIsScrolled] = useState(false);
   const [justMounted, setJustMounted] = useState(true);
+  // 🆕 Stato per modal metadata
+  const [showMetadataModal, setShowMetadataModal] = useState(false);
   const scrollContainerRef = useRef(null);
 
   /**
@@ -241,22 +244,15 @@ const CalendarView = ({ trip, onUpdateTrip, onBack, onOpenDay, scrollToDayId, sa
   };
 
   /**
-   * Gestisce upload immagine del viaggio
+   * 🆕 Handler per salvare metadata dal modal
    */
-  const handleImageUpload = async (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      try {
-        const { resizeImage } = await import('./firestoreService');
-      
-        // 400x400px per copertina viaggio (appare piccola nell'header)
-        const resizedImage = await resizeImage(file, 400, 400, 0.85);
-        onUpdateTrip({ image: resizedImage });
-      } catch (error) {
-        console.error('Errore ridimensionamento:', error);
-        alert('Errore nel caricamento dell\'immagine');
-      }
-    }
+  const handleSaveMetadata = (metadata) => {
+    onUpdateTrip({ 
+      metadata,
+      // Retrocompatibilità
+      name: metadata.name,
+      image: metadata.image
+    });
   };
 
   /**
@@ -280,52 +276,45 @@ const CalendarView = ({ trip, onUpdateTrip, onBack, onOpenDay, scrollToDayId, sa
       margin: '0 auto',
       height: isDesktop ? '100%' : 'auto'
        }}>
+      {/* 🆕 Modal per modifica metadata viaggio */}
+      <TripMetadataModal
+        isOpen={showMetadataModal}
+        onClose={() => setShowMetadataModal(false)}
+        onSave={handleSaveMetadata}
+        initialData={trip.metadata}
+        currentUser={currentUser}
+        mode="edit"
+      />
+
       <div className="bg-white px-2 py-4 shadow-sm sticky top-0 z-20">
         <div className="flex items-center justify-between mb-2">
           {onBack && (<button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full">
             <ChevronLeft size={24} />
           </button>
           )}
-          <div className="flex items-center gap-2 flex-1 min-w-0 ml-0 mr-2">
-            <div className="relative flex-shrink-0">
-              <input
-                type="file"
-                id="trip-image-upload"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-              />
-              <label htmlFor="trip-image-upload" className="cursor-pointer block">
-                {trip.image ? (
-                  <img src={trip.image} alt="Trip" className="w-12 h-12 rounded-full object-cover border-2 border-gray-200" />
-                ) : (
-                  <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-400">
-                    <Plus size={20} />
-                  </div>
-                )}
-              </label>
+          
+          {/* 🆕 Header cliccabile per aprire modal metadata */}
+          <div 
+            className="flex items-center gap-2 flex-1 min-w-0 ml-0 mr-2 cursor-pointer hover:bg-gray-50 rounded-xl p-2 -m-2 transition-colors"
+            onClick={() => setShowMetadataModal(true)}
+          >
+            <div className="flex-shrink-0">
+              {trip.image || trip.metadata?.image ? (
+                <img 
+                  src={trip.image || trip.metadata?.image} 
+                  alt="Trip" 
+                  className="w-12 h-12 rounded-full object-cover border-2 border-gray-200" 
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
+                  {(trip.name || trip.metadata?.name || 'N')[0].toUpperCase()}
+                </div>
+              )}
             </div>
             
-            {isEditingTripName ? (
-              <input
-                type="text"
-                value={trip.name}
-                onChange={(e) => onUpdateTrip({ name: e.target.value })}
-                onBlur={() => {
-                  if (trip.name.trim() === '') onUpdateTrip({ name: 'Nuovo Viaggio' });
-                  setIsEditingTripName(false);
-                }}
-                className="text-2xl font-bold border-b-2 border-blue-400 bg-transparent outline-none flex-1 min-w-0 truncate"
-                autoFocus
-              />
-            ) : (
-              <h1 
-                className="text-xl font-bold cursor-pointer flex-1 min-w-0 truncate"
-                onClick={() => setIsEditingTripName(true)}
-              >
-                {trip.name}
-              </h1>
-            )}
+            <h1 className="text-xl font-bold flex-1 min-w-0 truncate">
+              {trip.metadata?.name || trip.name}
+            </h1>
           </div>
           
           <button

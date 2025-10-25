@@ -36,7 +36,7 @@ const useMediaQuery = (query) => {
  * - Mobile: mostra una vista alla volta (calendario O dettaglio)
  * - Desktop: split view con calendario (60%) + dettaglio (40%)
  */
-const TripView = ({ trip, onUpdateTrip }) => {
+const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
   const [selectedDayIndex, setSelectedDayIndex] = useState(null);
   const [scrollPosition, setScrollPosition] = useState(null);
   const [scrollToDayId, setScrollToDayId] = useState(null);
@@ -124,13 +124,14 @@ const TripView = ({ trip, onUpdateTrip }) => {
       <CalendarView
         trip={trip}
         onUpdateTrip={onUpdateTrip}
-        onBack={() => window.location.href = '/'}
+        onBack={onBackToHome}
         onOpenDay={handleOpenDay}
         scrollToDayId={scrollToDayId}
         savedScrollPosition={scrollPosition}
         onScrollComplete={handleScrollComplete}
         isDesktop={false}
         selectedDayIndex={selectedDayIndex}
+        currentUser={currentUser}
       />
     );
   }
@@ -139,17 +140,18 @@ const TripView = ({ trip, onUpdateTrip }) => {
 return (
   <div className="flex h-screen bg-gray-50">
     {/* Pannello Calendario - 60% larghezza */}
-    <div className="w-[60%] border-r border-gray-300 overflow-hidden flex flex-col">
+    <div className="w-[60%] border-r border-gray-300 overflow-hidden flex-col">
       <CalendarView
         trip={trip}
         onUpdateTrip={onUpdateTrip}
-        onBack={() => window.location.href = '/'}
+        onBack={onBackToHome}
         onOpenDay={handleOpenDay}
         scrollToDayId={scrollToDayId}
         savedScrollPosition={null}
         onScrollComplete={handleScrollComplete}
         isDesktop={true}
         selectedDayIndex={selectedDayIndex}
+        currentUser={currentUser}
       />
     </div>
 

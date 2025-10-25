@@ -100,9 +100,37 @@ export const saveTrip = async (userId, trip) => {
   try {
     const tripRef = doc(db, 'users', userId, 'trips', trip.id.toString());
     
+    // 🆕 Prepara metadata (supporta sia formato vecchio che nuovo)
+    const metadata = trip.metadata || {
+      name: trip.name || 'Nuovo Viaggio',
+      image: trip.image || null,
+      destinations: [],
+      description: ''
+    };
+    
+    // 🆕 Prepara sharing info (per futuro multiutente)
+    const sharing = trip.sharing || {
+      owner: userId,
+      members: {
+        [userId]: {
+          role: 'owner',
+          addedAt: new Date(),
+          addedBy: userId
+        }
+      },
+      isPublic: false,
+      shareLink: null
+    };
+    
     const tripData = {
       ...trip,
-      // Mantieni le date così come sono (Firestore le gestirà)
+      // 🆕 Nuovi campi strutturati
+      metadata,
+      sharing,
+      // Retrocompatibilità: mantieni anche i campi vecchi
+      name: metadata.name,
+      image: metadata.image,
+      // Date
       startDate: trip.startDate,
       createdAt: trip.createdAt || new Date(),
       updatedAt: new Date(),
@@ -171,6 +199,29 @@ export const deleteTrip = async (userId, tripId) => {
     console.log('✅ Viaggio eliminato:', tripId);
   } catch (error) {
     console.error('❌ Errore eliminazione viaggio:', error);
+    throw error;
+  }
+};
+
+/**
+ * 🆕 NUOVA: Aggiorna solo i metadata di un viaggio
+ * Usata dal modal di modifica info viaggio
+ */
+export const updateTripMetadata = async (userId, tripId, metadata) => {
+  try {
+    const tripRef = doc(db, 'users', userId, 'trips', tripId.toString());
+    
+    await updateDoc(tripRef, {
+      'metadata': metadata,
+      // Retrocompatibilità: aggiorna anche i campi vecchi
+      'name': metadata.name || 'Nuovo Viaggio',
+      'image': metadata.image || null,
+      'updatedAt': new Date()
+    });
+    
+    console.log('✅ Metadata viaggio aggiornati:', tripId);
+  } catch (error) {
+    console.error('❌ Errore aggiornamento metadata:', error);
     throw error;
   }
 };

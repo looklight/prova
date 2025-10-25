@@ -1,10 +1,13 @@
 import React, { useRef, useState } from 'react';
 import { MapPin, User, Plus, Upload, Download, FileText, Trash2 } from 'lucide-react';
+import TripMetadataModal from './TripMetadataModal';
 
-const HomeView = ({ trips, onCreateNew, onOpenTrip, onDeleteTrip, onExportTrip, onImportTrip, onOpenProfile }) => {
+const HomeView = ({ trips, onCreateNew, onOpenTrip, onDeleteTrip, onExportTrip, onImportTrip, onOpenProfile, currentUser }) => {
   const fileInputRef = useRef(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [exportMenu, setExportMenu] = useState(null);
+  // 🆕 Stato per il modal di creazione viaggio
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
@@ -14,8 +17,23 @@ const HomeView = ({ trips, onCreateNew, onOpenTrip, onDeleteTrip, onExportTrip, 
     }
   };
 
+  // 🆕 Handler per salvare metadata nuovo viaggio
+  const handleCreateTrip = (metadata) => {
+    // Chiama la funzione originale passando i metadata
+    onCreateNew(metadata);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50" style={{ maxWidth: '430px', margin: '0 auto' }}>
+      {/* 🆕 Modal per creazione nuovo viaggio */}
+      <TripMetadataModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSave={handleCreateTrip}
+        currentUser={currentUser}
+        mode="create"
+      />
+
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
@@ -90,7 +108,7 @@ const HomeView = ({ trips, onCreateNew, onOpenTrip, onDeleteTrip, onExportTrip, 
       <div className="p-4">
         <div className="flex gap-2 mb-6">
           <button
-            onClick={onCreateNew}
+            onClick={() => setShowCreateModal(true)}
             className="flex-1 py-3 bg-blue-500 text-white rounded-2xl font-semibold text-base hover:bg-blue-600 shadow-lg flex items-center justify-center gap-2"
           >
             <Plus size={20} />
