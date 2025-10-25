@@ -300,7 +300,7 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
       if (!suggestions.some(s => s.value === dest)) {
         suggestions.push({
           value: dest,
-          icon: '🌍',
+          icon: '',
           type: 'destination',
           label: 'destinazione'
         });
