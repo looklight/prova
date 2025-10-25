@@ -3,7 +3,7 @@ import HomeView from './HomeView';
 import TripView from './TripView';
 import ProfileView from './ProfileView';
 import { CATEGORIES } from './constants';
-import { subscribeToUserTrips, saveTrip, updateTrip, deleteTrip, loadUserProfile } from './firestoreService';
+import { subscribeToUserTrips, saveTrip, updateTrip, deleteTrip, loadUserProfile } from './services';
 
 const TravelPlannerApp = ({ user }) => {
   const [currentView, setCurrentView] = useState('home');

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Upload, User } from 'lucide-react';
-import { resizeImage } from './firestoreService';
+import { resizeImage } from './services';
 
 interface TripMetadataModalProps {
   isOpen: boolean;

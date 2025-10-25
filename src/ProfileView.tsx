@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronLeft, User, Camera, Loader } from 'lucide-react';
 import { auth } from './firebase';
 import { signOut } from 'firebase/auth';
-import { loadUserProfile, updateUserProfile, resizeImage } from './firestoreService';
+import { loadUserProfile, updateUserProfile, resizeImage, checkUsernameExists, isValidUsername } from './services';
 
 const ProfileView = ({ onBack, user, trips = [] }) => {
   // Stati
@@ -75,25 +75,7 @@ const ProfileView = ({ onBack, user, trips = [] }) => {
     return { totalTrips, totalDays };
   };
 
-  // Estrai destinazioni visitate con conteggio
-  const getDestinationStats = () => {
-    const destinationCount = {};
-    
-    trips.forEach(trip => {
-      const destinations = trip.metadata?.destinations || [];
-      destinations.forEach(dest => {
-        destinationCount[dest] = (destinationCount[dest] || 0) + 1;
-      });
-    });
-    
-    // Ordina per frequenza decrescente
-    return Object.entries(destinationCount)
-      .sort(([,a], [,b]) => b - a)
-      .map(([destination, count]) => ({ destination, count }));
-  };
-
   const stats = calculateStats();
-  const destinations = getDestinationStats();
 
   if (loading) {
     return (
@@ -206,25 +188,6 @@ const ProfileView = ({ onBack, user, trips = [] }) => {
           </div>
         </div>
 
-        {/* Destinazioni Visitate */}
-        {destinations.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-sm p-6 mb-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-              <span>🌍</span>
-              <span>Destinazioni Visitate</span>
-            </h3>
-            <div className="space-y-2">
-              {destinations.map(({ destination, count }) => (
-                <div key={destination} className="flex items-center justify-between text-sm">
-                  <span className="text-gray-700">{destination}</span>
-                  <span className="text-gray-500">
-                    {count} {count === 1 ? 'viaggio' : 'viaggi'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Info App */}
         <div className="bg-white rounded-2xl shadow-sm p-6 mb-4">
@@ -234,7 +197,7 @@ const ProfileView = ({ onBack, user, trips = [] }) => {
           </h3>
           <div className="space-y-1 text-sm text-gray-600">
             <p>Versione 1.0.0</p>
-            <p className="text-xs text-gray-400 mt-2">Fatto con ❤️ per i viaggiatori</p>
+            
           </div>
         </div>
 
