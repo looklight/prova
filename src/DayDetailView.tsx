@@ -458,7 +458,14 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
       margin: '0 auto'
     }}>
       <div className="bg-white px-4 py-4 shadow-sm sticky top-0 z-20">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center mb-2">
+          {/* 🆕 Bottone indietro a SINISTRA con margine destra --> mr- (solo mobile) */}
+          {!isDesktop && onBack && (
+            <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full ml-4 mr-4">
+              <Calendar size={24} />
+            </button>
+          )}
+          
           <button 
             onClick={() => dayIndex > 0 && onChangeDayIndex(dayIndex - 1)} 
             disabled={dayIndex === 0}
@@ -467,7 +474,7 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
             <ChevronLeft size={24} />
           </button>
           
-          <div className="text-center flex-1">
+          <div className="text-center flex-1 mx-2">
             <h1 className="text-xl font-bold">{trip.name}</h1>
             <div className="text-lg font-semibold">Giorno {currentDay.number}</div>
             <div className="text-xs text-gray-500">
@@ -475,20 +482,13 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
-            <button 
-             onClick={() => dayIndex < trip.days.length - 1 && onChangeDayIndex(dayIndex + 1)}
-              disabled={dayIndex === trip.days.length - 1}
-              className={`p-2 rounded-full ${dayIndex < trip.days.length - 1 ? 'hover:bg-gray-100' : 'opacity-30'}`}
-            >
-              <ChevronRight size={24} />
-            </button>
-            {!isDesktop && onBack && (
-              <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full">
-                <Calendar size={24} />
-              </button>
-            )}
-          </div>
+          <button 
+            onClick={() => dayIndex < trip.days.length - 1 && onChangeDayIndex(dayIndex + 1)}
+            disabled={dayIndex === trip.days.length - 1}
+            className={`p-2 rounded-full ${dayIndex < trip.days.length - 1 ? 'hover:bg-gray-100' : 'opacity-30'}`}
+          >
+            <ChevronRight size={24} />
+          </button>
         </div>
       </div>
 

@@ -3,7 +3,7 @@ import HomeView from './HomeView';
 import TripView from './TripView';
 import ProfileView from './ProfileView';
 import { CATEGORIES } from './constants';
-import { subscribeToUserTrips, saveTrip, updateTrip, deleteTrip } from './firestoreService';
+import { subscribeToUserTrips, saveTrip, updateTrip, deleteTrip, loadUserProfile } from './firestoreService';
 
 const TravelPlannerApp = ({ user }) => {
   const [currentView, setCurrentView] = useState('home');
@@ -11,6 +11,7 @@ const TravelPlannerApp = ({ user }) => {
   const [currentTripId, setCurrentTripId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [userProfile, setUserProfile] = useState(null); // ⭐ NUOVO: Profilo Firestore
 
   // ⭐ AGGIUNTO: Monitora connessione
   useEffect(() => {
@@ -32,6 +33,31 @@ const TravelPlannerApp = ({ user }) => {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  // ⭐ NUOVO: Carica profilo utente da Firestore
+  useEffect(() => {
+    if (!user) return;
+
+    const loadProfile = async () => {
+      try {
+        console.log('📝 Caricamento profilo Firestore...');
+        const profile = await loadUserProfile(user.uid, user.email);
+        setUserProfile(profile);
+        console.log('✅ Profilo caricato:', profile.displayName, profile.username);
+      } catch (error) {
+        console.error('❌ Errore caricamento profilo:', error);
+        // In caso di errore, usa i dati base di Firebase Auth
+        setUserProfile({
+          displayName: user.displayName || 'Utente',
+          username: null,
+          avatar: user.photoURL,
+          email: user.email
+        });
+      }
+    };
+
+    loadProfile();
+  }, [user]);
 
   // ⭐ MODIFICATO: Usa listener real-time invece di caricamento singolo
   useEffect(() => {
@@ -273,7 +299,7 @@ const TravelPlannerApp = ({ user }) => {
     reader.readAsText(file);
   };
 
-  if (loading) {
+  if (loading || !userProfile) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-xl text-gray-600">Caricamento viaggi...</div>
@@ -292,14 +318,16 @@ const TravelPlannerApp = ({ user }) => {
       onOpenProfile={() => setCurrentView('profile')}
       currentUser={{
         uid: user.uid,
-        displayName: user.displayName || 'Utente',
-        photoURL: user.photoURL
+        displayName: userProfile.displayName || user.displayName || 'Utente',
+        photoURL: userProfile.avatar || user.photoURL, // ⭐ USA 'avatar' da Firestore!
+        username: userProfile.username,
+        email: userProfile.email
       }}
     />;
   }
 
   if (currentView === 'profile') {
-    return <ProfileView onBack={() => setCurrentView('home')} user={user} />;
+    return <ProfileView onBack={() => setCurrentView('home')} user={user} trips={trips} />;
   }
 
   if (!currentTrip) return null;
@@ -313,8 +341,10 @@ const TravelPlannerApp = ({ user }) => {
         onBackToHome={() => setCurrentView('home')}
         currentUser={{
           uid: user.uid,
-          displayName: user.displayName || 'Utente',
-          photoURL: user.photoURL
+          displayName: userProfile.displayName || user.displayName || 'Utente',
+          photoURL: userProfile.avatar || user.photoURL, // ⭐ USA 'avatar' da Firestore!
+          username: userProfile.username,
+          email: userProfile.email
         }}
       />
     );

@@ -11,6 +11,8 @@ interface TripMetadataModalProps {
     uid: string;
     displayName: string;
     photoURL?: string;
+    username?: string;
+    email?: string;
   };
   mode: 'create' | 'edit';
 }
@@ -81,8 +83,8 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
 
     setIsUploading(true);
     try {
-      // Ridimensiona immagine usando la funzione esistente
-      const resizedImage = await resizeImage(file, 800, 800);
+      // Ridimensiona immagine più piccola e più compressa
+      const resizedImage = await resizeImage(file, 400, 400, 0.85);
       setImage(resizedImage);
     } catch (error) {
       console.error('Errore caricamento immagine:', error);
@@ -265,7 +267,12 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
               )}
               <div className="flex-1">
                 <p className="font-semibold text-gray-800 text-sm">{currentUser.displayName}</p>
-                <p className="text-xs text-gray-500">Proprietario</p>
+                {currentUser.username && (
+                  <p className="text-xs text-gray-500">@{currentUser.username}</p>
+                )}
+                {!currentUser.username && (
+                  <p className="text-xs text-gray-500">Proprietario</p>
+                )}
               </div>
               <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
                 Tu
