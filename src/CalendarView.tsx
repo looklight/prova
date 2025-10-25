@@ -288,7 +288,7 @@ const CalendarView = ({ trip, onUpdateTrip, onBack, onOpenDay, scrollToDayId, sa
 
       <div className="bg-white px-2 py-4 shadow-sm sticky top-0 z-20">
         <div className="flex items-center justify-between mb-2">
-          {onBack && (<button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full">
+          {onBack && (<button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full ml-2 mr-1">
             <ChevronLeft size={24} />
           </button>
           )}
@@ -325,8 +325,8 @@ const CalendarView = ({ trip, onUpdateTrip, onBack, onOpenDay, scrollToDayId, sa
             }}
             className={`rounded-full flex items-center gap-1 font-semibold transition-all shadow-sm flex-shrink-0 ${
               editMode 
-                ? 'bg-green-100 text-green-600 hover:bg-green-200 px-2 py-2' 
-                : 'bg-gray-200 hover:bg-green-200 text-gray-700 hover:text-green-900 p-2'
+                ? 'bg-green-100 text-green-600 hover:bg-green-200 px-2 py-2 mr-2' 
+                : 'bg-gray-200 hover:bg-green-200 text-gray-700 hover:text-green-900 p-2 mr-4'
             }`}
           >
             {editMode ? (
