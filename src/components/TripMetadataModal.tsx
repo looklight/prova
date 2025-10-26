@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Upload, User } from 'lucide-react';
-import { resizeImage } from './services';
+import { resizeImage } from '../services/services-index';
 
 interface TripMetadataModalProps {
   isOpen: boolean;

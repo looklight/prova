@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, Video, X } from 'lucide-react';
-import { CATEGORIES, TRANSPORT_OPTIONS } from './constants';
-import { calculateDayCost, calculateTripCost } from './costsUtils.js';
-import { LinkCard, ImageCard, NoteCard, VideoEmbed, LinkIcon, ImageIcon, FileTextIcon, extractVideoId } from './MediaCards';
+import { CATEGORIES, TRANSPORT_OPTIONS } from '../constants.js';
+import { calculateDayCost, calculateTripCost } from '../costsUtils.js';
+import { LinkCard, ImageCard, NoteCard, VideoEmbed, LinkIcon, ImageIcon, FileTextIcon, extractVideoId } from './MediaCards.js';
 
 // ============= COSTANTI =============
 
@@ -330,7 +330,7 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
 
   const addImage = async (categoryId, file) => {
     try {
-      const { uploadImage } = await import('./storageService');
+      const { uploadImage } = await import('../storageService.js');
     
       // Mostra loading (opzionale)
       // setImageLoading(true);
@@ -396,7 +396,7 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
   // Se è un'immagine su Storage, eliminala
   if (mediaType === 'images' && mediaItem?.path) {
     try {
-      const { deleteImage } = await import('./storageService');
+      const { deleteImage } = await import('../storageService.js');
       await deleteImage(mediaItem.path);
     } catch (error) {
       console.error('Errore eliminazione immagine da Storage:', error);

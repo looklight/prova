@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import TravelPlannerApp from './TravelPlanner';
-import AuthPage from './AuthPage';
+import TravelPlannerApp from "./components/TravelPlanner";
+import AuthPage from "./components/AuthPage";
 import { auth } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, User, Camera, Loader, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
-import { auth } from './firebase';
+import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
-import { loadUserProfile, updateUserProfile, resizeImage, checkUsernameExists, isValidUsername } from "./services";
+import { loadUserProfile, updateUserProfile, resizeImage, checkUsernameExists, isValidUsername } from "../services/services-index";
 
 const ProfileView = ({ onBack, user, trips = [] }) => {
   // Stati

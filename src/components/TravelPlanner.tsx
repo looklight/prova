@@ -3,7 +3,7 @@ import HomeView from './HomeView';
 import TripView from './TripView';
 import ProfileView from './ProfileView';
 import { CATEGORIES } from './constants';
-import { subscribeToUserTrips, saveTrip, updateTrip, deleteTrip, loadUserProfile } from './services';
+import { subscribeToUserTrips, createTrip, updateTrip, deleteTripForUser, loadUserProfile } from './services';
 
 const TravelPlannerApp = ({ user }) => {
   const [currentView, setCurrentView] = useState('home');
@@ -151,8 +151,13 @@ const TravelPlannerApp = ({ user }) => {
       
       console.log('💾 Creazione nuovo viaggio su Firestore...', newTrip.metadata);
       
-      // Salva su Firestore (saveTrip ora gestisce metadata e sharing automaticamente)
-      await saveTrip(user.uid, newTrip);
+      // ⭐ NUOVO: Usa createTrip con profilo completo dell'utente
+      await createTrip(newTrip, {
+        uid: user.uid,
+        displayName: userProfile.displayName || user.displayName || 'Utente',
+        username: userProfile.username,
+        avatar: userProfile.avatar || user.photoURL
+      });
       
       console.log('✅ Viaggio creato, listener aggiornerà lo stato');
       
@@ -171,8 +176,8 @@ const TravelPlannerApp = ({ user }) => {
     try {
       console.log('🗑️ Eliminazione viaggio da Firestore...');
       
-      // Elimina da Firestore
-      await deleteTrip(user.uid, tripId);
+      // ⭐ NUOVO: Usa deleteTripForUser (logica WhatsApp)
+      await deleteTripForUser(user.uid, tripId);
       
       console.log('✅ Viaggio eliminato, listener aggiornerà lo stato');
       
@@ -284,8 +289,13 @@ const TravelPlannerApp = ({ user }) => {
           }
         });
 
-        // Salva su Firestore
-        await saveTrip(user.uid, newTrip);
+        // ⭐ NUOVO: Salva usando createTrip con profilo completo
+        await createTrip(newTrip, {
+          uid: user.uid,
+          displayName: userProfile.displayName || user.displayName || 'Utente',
+          username: userProfile.username,
+          avatar: userProfile.avatar || user.photoURL
+        });
         
         console.log('✅ Viaggio importato, listener aggiornerà lo stato');
         
