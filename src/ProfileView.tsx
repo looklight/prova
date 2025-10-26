@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, User, Camera, Loader } from 'lucide-react';
+import { ChevronLeft, User, Camera, Loader, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { auth } from './firebase';
 import { signOut } from 'firebase/auth';
-import { loadUserProfile, updateUserProfile, resizeImage, checkUsernameExists, isValidUsername } from './services';
+import { loadUserProfile, updateUserProfile, resizeImage, checkUsernameExists, isValidUsername } from "./services";
 
 const ProfileView = ({ onBack, user, trips = [] }) => {
   // Stati
@@ -214,6 +214,7 @@ const ProfileView = ({ onBack, user, trips = [] }) => {
       {showEditModal && (
         <ProfileEditModal
           profile={profile}
+          userId={user.uid}
           onClose={() => setShowEditModal(false)}
           onSave={async (updates) => {
             try {
@@ -237,10 +238,71 @@ const ProfileView = ({ onBack, user, trips = [] }) => {
 };
 
 // Componente Modal per Editing
-const ProfileEditModal = ({ profile, onClose, onSave }) => {
+const ProfileEditModal = ({ profile, onClose, onSave, userId }) => {
   const [displayName, setDisplayName] = useState(profile.displayName);
   const [username, setUsername] = useState(profile.username);
   const [saving, setSaving] = useState(false);
+  
+  // ⭐ Stati per validazione username
+  const [usernameStatus, setUsernameStatus] = useState('idle'); // 'idle' | 'checking' | 'valid' | 'invalid' | 'taken'
+  const [usernameError, setUsernameError] = useState('');
+  const [checkTimeout, setCheckTimeout] = useState(null);
+
+  // ⭐ Validazione username in tempo reale con debounce
+  useEffect(() => {
+    // Pulisci timeout precedente
+    if (checkTimeout) {
+      clearTimeout(checkTimeout);
+    }
+
+    const cleanUsername = username.trim().toLowerCase();
+
+    // Se è lo stesso username originale, è valido
+    if (cleanUsername === profile.username.toLowerCase()) {
+      setUsernameStatus('valid');
+      setUsernameError('');
+      return;
+    }
+
+    // Reset se campo vuoto
+    if (!cleanUsername) {
+      setUsernameStatus('idle');
+      setUsernameError('');
+      return;
+    }
+
+    // Validazione formato
+    if (!isValidUsername(cleanUsername)) {
+      setUsernameStatus('invalid');
+      setUsernameError('Username non valido. Usa 3-20 caratteri: lettere, numeri e underscore.');
+      return;
+    }
+
+    // Check disponibilità dopo 500ms
+    setUsernameStatus('checking');
+    const timeout = setTimeout(async () => {
+      try {
+        const exists = await checkUsernameExists(cleanUsername, userId);
+        if (exists) {
+          setUsernameStatus('taken');
+          setUsernameError('Username già in uso da un altro utente');
+        } else {
+          setUsernameStatus('valid');
+          setUsernameError('');
+        }
+      } catch (error) {
+        console.error('Errore check username:', error);
+        setUsernameStatus('invalid');
+        setUsernameError('Errore nella verifica');
+      }
+    }, 500);
+
+    setCheckTimeout(timeout);
+
+    return () => {
+      if (timeout) clearTimeout(timeout);
+    };
+  }, [username, userId]);
 
   const handleSave = async () => {
     if (!displayName.trim()) {
@@ -248,11 +310,13 @@ const ProfileEditModal = ({ profile, onClose, onSave }) => {
       return;
     }
 
-    const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
-    if (!cleanUsername) {
-      alert('Username non valido. Usa solo lettere, numeri e underscore.');
+    // Controlla stato username
+    if (usernameStatus !== 'valid') {
+      alert(usernameError || 'Username non valido');
       return;
     }
+
+    const cleanUsername = username.trim().toLowerCase();
 
     setSaving(true);
     try {
@@ -262,6 +326,21 @@ const ProfileEditModal = ({ profile, onClose, onSave }) => {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  // ⭐ Icona stato username
+  const getUsernameIcon = () => {
+    switch (usernameStatus) {
+      case 'checking':
+        return <Loader size={18} className="text-gray-400 animate-spin" />;
+      case 'valid':
+        return <CheckCircle size={18} className="text-green-500" />;
+      case 'invalid':
+      case 'taken':
+        return <XCircle size={18} className="text-red-500" />;
+      default:
+        return null;
     }
   };
 
@@ -289,7 +368,7 @@ const ProfileEditModal = ({ profile, onClose, onSave }) => {
             />
           </div>
 
-          {/* Username */}
+          {/* Username con validazione */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Username
@@ -301,10 +380,44 @@ const ProfileEditModal = ({ profile, onClose, onSave }) => {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="mariorossi"
-                className="w-full pl-8 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
+                className={`w-full pl-8 pr-12 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
+                  usernameStatus === 'valid' ? 'border-green-300 focus:border-green-500' :
+                  usernameStatus === 'invalid' || usernameStatus === 'taken' ? 'border-red-300 focus:border-red-500' :
+                  'border-gray-200 focus:border-blue-500'
+                }`}
               />
+              <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                {getUsernameIcon()}
+              </div>
             </div>
-            <p className="text-xs text-gray-500 mt-1">Solo lettere, numeri e underscore</p>
+            
+            {/* Messaggi di stato */}
+            {usernameStatus === 'checking' && (
+              <p className="text-xs text-gray-500 mt-1.5 flex items-center gap-1">
+                <Loader size={12} className="animate-spin" />
+                Verifica disponibilità...
+              </p>
+            )}
+            {usernameStatus === 'valid' && username.trim().toLowerCase() !== profile.username.toLowerCase() && (
+              <p className="text-xs text-green-600 mt-1.5 flex items-center gap-1">
+                <CheckCircle size={12} />
+                Username disponibile!
+              </p>
+            )}
+            {usernameStatus === 'invalid' && (
+              <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1">
+                <AlertCircle size={12} />
+                {usernameError}
+              </p>
+            )}
+            {usernameStatus === 'taken' && (
+              <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1">
+                <XCircle size={12} />
+                {usernameError}
+              </p>
+            )}
+            
+            <p className="text-xs text-gray-500 mt-1.5">3-20 caratteri: lettere, numeri e underscore</p>
           </div>
         </div>
 
@@ -319,8 +432,8 @@ const ProfileEditModal = ({ profile, onClose, onSave }) => {
           </button>
           <button
             onClick={handleSave}
-            disabled={saving}
-            className="flex-1 px-6 py-3 bg-blue-500 text-white rounded-xl font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50"
+            disabled={saving || usernameStatus !== 'valid'}
+            className="flex-1 px-6 py-3 bg-blue-500 text-white rounded-xl font-semibold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? 'Salvataggio...' : 'Salva'}
           </button>
