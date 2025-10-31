@@ -1,14 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Edit2, Check, Plus, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { Edit2, Check, Plus, ChevronLeft, ChevronRight, Trash2, Users } from 'lucide-react';
 import { CATEGORIES, TRANSPORT_OPTIONS } from '../constants.js';
 import { calculateDayCost } from '../costsUtils.js';
 import TripMetadataModal from './TripMetadataModal.js';
+import TripMembersModal from './TripMembersModal.js';
+import MembersAvatarStack from './MembersAvatarStack.js';
+import InviteMembersModal from './InviteMembersModal.js';
 
 /**
  * Componente principale per la visualizzazione calendario del viaggio
  * Mostra una tabella con giorni come colonne e categorie come righe
  */
-const CalendarView = ({ trip, onUpdateTrip, onBack, onOpenDay, scrollToDayId, savedScrollPosition, onScrollComplete, isDesktop = false, selectedDayIndex = null, currentUser }) => {
+const CalendarView = ({ trip, onUpdateTrip, onBack, onOpenDay, scrollToDayId, savedScrollPosition, onScrollComplete, isDesktop = false, selectedDayIndex = null, currentUser, onInviteClick }) => {
   const [isEditingTripName, setIsEditingTripName] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [selectedDays, setSelectedDays] = useState([]);
@@ -17,6 +20,8 @@ const CalendarView = ({ trip, onUpdateTrip, onBack, onOpenDay, scrollToDayId, sa
   const [justMounted, setJustMounted] = useState(true);
   // 🆕 Stato per modal metadata
   const [showMetadataModal, setShowMetadataModal] = useState(false);
+  const [showMembersModal, setShowMembersModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const scrollContainerRef = useRef(null);
 
   /**
@@ -246,14 +251,21 @@ const CalendarView = ({ trip, onUpdateTrip, onBack, onOpenDay, scrollToDayId, sa
   /**
    * 🆕 Handler per salvare metadata dal modal
    */
-  const handleSaveMetadata = (metadata) => {
-    onUpdateTrip({ 
-      metadata,
-      // Retrocompatibilità
+  const handleMetadataSave = async (metadata) => {
+  try {
+    await onUpdateTrip({
+      metadata: metadata,
       name: metadata.name,
-      image: metadata.image
+      image: metadata.image,
+      updatedAt: new Date()
     });
-  };
+    setShowMetadataModal(false);
+    console.log('✅ Metadata aggiornati');
+  } catch (error) {
+    console.error('❌ Errore aggiornamento metadata:', error);
+    alert('Errore nel salvataggio');
+  }
+};
 
   /**
    * Converte classi Tailwind in valori hex per stili inline
@@ -278,13 +290,19 @@ const CalendarView = ({ trip, onUpdateTrip, onBack, onOpenDay, scrollToDayId, sa
        }}>
       {/* 🆕 Modal per modifica metadata viaggio */}
       <TripMetadataModal
-        isOpen={showMetadataModal}
-        onClose={() => setShowMetadataModal(false)}
-        onSave={handleSaveMetadata}
-        initialData={trip.metadata}
-        currentUser={currentUser}
-        mode="edit"
-      />
+  isOpen={showMetadataModal}
+  onClose={() => setShowMetadataModal(false)}
+  onSave={handleMetadataSave}
+  initialData={{
+    ...trip.metadata,
+    tripId: trip.id,
+    sharing: trip.sharing  // ⭐ AGGIUNGI sharing
+  }}
+  currentUser={currentUser}
+  mode="edit"
+  onInviteClick={() => setShowInviteModal(true)}
+/>
+```
 
       <div className="bg-white px-2 py-4 shadow-sm sticky top-0 z-20">
         <div className="flex items-center justify-between mb-2">
@@ -487,6 +505,20 @@ const CalendarView = ({ trip, onUpdateTrip, onBack, onOpenDay, scrollToDayId, sa
                   const highlightColor = cellData?.title ? getColorForContent(category.id, cellData.title) : null;
                   const hasContent = cellData && (cellData.title || cellData.cost || cellData.notes);
                   
+                  // Helper per membri
+const getTripMembers = () => {
+  if (!trip.sharing?.memberIds) return [];
+  return trip.sharing.memberIds
+    .map(userId => ({
+      userId,
+      ...trip.sharing.members[userId]
+    }))
+    .filter(member => member.status === 'active');
+};
+
+const members = getTripMembers();
+const showMembersButton = members.length > 1;
+
                   return (
                     <td
                       key={`${day.id}-${category.id}`}
@@ -586,6 +618,16 @@ const CalendarView = ({ trip, onUpdateTrip, onBack, onOpenDay, scrollToDayId, sa
           </tbody>
         </table>
       </div>
+
+      {/* ⭐ Modal Inviti */}
+      {showInviteModal && (
+        <InviteMembersModal
+          isOpen={showInviteModal}
+          onClose={() => setShowInviteModal(false)}
+          trip={trip}
+          currentUser={currentUser}
+        />
+      )}
     </div>
   );
 };

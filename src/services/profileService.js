@@ -185,3 +185,49 @@ export const updateUserProfile = async (userId, updates) => {
     throw error;
   }
 };
+
+// ============= FUNZIONE PER RICERCA USERNAME (Step 2) =============
+
+/**
+ * 🔍 Cerca utenti per username (ricerca parziale)
+ */
+export const searchUsersByUsername = async (searchTerm, limitCount = 10) => {
+  try {
+    const cleanSearch = searchTerm.trim().toLowerCase();
+    
+    if (!cleanSearch || cleanSearch.length < 2) {
+      return [];
+    }
+    
+    const profilesRef = collectionGroup(db, 'profile');
+    
+    const q = query(
+      profilesRef,
+      where('username', '>=', cleanSearch),
+      where('username', '<', cleanSearch + '\uf8ff'),
+      limit(limitCount)
+    );
+    
+    const snapshot = await getDocs(q);
+    const users = [];
+    
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data();
+      const userId = docSnap.ref.parent.parent.id;
+      
+      users.push({
+        uid: userId,
+        username: data.username,
+        displayName: data.displayName || 'Utente',
+        avatar: data.avatar || null,
+        email: data.email || null
+      });
+    });
+    
+    console.log(`🔍 Trovati ${users.length} utenti per "${searchTerm}"`);
+    return users;
+  } catch (error) {
+    console.error('❌ Errore ricerca username:', error);
+    throw error;
+  }
+};

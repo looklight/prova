@@ -1,12 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { X, Upload, User } from 'lucide-react';
-import { resizeImage } from '../services/services-index';
+import { X, Upload, User, UserPlus } from 'lucide-react';
+import { resizeAndUploadImage } from '../services';
 
 interface TripMetadataModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (metadata: TripMetadata) => void;
-  initialData?: TripMetadata;
+  initialData?: TripMetadata & {
+    tripId?: string;
+    sharing?: {
+      memberIds: string[];
+      members: {
+        [userId: string]: {
+          role: 'owner' | 'member';
+          status: 'active' | 'invited' | 'removed';
+          displayName: string;
+          username?: string;
+          avatar?: string;
+        };
+      };
+    };
+  };
   currentUser: {
     uid: string;
     displayName: string;
@@ -15,6 +29,7 @@ interface TripMetadataModalProps {
     email?: string;
   };
   mode: 'create' | 'edit';
+  onInviteClick?: () => void;
 }
 
 export interface TripMetadata {
@@ -30,7 +45,8 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
   onSave,
   initialData,
   currentUser,
-  mode
+  mode,
+  onInviteClick
 }) => {
   const [tripName, setTripName] = useState('');
   const [destinations, setDestinations] = useState<string[]>([]);
@@ -70,7 +86,6 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validazione
     if (!file.type.startsWith('image/')) {
       alert('Seleziona un file immagine valido');
       return;
@@ -83,9 +98,16 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
 
     setIsUploading(true);
     try {
-      // Ridimensiona immagine più piccola e più compressa
-      const resizedImage = await resizeImage(file, 400, 400, 0.85);
-      setImage(resizedImage);
+      const tripIdForPath = initialData?.tripId || Date.now();
+      const imageURL = await resizeAndUploadImage(
+        file,
+        `trips/${tripIdForPath}/cover`,
+        400,
+        400,
+        0.85
+      );
+      
+      setImage(imageURL);
     } catch (error) {
       console.error('Errore caricamento immagine:', error);
       alert('Errore nel caricamento dell\'immagine');
@@ -113,6 +135,10 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
       e.preventDefault();
       addDestination();
     }
+  };
+
+  const handleInviteClick = () => {
+    onInviteClick?.();
   };
 
   if (!isOpen) return null;
@@ -247,40 +273,119 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
             )}
           </div>
 
-          {/* PERSONE CHE ORGANIZZANO - Priorità alta */}
+          {/* ⭐ PERSONE CHE ORGANIZZANO */}
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-5 border-2 border-blue-200">
             <label className="block text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
               <span>👥</span>
               <span>Chi organizza questo viaggio</span>
             </label>
-            <div className="flex items-center gap-3 bg-white rounded-lg p-3 shadow-sm">
-              {currentUser.photoURL ? (
-                <img 
-                  src={currentUser.photoURL} 
-                  alt={currentUser.displayName}
-                  className="w-12 h-12 rounded-full object-cover border-2 border-blue-300 shadow"
-                />
+            
+            {/* ⭐ LISTA TUTTI I MEMBRI ATTIVI */}
+            <div className="space-y-2">
+              {mode === 'edit' && initialData?.sharing?.members ? (
+                // Modalità edit: mostra tutti i membri dal trip
+                Object.entries(initialData.sharing.members)
+                  .filter(([_, member]) => member.status === 'active')
+                  .sort((a, b) => {
+                    // Owner sempre per primo
+                    if (a[1].role === 'owner') return -1;
+                    if (b[1].role === 'owner') return 1;
+                    return 0;
+                  })
+                  .map(([userId, member]) => {
+                    const isCurrentUser = userId === currentUser.uid;
+                    
+                    return (
+                      <div 
+                        key={userId}
+                        className={`flex items-center gap-3 rounded-lg p-3 shadow-sm ${
+                          isCurrentUser ? 'bg-blue-100 border-2 border-blue-300' : 'bg-white'
+                        }`}
+                      >
+                        {member.avatar ? (
+                          <img 
+                            src={member.avatar} 
+                            alt={member.displayName}
+                            className="w-12 h-12 rounded-full object-cover border-2 border-blue-300 shadow"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow">
+                            <User size={22} className="text-white" />
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold text-gray-800 text-sm">
+                              {member.displayName}
+                            </p>
+                            {isCurrentUser && (
+                              <span className="px-2 py-0.5 bg-blue-600 text-white text-xs font-bold rounded-full">
+                                Tu
+                              </span>
+                            )}
+                          </div>
+                          {member.username && (
+                            <p className="text-xs text-gray-500">@{member.username}</p>
+                          )}
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          member.role === 'owner' 
+                            ? 'bg-yellow-100 text-yellow-700 border border-yellow-300'
+                            : 'bg-blue-100 text-blue-700 border border-blue-300'
+                        }`}>
+                          {member.role === 'owner' ? 'Owner' : 'Member'}
+                        </span>
+                      </div>
+                    );
+                  })
               ) : (
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow">
-                  <User size={22} className="text-white" />
+                // Modalità create: mostra solo currentUser
+                <div className="flex items-center gap-3 bg-white rounded-lg p-3 shadow-sm">
+                  {currentUser.photoURL ? (
+                    <img 
+                      src={currentUser.photoURL} 
+                      alt={currentUser.displayName}
+                      className="w-12 h-12 rounded-full object-cover border-2 border-blue-300 shadow"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow">
+                      <User size={22} className="text-white" />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <p className="font-semibold text-gray-800 text-sm">{currentUser.displayName}</p>
+                    {currentUser.username && (
+                      <p className="text-xs text-gray-500">@{currentUser.username}</p>
+                    )}
+                    {!currentUser.username && (
+                      <p className="text-xs text-gray-500">Proprietario</p>
+                    )}
+                  </div>
+                  <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
+                    Owner
+                  </span>
                 </div>
               )}
-              <div className="flex-1">
-                <p className="font-semibold text-gray-800 text-sm">{currentUser.displayName}</p>
-                {currentUser.username && (
-                  <p className="text-xs text-gray-500">@{currentUser.username}</p>
-                )}
-                {!currentUser.username && (
-                  <p className="text-xs text-gray-500">Proprietario</p>
-                )}
-              </div>
-              <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
-                Tu
-              </span>
             </div>
-            <p className="text-xs text-gray-500 mt-3 italic">
-              💡 In futuro potrai invitare altre persone a collaborare
-            </p>
+            
+            {/* ⭐ Pulsante Invita (solo in modalità edit) */}
+            {mode === 'edit' && onInviteClick && (
+              <button
+                type="button"
+                onClick={handleInviteClick}
+                className="w-full mt-3 px-4 py-2.5 bg-white border-2 border-blue-400 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-semibold text-sm flex items-center justify-center gap-2 shadow-sm"
+              >
+                <UserPlus size={18} />
+                Invita collaboratori
+              </button>
+            )}
+            
+            {/* Messaggio in creazione */}
+            {mode === 'create' && (
+              <p className="text-xs text-gray-500 mt-3 italic">
+                💡 Potrai invitare collaboratori dopo aver creato il viaggio
+              </p>
+            )}
           </div>
 
           {/* DESCRIZIONE VIAGGIO */}

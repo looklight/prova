@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronLeft, User, Camera, Loader, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
-import { loadUserProfile, updateUserProfile, resizeImage, checkUsernameExists, isValidUsername } from "../services/services-index";
+import { loadUserProfile, updateUserProfile, resizeAndUploadImage, checkUsernameExists, isValidUsername } from "../services";
 
 const ProfileView = ({ onBack, user, trips = [] }) => {
   // Stati
@@ -32,30 +32,32 @@ const ProfileView = ({ onBack, user, trips = [] }) => {
   }, [user]);
 
   // Handler avatar upload
-  const handleAvatarUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+const handleAvatarUpload = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  try {
+    setUploadingAvatar(true);
     
-    try {
-      setUploadingAvatar(true);
-      
-      // Ridimensiona a 200x200px
-      const resizedAvatar = await resizeImage(file, 200, 200, 0.85);
-      
-      // Aggiorna localmente
-      setProfile({ ...profile, avatar: resizedAvatar });
-      
-      // Salva su Firestore
-      await updateUserProfile(user.uid, { avatar: resizedAvatar });
-      
-      console.log('✅ Avatar aggiornato');
-    } catch (error) {
-      console.error('Errore upload avatar:', error);
-      alert('Errore nel caricamento dell\'immagine');
-    } finally {
-      setUploadingAvatar(false);
-    }
-  };
+    const avatarURL = await resizeAndUploadImage(
+      file,
+      `avatars/${user.uid}`,
+      200,
+      200,
+      0.85
+    );
+    
+    setProfile({ ...profile, avatar: avatarURL });
+    await updateUserProfile(user.uid, { avatar: avatarURL });
+    
+    console.log('✅ Avatar aggiornato');
+  } catch (error) {
+    console.error('Errore upload avatar:', error);
+    alert('Errore nel caricamento dell\'immagine');
+  } finally {
+    setUploadingAvatar(false);
+  }
+};
 
   const handleLogout = async () => {
     if (confirm('Vuoi davvero uscire?')) {

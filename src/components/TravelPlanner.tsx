@@ -3,7 +3,7 @@ import HomeView from './HomeView';
 import TripView from './TripView';
 import ProfileView from './ProfileView';
 import { CATEGORIES } from './constants';
-import { subscribeToUserTrips, createTrip, updateTrip, deleteTripForUser, loadUserProfile } from './services';
+import { subscribeToUserTrips, createTrip, updateTrip, deleteTripForUser, loadUserProfile } from "../services";
 
 const TravelPlannerApp = ({ user }) => {
   const [currentView, setCurrentView] = useState('home');
@@ -61,34 +61,33 @@ const TravelPlannerApp = ({ user }) => {
 
   // ⭐ MODIFICATO: Usa listener real-time invece di caricamento singolo
   useEffect(() => {
-    if (!user) return;
-    
-    console.log('🔄 Inizializzazione listener real-time...');
+  if (!user?.uid) return;
+  
+  console.log('🔄 Inizializzazione listener real-time...');
+  setLoading(true);
+  
+  const unsubscribe = subscribeToUserTrips(
+    user.uid,
+    (updatedTrips) => {
+      console.log('🔥 Viaggi aggiornati da Firestore:', updatedTrips.length);
+      setTrips(updatedTrips);
+      setLoading(false);
+    },
+    (error) => {
+      console.error('❌ Errore listener viaggi:', error);
+      alert('Errore nella sincronizzazione dei viaggi');
+      setLoading(false);
+    }
+  );
+  
+  return () => {
+    console.log('🔌 Disconnessione listener real-time');
+    unsubscribe();
+    setTrips([]);
+    setCurrentTripId(null);
     setLoading(true);
-    
-    // Sottoscrivi ai viaggi con listener real-time
-    const unsubscribe = subscribeToUserTrips(
-      user.uid,
-      (updatedTrips) => {
-        // ⭐ Callback chiamata ogni volta che i dati cambiano su Firestore
-        console.log('📥 Viaggi aggiornati da Firestore:', updatedTrips.length);
-        setTrips(updatedTrips);
-        setLoading(false);
-      },
-      (error) => {
-        // Gestione errori del listener
-        console.error('❌ Errore listener viaggi:', error);
-        alert('Errore nella sincronizzazione dei viaggi');
-        setLoading(false);
-      }
-    );
-    
-    // ⭐ IMPORTANTE: Cleanup quando il componente si smonta o user cambia
-    return () => {
-      console.log('🔌 Disconnessione listener real-time');
-      unsubscribe();
-    };
-  }, [user]);
+  };
+}, [user?.uid]);
 
   // ⭐ AGGIUNTO: Usa useMemo per garantire che currentTrip venga ricalcolato quando trips cambia
   const currentTrip = useMemo(() => {
@@ -319,9 +318,10 @@ const TravelPlannerApp = ({ user }) => {
 
   if (currentView === 'home') {
     return <HomeView 
-      trips={trips} 
+      trips={trips}
+      loading={loading}
       onCreateNew={createNewTrip} 
-      onOpenTrip={openTrip} 
+      onOpenTrip={openTrip}
       onDeleteTrip={deleteTripHandler}
       onExportTrip={exportTrip}
       onImportTrip={importTrip}

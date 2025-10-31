@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Calendar } from 'lucide-react';
 import CalendarView from './CalendarView';
 import DayDetailView from './DayDetailView';
+import InviteMembersModal from './InviteMembersModal';
+import { UserPlus } from 'lucide-react'; // Aggiungi agli import esistenti
 
 /**
  * Hook personalizzato per rilevare le dimensioni dello schermo
@@ -41,6 +43,7 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
   const [scrollPosition, setScrollPosition] = useState(null);
   const [scrollToDayId, setScrollToDayId] = useState(null);
   const [view, setView] = useState('calendar'); // 'calendar' | 'detail'
+  const [showInviteModal, setShowInviteModal] = useState(false);
   
   // Rileva se siamo su desktop (>= 1024px)
   const isDesktop = useMediaQuery('(min-width: 1024px)');
@@ -105,10 +108,11 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
   }, [isDesktop]);
 
   // ========== RENDERING MOBILE ==========
-  if (!isDesktop) {
-    // Mostra solo una vista alla volta
-    if (view === 'detail' && selectedDayIndex !== null) {
-      return (
+if (!isDesktop) {
+  // Mostra solo una vista alla volta
+  if (view === 'detail' && selectedDayIndex !== null) {
+    return (
+      <>
         <DayDetailView
           trip={trip}
           dayIndex={selectedDayIndex}
@@ -117,10 +121,20 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
           onChangeDayIndex={handleChangeDayIndex}
           isDesktop={false}
         />
-      );
-    }
+        
+        {/* Modal Inviti */}
+        <InviteMembersModal
+          isOpen={showInviteModal}
+          onClose={() => setShowInviteModal(false)}
+          trip={trip}
+          currentUser={currentUser}
+        />
+      </>
+    );
+  }
 
-    return (
+  return (
+    <>
       <CalendarView
         trip={trip}
         onUpdateTrip={onUpdateTrip}
@@ -132,9 +146,19 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
         isDesktop={false}
         selectedDayIndex={selectedDayIndex}
         currentUser={currentUser}
+        onInviteClick={() => setShowInviteModal(true)}
       />
-    );
-  }
+      
+      {/* Modal Inviti */}
+      <InviteMembersModal
+        isOpen={showInviteModal}
+        onClose={() => setShowInviteModal(false)}
+        trip={trip}
+        currentUser={currentUser}
+      />
+    </>
+  );
+}
 
 // ========== RENDERING DESKTOP ==========
 return (
@@ -152,6 +176,7 @@ return (
         isDesktop={true}
         selectedDayIndex={selectedDayIndex}
         currentUser={currentUser}
+        onInviteClick={() => setShowInviteModal(true)}
       />
     </div>
 
@@ -178,6 +203,14 @@ return (
         </div>
       )}
     </div>
+
+    {/* Modal Inviti */}
+<InviteMembersModal
+  isOpen={showInviteModal}
+  onClose={() => setShowInviteModal(false)}
+  trip={trip}
+  currentUser={currentUser}
+/>
   </div>
 );
 };
