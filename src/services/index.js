@@ -14,14 +14,11 @@ export {
 export {
   subscribeToUserTrips,
   createTrip,
-  saveTrip,
   updateTrip,
   updateTripMetadata,
   leaveTrip,
   deleteTripForUser,
-  deleteTrip,
   loadTrip,
-  loadUserTrips
 } from './trips/tripOperations';
 
 // Gestione membri
@@ -41,18 +38,8 @@ export {
   deleteInvitation
 } from './trips/invitations';
 
-// Link di condivisione
-export {
-  generateShareLink,
-  joinViaShareLink,
-  disableShareLink
-} from './trips/shareLinks';
-
 // Media service
 export * from './mediaService';
 
 // Profile service
 export * from './profileService';
-
-// Trip service
-export * from './tripService';

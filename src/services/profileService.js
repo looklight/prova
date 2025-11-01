@@ -177,7 +177,6 @@ export const updateUserProfile = async (userId, updates) => {
       updatedAt: new Date()
     };
     
-    // ⭐ CAMBIATO: da updateDoc a setDoc con merge
     await setDoc(profileRef, updateData, { merge: true });
     console.log('✅ Profilo aggiornato');
   } catch (error) {

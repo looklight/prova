@@ -4,7 +4,12 @@ import { storage } from './firebase';
 /**
  * Comprimi e ridimensiona un'immagine
  */
-export const compressImage = (file, maxWidth = 1200, maxHeight = 1200, quality = 0.85) => {
+export const compressImage = (
+  file, 
+  maxWidth = IMAGE_COMPRESSION.cellImage.maxWidth,    // ← Da config
+  maxHeight = IMAGE_COMPRESSION.cellImage.maxHeight,  // ← Da config
+  quality = IMAGE_COMPRESSION.cellImage.quality       // ← Da config
+) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     

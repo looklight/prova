@@ -1,18 +1,24 @@
-// ============= UTILITY: RIDIMENSIONAMENTO E UPLOAD IMMAGINI =============
-
+// services/mediaService.js
 import { storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { IMAGE_COMPRESSION } from '../config/imageConfig';
 
 /**
  * Ridimensiona e carica un'immagine su Firebase Storage
  * @param {File} file - File immagine caricato
  * @param {string} path - Percorso Storage (es: 'avatars/USER_ID')
- * @param {number} maxWidth - Larghezza massima (default: 400px)
- * @param {number} maxHeight - Altezza massima (default: 400px)
- * @param {number} quality - Qualità JPEG (0-1, default: 0.8)
+ * @param {number} maxWidth - Larghezza massima
+ * @param {number} maxHeight - Altezza massima
+ * @param {number} quality - Qualità JPEG (0-1)
  * @returns {Promise<string>} - URL pubblico immagine su Storage
  */
-export const resizeAndUploadImage = async (file, path, maxWidth = 400, maxHeight = 400, quality = 0.8) => {
+export const resizeAndUploadImage = async (
+  file, 
+  path, 
+  maxWidth = IMAGE_COMPRESSION.avatar.maxWidth,
+  maxHeight = IMAGE_COMPRESSION.avatar.maxHeight,
+  quality = IMAGE_COMPRESSION.avatar.quality
+) => {
   try {
     // 1. Ridimensiona immagine
     const resizedBlob = await resizeImageToBlob(file, maxWidth, maxHeight, quality);
@@ -24,7 +30,7 @@ export const resizeAndUploadImage = async (file, path, maxWidth = 400, maxHeight
     
     await uploadBytes(storageRef, resizedBlob, {
       contentType: 'image/jpeg',
-      cacheControl: 'public, max-age=31536000' // Cache 1 anno
+      cacheControl: 'public, max-age=31536000'
     });
     
     // 3. Ottieni URL pubblico

@@ -3,6 +3,7 @@ import { ChevronLeft, User, Camera, Loader, CheckCircle, XCircle, AlertCircle } 
 import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
 import { loadUserProfile, updateUserProfile, resizeAndUploadImage, checkUsernameExists, isValidUsername } from "../services";
+import { IMAGE_COMPRESSION } from '../config/imageConfig';
 
 const ProfileView = ({ onBack, user, trips = [] }) => {
   // Stati
@@ -39,13 +40,13 @@ const handleAvatarUpload = async (e) => {
   try {
     setUploadingAvatar(true);
     
-    const avatarURL = await resizeAndUploadImage(
-      file,
-      `avatars/${user.uid}`,
-      200,
-      200,
-      0.85
-    );
+const avatarURL = await resizeAndUploadImage(
+  file,
+  `avatars/${user.uid}`,
+  IMAGE_COMPRESSION.avatar.maxWidth,   // ← Esplicito da config
+  IMAGE_COMPRESSION.avatar.maxHeight,
+  IMAGE_COMPRESSION.avatar.quality
+);
     
     setProfile({ ...profile, avatar: avatarURL });
     await updateUserProfile(user.uid, { avatar: avatarURL });

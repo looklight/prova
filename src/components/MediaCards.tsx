@@ -45,8 +45,6 @@ export const extractVideoId = (url) => {
 };
 
 // ============= COMPONENTE MODAL PER IMMAGINI INGRANDITE =============
-import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
-
 export const ImageModal = ({ image, onClose }) => {
   if (!image) return null;
 

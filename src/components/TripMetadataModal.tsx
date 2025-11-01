@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Upload, User, UserPlus } from 'lucide-react';
 import { resizeAndUploadImage } from '../services';
+import { IMAGE_COMPRESSION } from '../config/imageConfig';
 
 interface TripMetadataModalProps {
   isOpen: boolean;
@@ -101,10 +102,10 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
       const tripIdForPath = initialData?.tripId || Date.now();
       const imageURL = await resizeAndUploadImage(
         file,
-        `trips/${tripIdForPath}/cover`,
-        400,
-        400,
-        0.85
+        path,
+        IMAGE_COMPRESSION.tripCover.maxWidth,   // ← Regola da config
+        IMAGE_COMPRESSION.tripCover.maxHeight,
+        IMAGE_COMPRESSION.tripCover.quality
       );
       
       setImage(imageURL);

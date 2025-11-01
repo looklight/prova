@@ -133,21 +133,6 @@ export const createTrip = async (trip, userProfile) => {
 };
 
 /**
- * Salva un viaggio (alias per retrocompatibilità)
- * @deprecated Usa createTrip invece
- */
-export const saveTrip = async (userId, trip) => {
-  console.warn('⚠️ saveTrip è deprecata, usa createTrip con userProfile');
-  const userProfile = {
-    uid: userId,
-    displayName: 'Utente',
-    username: null,
-    avatar: null
-  };
-  return createTrip(trip, userProfile);
-};
-
-/**
  * ⭐ Aggiorna un viaggio esistente
  */
 export const updateTrip = async (userId, tripId, updates) => {
@@ -295,25 +280,6 @@ export const deleteTripForUser = async (userId, tripId) => {
   return leaveTrip(tripId, userId);
 };
 
-/**
- * Elimina un viaggio (hard delete - solo per owner)
- * @deprecated Usa leaveTrip per logica WhatsApp
- */
-export const deleteTrip = async (userId, tripId) => {
-  try {
-    const role = await getUserRole(tripId, userId);
-    if (role !== 'owner') {
-      throw new Error('Solo il proprietario può eliminare il viaggio');
-    }
-    
-    const tripRef = doc(db, 'trips', tripId.toString());
-    await deleteDoc(tripRef);
-    console.log('✅ Viaggio eliminato:', tripId);
-  } catch (error) {
-    console.error('❌ Errore eliminazione viaggio:', error);
-    throw error;
-  }
-};
 
 /**
  * Carica un singolo viaggio
@@ -351,44 +317,3 @@ export const loadTrip = async (userId, tripId) => {
   }
 };
 
-/**
- * Carica tutti i viaggi di un utente
- * @deprecated Usa subscribeToUserTrips per real-time
- */
-export const loadUserTrips = async (userId) => {
-  try {
-    const tripsRef = collection(db, 'trips');
-    const q = query(
-      tripsRef,
-      where('sharing.memberIds', 'array-contains', userId),
-      orderBy('createdAt', 'desc')
-    );
-    const snapshot = await getDocs(q);
-    
-    const trips = [];
-    snapshot.forEach((docSnap) => {
-      const data = docSnap.data();
-      
-      const member = data.sharing?.members?.[userId];
-      if (member && member.status === 'active') {
-        trips.push({
-          id: docSnap.id,
-          ...data,
-          startDate: data.startDate?.toDate() || new Date(),
-          createdAt: data.createdAt?.toDate() || new Date(),
-          updatedAt: data.updatedAt?.toDate() || new Date(),
-          days: data.days.map(day => ({
-            ...day,
-            date: day.date?.toDate() || new Date()
-          }))
-        });
-      }
-    });
-    
-    console.log('✅ Viaggi caricati:', trips.length);
-    return trips;
-  } catch (error) {
-    console.error('❌ Errore caricamento viaggi:', error);
-    throw error;
-  }
-};
