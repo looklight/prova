@@ -1,18 +1,21 @@
 import React, { useRef, useState } from 'react';
-import { MapPin, User, Plus, Upload, Download, FileText, Trash2, Users } from 'lucide-react';
+import { MapPin, User, Plus, Upload, Download, Trash2 } from 'lucide-react';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 import TripMetadataModal from './TripMetadataModal';
 import InvitationsNotifications from './InvitationsNotifications';
 import MembersAvatarStack from './MembersAvatarStack';
 import TripMembersModal from './TripMembersModal';
+import CostSummaryByUserView from './DayDetail/CostSummaryByUserView';
+import { calculateTripCost } from '../costsUtils';
 
 const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExportTrip, onImportTrip, onOpenProfile, currentUser }) => {
   const fileInputRef = useRef(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [exportMenu, setExportMenu] = useState(null);
-  // 🆕 Stato per il modal di creazione viaggio
   const [showCreateModal, setShowCreateModal] = useState(false);
-  // ⭐ NUOVO: Modal membri
   const [showMembersModal, setShowMembersModal] = useState(null);
+  const [selectedTripForSummary, setSelectedTripForSummary] = useState(null);
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
@@ -22,13 +25,10 @@ const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExp
     }
   };
 
-  // 🆕 Handler per salvare metadata nuovo viaggio
   const handleCreateTrip = (metadata) => {
-    // Chiama la funzione originale passando i metadata
     onCreateNew(metadata);
   };
 
-  // ⭐ NUOVO: Prepara lista membri per avatar stack
   const getTripMembers = (trip) => {
     if (!trip.sharing?.memberIds) return [];
     
@@ -40,15 +40,35 @@ const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExp
       .filter(member => member.status === 'active');
   };
 
-  // ⭐ NUOVO: Check se viaggio ha collaboratori
-  const hasCollaborators = (trip) => {
-    const members = getTripMembers(trip);
-    return members.length > 1; // Più di solo l'owner
-  };
+  // 🆕 Se c'è un viaggio selezionato per il riepilogo, mostralo
+  if (selectedTripForSummary) {
+    return (
+      <CostSummaryByUserView
+        trip={selectedTripForSummary}
+        onBack={() => setSelectedTripForSummary(null)}
+        origin="home"
+        onUpdateTrip={async (updatedTrip) => {
+          try {
+            // Salva budget su Firebase
+            const tripRef = doc(db, 'trips', updatedTrip.id);
+            await updateDoc(tripRef, {
+              budget: updatedTrip.budget
+            });
+            
+            console.log('✅ Budget aggiornato su Firebase');
+            
+            // Aggiorna lo stato locale
+            setSelectedTripForSummary(updatedTrip);
+          } catch (error) {
+            console.error('❌ Errore aggiornamento budget:', error);
+          }
+        }}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50" style={{ maxWidth: '430px', margin: '0 auto' }}>
-      {/* 🆕 Modal per creazione nuovo viaggio */}
       <TripMetadataModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
@@ -57,12 +77,11 @@ const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExp
         mode="create"
       />
 
-      {/* ⭐ NUOVO: Modal Membri */}
       {showMembersModal && (
         <TripMembersModal
           isOpen={true}
           onClose={() => setShowMembersModal(null)}
-          trip={trips.find(t => t.id === showMembersModal.id) || showMembersModal}  // ⭐ Usa trip aggiornato!
+          trip={trips.find(t => t.id === showMembersModal.id) || showMembersModal}
           currentUser={currentUser}
           onMemberUpdated={() => {
             console.log('✅ Membro aggiornato, listener sincronizzerà');
@@ -98,7 +117,6 @@ const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExp
         </div>
       )}
 
-      {/* Export Menu - esporta direttamente il file JSON */}
       {exportMenu && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
@@ -133,7 +151,6 @@ const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExp
           <h1 className="text-3xl font-bold">I Miei Viaggi</h1>
           
           <div className="flex items-center gap-2">
-            {/* Badge Inviti Pendenti */}
             <InvitationsNotifications
               currentUser={currentUser}
               userProfile={{
@@ -143,7 +160,6 @@ const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExp
               }}
             />
             
-            {/* Pulsante Profilo */}
             <button
               onClick={onOpenProfile}
               className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -185,16 +201,16 @@ const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExp
         <div className="space-y-3">
           {trips.map((trip) => {
             const members = getTripMembers(trip);
-            const showMembers = hasCollaborators(trip);
+            const tripCost = calculateTripCost(trip);
 
             return (
               <div
                 key={trip.id}
                 className="bg-white rounded-xl shadow hover:shadow-md transition-shadow p-4"
               >
-                <div className="flex items-center gap-4">
+                <div className="flex items-start gap-4">
                   <div 
-                    className="flex-shrink-0 cursor-pointer"
+                    className="flex-shrink-0 cursor-pointer" 
                     onClick={() => onOpenTrip(trip.id)}
                   >
                     {trip.image ? (
@@ -211,7 +227,7 @@ const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExp
                   </div>
 
                   <div 
-                    className="flex-1 min-w-0 cursor-pointer"
+                    className="flex-1 min-w-0 cursor-pointer" 
                     onClick={() => onOpenTrip(trip.id)}
                   >
                     <h3 className="text-lg font-semibold truncate">{trip.name}</h3>
@@ -222,57 +238,62 @@ const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExp
                       {trip.startDate.toLocaleDateString('it-IT')}
                     </p>
                     
-                    {/* ⭐ NUOVO: Avatar Stack Collaboratori */}
-                    {showMembers && (
-                      <div className="mt-2">
-                        <MembersAvatarStack
-                          members={members}
-                          maxVisible={3}
-                          size="sm"
-                          onClick={(e) => {
-                            e?.stopPropagation();
-                            setShowMembersModal(trip);
-                          }}
-                        />
-                      </div>
-                    )}
+                    <div className="mt-2">
+                      <MembersAvatarStack
+                        members={members}
+                        maxVisible={3}
+                        size="sm"
+                        onClick={(e) => {
+                          e?.stopPropagation();
+                          setShowMembersModal(trip);
+                        }}
+                      />
+                    </div>
                   </div>
 
-                  <div className="flex flex-col gap-2 flex-shrink-0">
-                    {/* ⭐ NUOVO: Pulsante Membri (se ha collaboratori) */}
-                    {showMembers && (
+                  {/* COLONNA DESTRA: Layout fisso con costo cliccabile */}
+                  <div className="flex-shrink-0" style={{ width: '44px' }}>
+                    <div className="flex flex-col gap-2 items-end">
+                      {/* Riga 1: Costo (altezza fissa e cliccabile) */}
+                      <div className="h-5 flex items-center justify-end pr-2">
+                        {tripCost > 0 && (
+                          <span 
+                            className="text-sm text-gray-400 cursor-pointer hover:text-blue-500 hover:underline transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedTripForSummary(trip);
+                            }}
+                            title="Vedi riepilogo costi"
+                          >
+                            {Math.round(tripCost)}€
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* Riga 2: Bottone Download */}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setShowMembersModal(trip);
+                          setExportMenu({ id: trip.id, name: trip.name });
                         }}
-                        className="p-2 text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                        title="Gestisci membri"
+                        className="p-2 text-blue-500 hover:bg-blue-50 rounded-full transition-colors"
+                        title="Esporta"
                       >
-                        <Users size={20} />
+                        <Download size={20} />
                       </button>
-                    )}
-                    
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setExportMenu({ id: trip.id, name: trip.name });
-                      }}
-                      className="p-2 text-blue-500 hover:bg-blue-50 rounded-full transition-colors"
-                      title="Esporta"
-                    >
-                      <Download size={20} />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeleteConfirm({ id: trip.id, name: trip.name });
-                      }}
-                      className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors"
-                      title="Elimina"
-                    >
-                      <Trash2 size={20} />
-                    </button>
+                      
+                      {/* Riga 3: Bottone Elimina */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteConfirm({ id: trip.id, name: trip.name });
+                        }}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                        title="Elimina"
+                      >
+                        <Trash2 size={20} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

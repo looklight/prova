@@ -77,6 +77,78 @@ export const calculateTripCost = (trip) => {
   return total;
 };
 
+// 🆕 NUOVE FUNZIONI PER BREAKDOWN
+
+/**
+ * Calcola il totale da un breakdown
+ */
+export const calculateBreakdownTotal = (breakdown) => {
+  if (!breakdown || !Array.isArray(breakdown)) return 0;
+  return breakdown.reduce((sum, entry) => sum + (parseFloat(entry.amount) || 0), 0);
+};
+
+/**
+ * Ottiene tutte le spese di un utente in un viaggio
+ */
+export const getUserTripExpenses = (trip, userId) => {
+  const expenses = [];
+  
+  trip.days.forEach(day => {
+    // Controlla categorie
+    CATEGORIES.forEach(cat => {
+      if (cat.id === 'base' || cat.id === 'note') return;
+      
+      const cellData = trip.data[`${day.id}-${cat.id}`];
+      if (!cellData) return;
+      
+      // Se ha breakdown, cerca contributi utente
+      if (cellData.costBreakdown && Array.isArray(cellData.costBreakdown)) {
+        const userEntry = cellData.costBreakdown.find(e => e.userId === userId);
+        if (userEntry && userEntry.amount > 0) {
+          expenses.push({
+            dayId: day.id,
+            dayNumber: day.number,
+            category: cat.label,
+            categoryEmoji: cat.emoji,
+            amount: userEntry.amount,
+            hasBreakdown: true
+          });
+        }
+      }
+    });
+    
+    // Controlla altre spese
+    const otherExpenses = trip.data[`${day.id}-otherExpenses`];
+    if (otherExpenses && Array.isArray(otherExpenses)) {
+      otherExpenses.forEach(expense => {
+        if (expense.costBreakdown && Array.isArray(expense.costBreakdown)) {
+          const userEntry = expense.costBreakdown.find(e => e.userId === userId);
+          if (userEntry && userEntry.amount > 0) {
+            expenses.push({
+              dayId: day.id,
+              dayNumber: day.number,
+              category: expense.title || 'Altra Spesa',
+              categoryEmoji: '💸',
+              amount: userEntry.amount,
+              hasBreakdown: true
+            });
+          }
+        }
+      });
+    }
+  });
+  
+  return expenses;
+};
+
+/**
+ * Calcola il totale spese di un utente in un viaggio
+ */
+export const getUserTotalInTrip = (trip, userId) => {
+  const expenses = getUserTripExpenses(trip, userId);
+  return expenses.reduce((sum, expense) => sum + expense.amount, 0);
+};
+
 /**
  * Raggruppa costi per categoria in tutto il viaggio
  */
@@ -156,5 +228,110 @@ export const getCostStats = (trip) => {
     avgPerDay,
     costsByCategory,
     maxCategory
+  };
+};
+
+
+// Mappa categorie a gruppi (SOLO quelle con costi)
+export const CATEGORY_GROUPS = {
+  'pernottamento': ['pernottamento'],
+  'attivita': ['attivita1', 'attivita2', 'attivita3'],
+  'spostamenti': ['spostamenti1', 'spostamenti2'],
+  'ristori': ['ristori1', 'ristori2'],
+  'altri': ['other'] // Altre spese
+};
+
+// Icone per categorie aggregate
+export const CATEGORY_ICONS = {
+  'pernottamento': '🛏️',
+  'attivita': '💡',
+  'spostamenti': '🚡',
+  'ristori': '🍽️',
+  'altri': '💰'
+};
+
+// Label per categorie aggregate
+export const CATEGORY_LABELS = {
+  'pernottamento': 'Pernottamento',
+  'attivita': 'Attività',
+  'spostamenti': 'Spostamenti',
+  'ristori': 'Ristori',
+  'altri': 'Altre Spese'
+};
+
+// Calcola costi per categoria aggregata
+export const calculateCategoryGroupCost = (trip, groupKey) => {
+  let total = 0;
+  const details = [];
+
+  // Caso speciale: "altri" = altre spese
+  if (groupKey === 'altri') {
+    trip.days.forEach(day => {
+      const key = `${day.id}-otherExpenses`;
+      const expenses = trip.data[key] || [];
+      expenses.forEach(exp => {
+        const cost = parseFloat(exp.cost) || 0;
+        if (cost > 0) {
+          total += cost;
+          details.push({
+            dayNumber: day.number,
+            categoryId: 'other',
+            title: exp.title || 'Altra spesa',
+            cost: cost
+          });
+        }
+      });
+    });
+  } else {
+    // Categorie normali
+    const categoryIds = CATEGORY_GROUPS[groupKey] || [];
+    
+    trip.days.forEach(day => {
+      categoryIds.forEach(catId => {
+        const key = `${day.id}-${catId}`;
+        const cellData = trip.data[key];
+        
+        if (cellData?.cost) {
+          const cost = parseFloat(cellData.cost) || 0;
+          if (cost > 0) {
+            total += cost;
+            details.push({
+              dayNumber: day.number,
+              categoryId: catId,
+              title: cellData.title || '',
+              cost: cost
+            });
+          }
+        }
+      });
+    });
+  }
+
+  return { total, details };
+};
+
+// Calcola budget suggerito
+export const getSuggestedBudget = (trip) => {
+  const activeMembers = Object.values(trip.sharing?.members || {})
+    .filter(m => m.status === 'active').length || 1;
+  
+  const totalBudget = activeMembers * trip.days.length * 100;
+  
+  const percentages = {
+    pernottamento: 0.40,
+    ristori: 0.25,
+    spostamenti: 0.15,
+    attivita: 0.15,
+    altri: 0.05
+  };
+  
+  const categories = {};
+  Object.keys(percentages).forEach(cat => {
+    categories[cat] = Math.round(totalBudget * percentages[cat]);
+  });
+  
+  return {
+    total: totalBudget,
+    categories
   };
 };

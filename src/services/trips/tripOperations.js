@@ -33,7 +33,9 @@ export const subscribeToUserTrips = (userId, onTripsUpdate, onError) => {
     );
     
     // Listener real-time
-    const unsubscribe = onSnapshot(q, 
+    const unsubscribe = onSnapshot(
+      q,
+      { includeMetadataChanges: false },
       (snapshot) => {
         const trips = [];
         snapshot.forEach((docSnap) => {

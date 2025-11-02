@@ -102,13 +102,7 @@ const TravelPlannerApp = ({ user }) => {
     try {
       console.log('💾 Salvataggio modifiche...', updates);
       
-      // ⭐ Aggiornamento ottimistico LOCALE per UI immediata
-      // Usa setTrips con callback per avere sempre lo stato più fresco
-      setTrips(prevTrips => 
-        prevTrips.map(t => 
-          t.id === currentTripId ? { ...t, ...updates } : t
-        )
-      );
+     
       
       // Salva su Firestore in background
       await updateTrip(user.uid, currentTripId, updates);

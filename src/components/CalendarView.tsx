@@ -302,7 +302,6 @@ const CalendarView = ({ trip, onUpdateTrip, onBack, onOpenDay, scrollToDayId, sa
   mode="edit"
   onInviteClick={() => setShowInviteModal(true)}
 />
-```
 
       <div className="bg-white px-2 py-4 shadow-sm sticky top-0 z-20">
         <div className="flex items-center justify-between mb-2">

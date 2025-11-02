@@ -40,30 +40,16 @@ const InvitationsNotifications: React.FC<InvitationsNotificationsProps> = ({
     currentUser.uid,
     async (updatedInvitations) => {
       console.log(`📨 Inviti ricevuti: ${updatedInvitations.length}`);
-      
-      // ⭐ Filtra e cancella inviti scaduti
+    
+      // ✅ Filtra solo inviti validi (non cancellare)
       const now = new Date();
-      const validInvitations = [];
-      
-      for (const invitation of updatedInvitations) {
-        // Gestisci diversi formati di data
+      const validInvitations = updatedInvitations.filter(invitation => {
         const expiresAt = invitation.expiresAt instanceof Date 
           ? invitation.expiresAt 
           : invitation.expiresAt?.toDate?.() || new Date(invitation.expiresAt);
         
-        const isExpired = expiresAt < now;
-        
-        if (isExpired) {
-          // Cancella inviti scaduti in background (non bloccare l'UI)
-          console.log('🗑️ Eliminazione invito scaduto:', invitation.id);
-          deleteInvitation(invitation.tripId, invitation.id).catch(err => {
-            console.error('❌ Errore eliminazione invito scaduto:', err);
-          });
-        } else {
-          // Mantieni solo inviti validi
-          validInvitations.push(invitation);
-        }
-      }
+        return expiresAt > now;
+      });
       
       setInvitations(validInvitations);
     },
