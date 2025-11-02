@@ -1,7 +1,7 @@
 // src/config/imageConfig.js
 
 /**
- * Configurazione centralizzata per compressione immagini
+ * Configurazione centralizzata per compressione immagini usate nell'applicazione.
  */
 export const IMAGE_COMPRESSION = {
   // Avatar profilo utente
