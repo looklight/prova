@@ -133,46 +133,47 @@ export const getInviteDetails = async (token) => {
  */
 export const acceptInviteLink = async (token, userId, userProfile) => {
   try {
+    console.log('🔍 STEP 1: Validazione token...');
     // Valida token
     const invite = await getInviteDetails(token);
+    console.log('✅ STEP 1: Token valido', invite);
     
-    // Carica viaggio
+    console.log('🔍 STEP 2: Preparazione update...');
     const tripRef = doc(db, 'trips', invite.tripId);
-    const tripSnap = await getDoc(tripRef);
     
-    if (!tripSnap.exists()) {
-      throw new Error('Viaggio non trovato');
-    }
+    // ⭐ Non leggiamo il viaggio - aggiorniamo direttamente
+    // Le regole Firestore verificheranno che l'utente non sia già membro
     
-    const trip = tripSnap.data();
-    
-    // Verifica che l'utente non sia già membro
-    if (trip.sharing?.memberIds?.includes(userId)) {
-      throw new Error('Sei già membro di questo viaggio');
-    }
-    
-    // Aggiungi membro al viaggio
-    await updateDoc(tripRef, {
+    const updateData = {
       'sharing.memberIds': arrayUnion(userId),
       [`sharing.members.${userId}`]: {
         role: 'member',
         status: 'active',
         addedAt: new Date(),
         addedBy: invite.invitedBy,
-        joinedVia: 'link', // ⭐ Traccia origine
+        joinedVia: 'link',
         displayName: userProfile.displayName || 'Utente',
         username: userProfile.username || null,
         avatar: userProfile.avatar || null
       },
       'updatedAt': new Date()
-    });
+    };
+    
+    console.log('✅ STEP 2: Dati preparati', updateData);
+    console.log('🔍 STEP 3: Esecuzione updateDoc...');
+    
+    await updateDoc(tripRef, updateData);
+    
+    console.log('✅ STEP 3: Update completato!');
     
     // Aggiorna invito (tracking utilizzo)
+    console.log('🔍 STEP 4: Aggiornamento tracking invito...');
     const inviteRef = doc(db, 'invites', token);
     await updateDoc(inviteRef, {
       usedBy: arrayUnion(userId)
     });
     
+    console.log('✅ STEP 4: Tracking completato!');
     console.log(`✅ Invito accettato tramite link: ${userProfile.username || userProfile.displayName}`);
     
     return {
@@ -181,6 +182,8 @@ export const acceptInviteLink = async (token, userId, userProfile) => {
     };
   } catch (error) {
     console.error('❌ Errore accettazione invito:', error);
+    console.error('❌ Error code:', error.code);
+    console.error('❌ Error message:', error.message);
     throw error;
   }
 };
