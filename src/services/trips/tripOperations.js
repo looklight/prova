@@ -11,7 +11,8 @@ import {
   where,
   orderBy,
   onSnapshot,
-  arrayRemove
+  arrayRemove,
+  writeBatch
 } from 'firebase/firestore';
 import { getUserRole, canEdit } from './permissions';
 
@@ -319,3 +320,52 @@ export const loadTrip = async (userId, tripId) => {
   }
 };
 
+// 🆕 Aggiorna profilo utente in tutti i viaggi condivisi
+export const updateUserProfileInTrips = async (userId, updates) => {
+  try {
+    const tripsRef = collection(db, 'trips');
+    
+    // ✅ Query corretta: cerca dove userId è nell'array memberIds
+    const q = query(
+      tripsRef,
+      where('sharing.memberIds', 'array-contains', userId)
+    );
+    
+    const snapshot = await getDocs(q);
+    
+    const batch = writeBatch(db);
+    let updatedCount = 0;
+    
+    snapshot.docs.forEach((docSnap) => {
+      const data = docSnap.data();
+      const member = data.sharing?.members?.[userId];
+      
+      // ✅ Aggiorna solo se membro è attivo
+      if (member && member.status === 'active') {
+        const tripRef = docSnap.ref;
+        const updatePath = { updatedAt: new Date() };
+        
+        if (updates.displayName !== undefined) {
+          updatePath[`sharing.members.${userId}.displayName`] = updates.displayName;
+        }
+        if (updates.username !== undefined) {
+          updatePath[`sharing.members.${userId}.username`] = updates.username;
+        }
+        if (updates.avatar !== undefined) {
+          updatePath[`sharing.members.${userId}.avatar`] = updates.avatar;
+        }
+        
+        batch.update(tripRef, updatePath);
+        updatedCount++;
+      }
+    });
+    
+    await batch.commit();
+    
+    console.log(`✅ Profilo aggiornato in ${updatedCount} viaggi`);
+    return updatedCount;
+  } catch (error) {
+    console.error('❌ Errore aggiornamento profilo nei viaggi:', error);
+    throw error;
+  }
+};

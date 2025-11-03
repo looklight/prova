@@ -1,0 +1,242 @@
+// services/invites/linkInvites.js
+import { db } from '../../firebase';
+import {
+  collection,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  arrayUnion,
+  query,
+  where,
+  getDocs,
+  deleteDoc
+} from 'firebase/firestore';
+
+/**
+ * Genera un token univoco per il link invito
+ */
+const generateToken = () => {
+  // Genera token casuale (16 caratteri)
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let token = '';
+  for (let i = 0; i < 16; i++) {
+    token += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return token;
+};
+
+/**
+ * Genera link invito per un viaggio
+ * Invalida eventuali link precedenti attivi
+ */
+export const generateInviteLink = async (tripId, userId) => {
+  try {
+    // Carica info viaggio
+    const tripRef = doc(db, 'trips', String(tripId));
+    const tripSnap = await getDoc(tripRef);
+    
+    if (!tripSnap.exists()) {
+      throw new Error('Viaggio non trovato');
+    }
+    
+    const trip = tripSnap.data();
+    
+    // Verifica che l'utente sia owner
+    const userInfo = trip.sharing?.members?.[userId];
+    if (!userInfo || userInfo.role !== 'owner') {
+      throw new Error('Solo il proprietario può generare link invito');
+    }
+    
+    // Invalida link precedenti per questo viaggio
+    const invitesRef = collection(db, 'invites');
+    const oldLinksQuery = query(
+      invitesRef,
+      where('tripId', '==', String(tripId)),
+      where('status', '==', 'active')
+    );
+    const oldLinksSnap = await getDocs(oldLinksQuery);
+    
+    const batch = [];
+    oldLinksSnap.forEach(docSnap => {
+      batch.push(updateDoc(docSnap.ref, { status: 'expired' }));
+    });
+    await Promise.all(batch);
+    
+    console.log(`🔗 Invalidati ${batch.length} link precedenti`);
+    
+    // Genera nuovo token
+    const token = generateToken();
+    const inviteRef = doc(db, 'invites', token);
+    
+    // Crea invito
+    const inviteData = {
+      token,
+      tripId: String(tripId),
+      tripName: trip.metadata?.name || trip.name || 'Viaggio',
+      tripImage: trip.metadata?.image || trip.image || null,
+      invitedBy: userId,
+      invitedByName: userInfo.displayName || 'Owner',
+      createdAt: new Date(),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 giorni
+      status: 'active',
+      usedBy: []
+    };
+    
+    await setDoc(inviteRef, inviteData);
+    
+    console.log('✅ Link invito generato:', token);
+    return token;
+  } catch (error) {
+    console.error('❌ Errore generazione link:', error);
+    throw error;
+  }
+};
+
+/**
+ * Valida un token invito e restituisce i dettagli
+ */
+export const getInviteDetails = async (token) => {
+  try {
+    const inviteRef = doc(db, 'invites', token);
+    const inviteSnap = await getDoc(inviteRef);
+    
+    if (!inviteSnap.exists()) {
+      throw new Error('Link invito non valido');
+    }
+    
+    const invite = inviteSnap.data();
+    
+    // Converti timestamp
+    const expiresAt = invite.expiresAt?.toDate?.() ?? new Date(invite.expiresAt);
+    const createdAt = invite.createdAt?.toDate?.() ?? new Date(invite.createdAt);
+    
+    // Verifica scadenza
+    if (expiresAt < new Date() || invite.status !== 'active') {
+      throw new Error('Link invito scaduto');
+    }
+    
+    return {
+      ...invite,
+      expiresAt,
+      createdAt
+    };
+  } catch (error) {
+    console.error('❌ Errore validazione link:', error);
+    throw error;
+  }
+};
+
+/**
+ * Accetta invito tramite link
+ * Aggiunge l'utente come member al viaggio
+ */
+export const acceptInviteLink = async (token, userId, userProfile) => {
+  try {
+    // Valida token
+    const invite = await getInviteDetails(token);
+    
+    // Carica viaggio
+    const tripRef = doc(db, 'trips', invite.tripId);
+    const tripSnap = await getDoc(tripRef);
+    
+    if (!tripSnap.exists()) {
+      throw new Error('Viaggio non trovato');
+    }
+    
+    const trip = tripSnap.data();
+    
+    // Verifica che l'utente non sia già membro
+    if (trip.sharing?.memberIds?.includes(userId)) {
+      throw new Error('Sei già membro di questo viaggio');
+    }
+    
+    // Aggiungi membro al viaggio
+    await updateDoc(tripRef, {
+      'sharing.memberIds': arrayUnion(userId),
+      [`sharing.members.${userId}`]: {
+        role: 'member',
+        status: 'active',
+        addedAt: new Date(),
+        addedBy: invite.invitedBy,
+        joinedVia: 'link', // ⭐ Traccia origine
+        displayName: userProfile.displayName || 'Utente',
+        username: userProfile.username || null,
+        avatar: userProfile.avatar || null
+      },
+      'updatedAt': new Date()
+    });
+    
+    // Aggiorna invito (tracking utilizzo)
+    const inviteRef = doc(db, 'invites', token);
+    await updateDoc(inviteRef, {
+      usedBy: arrayUnion(userId)
+    });
+    
+    console.log(`✅ Invito accettato tramite link: ${userProfile.username || userProfile.displayName}`);
+    
+    return {
+      tripId: invite.tripId,
+      tripName: invite.tripName
+    };
+  } catch (error) {
+    console.error('❌ Errore accettazione invito:', error);
+    throw error;
+  }
+};
+
+/**
+ * Ottieni link attivo per un viaggio (se esiste)
+ */
+export const getActiveInviteLink = async (tripId) => {
+  try {
+    const invitesRef = collection(db, 'invites');
+    const q = query(
+      invitesRef,
+      where('tripId', '==', String(tripId)),
+      where('status', '==', 'active')
+    );
+    
+    const snapshot = await getDocs(q);
+    
+    if (snapshot.empty) {
+      return null;
+    }
+    
+    // Prendi il primo (dovrebbe essercene solo uno)
+    const invite = snapshot.docs[0].data();
+    const expiresAt = invite.expiresAt?.toDate?.() ?? new Date(invite.expiresAt);
+    
+    // Verifica scadenza
+    if (expiresAt < new Date()) {
+      // Invalida se scaduto
+      await updateDoc(snapshot.docs[0].ref, { status: 'expired' });
+      return null;
+    }
+    
+    return {
+      ...invite,
+      expiresAt,
+      createdAt: invite.createdAt?.toDate?.() ?? new Date(invite.createdAt)
+    };
+  } catch (error) {
+    console.error('❌ Errore caricamento link attivo:', error);
+    return null;
+  }
+};
+
+/**
+ * Invalida manualmente un link invito
+ */
+export const invalidateInviteLink = async (token) => {
+  try {
+    const inviteRef = doc(db, 'invites', token);
+    await updateDoc(inviteRef, {
+      status: 'expired'
+    });
+    console.log('🗑️ Link invito invalidato:', token);
+  } catch (error) {
+    console.error('❌ Errore invalidazione link:', error);
+    throw error;
+  }
+};

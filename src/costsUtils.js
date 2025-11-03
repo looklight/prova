@@ -315,7 +315,7 @@ export const getSuggestedBudget = (trip) => {
   const activeMembers = Object.values(trip.sharing?.members || {})
     .filter(m => m.status === 'active').length || 1;
   
-  const totalBudget = activeMembers * trip.days.length * 100;
+  const totalBudget = activeMembers * trip.days.length * 150;
   
   const percentages = {
     pernottamento: 0.40,

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronLeft, User, Camera, Loader, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
-import { loadUserProfile, updateUserProfile, resizeAndUploadImage, checkUsernameExists, isValidUsername } from "../services";
+import { loadUserProfile, updateUserProfile, resizeAndUploadImage, checkUsernameExists, isValidUsername, updateUserProfileInTrips } from "../services";
 import { IMAGE_COMPRESSION } from '../config/imageConfig';
 
 const ProfileView = ({ onBack, user, trips = [] }) => {
@@ -16,7 +16,7 @@ const ProfileView = ({ onBack, user, trips = [] }) => {
   useEffect(() => {
     const loadProfile = async () => {
       if (!user) return;
-      
+
       try {
         setLoading(true);
         const userProfile = await loadUserProfile(user.uid, user.email);
@@ -33,32 +33,38 @@ const ProfileView = ({ onBack, user, trips = [] }) => {
   }, [user]);
 
   // Handler avatar upload
-const handleAvatarUpload = async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  
-  try {
-    setUploadingAvatar(true);
-    
-const avatarURL = await resizeAndUploadImage(
-  file,
-  `avatars/${user.uid}`,
-  IMAGE_COMPRESSION.avatar.maxWidth,   // ← Esplicito da config
-  IMAGE_COMPRESSION.avatar.maxHeight,
-  IMAGE_COMPRESSION.avatar.quality
-);
-    
-    setProfile({ ...profile, avatar: avatarURL });
-    await updateUserProfile(user.uid, { avatar: avatarURL });
-    
-    console.log('✅ Avatar aggiornato');
-  } catch (error) {
-    console.error('Errore upload avatar:', error);
-    alert('Errore nel caricamento dell\'immagine');
-  } finally {
-    setUploadingAvatar(false);
-  }
-};
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      setUploadingAvatar(true);
+
+      const avatarURL = await resizeAndUploadImage(
+        file,
+        `avatars/${user.uid}`,
+        IMAGE_COMPRESSION.avatar.maxWidth,
+        IMAGE_COMPRESSION.avatar.maxHeight,
+        IMAGE_COMPRESSION.avatar.quality
+      );
+
+      // Aggiorna stato locale
+      setProfile({ ...profile, avatar: avatarURL });
+
+      // Aggiorna profilo utente
+      await updateUserProfile(user.uid, { avatar: avatarURL });
+
+      // 🆕 Aggiorna avatar in tutti i viaggi condivisi
+      await updateUserProfileInTrips(user.uid, { avatar: avatarURL });
+
+      console.log('✅ Avatar aggiornato ovunque');
+    } catch (error) {
+      console.error('Errore upload avatar:', error);
+      alert('Errore nel caricamento dell\'immagine');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const handleLogout = async () => {
     if (confirm('Vuoi davvero uscire?')) {
@@ -124,14 +130,14 @@ const avatarURL = await resizeAndUploadImage(
               className="hidden"
               disabled={uploadingAvatar}
             />
-            <label 
-              htmlFor="avatar-upload" 
+            <label
+              htmlFor="avatar-upload"
               className={`cursor-pointer block relative group ${uploadingAvatar ? 'opacity-50' : ''}`}
             >
               {profile.avatar ? (
-                <img 
-                  src={profile.avatar} 
-                  alt="Avatar" 
+                <img
+                  src={profile.avatar}
+                  alt="Avatar"
                   className="w-24 h-24 rounded-full object-cover border-2 border-gray-200"
                 />
               ) : (
@@ -143,7 +149,7 @@ const avatarURL = await resizeAndUploadImage(
                   )}
                 </div>
               )}
-              
+
               {/* Hint cambio foto */}
               {!uploadingAvatar && (
                 <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 rounded-full flex items-center justify-center transition-all">
@@ -156,12 +162,12 @@ const avatarURL = await resizeAndUploadImage(
           {/* Nome e Username */}
           <h2 className="text-lg font-bold text-gray-900 mb-1">{profile.displayName}</h2>
           <p className="text-sm text-gray-500 mb-3">@{profile.username}</p>
-          
+
           {/* Data iscrizione */}
           <p className="text-xs text-gray-400">
-            ✈️ Membro da {new Date(profile.createdAt).toLocaleDateString('it-IT', { 
-              month: 'long', 
-              year: 'numeric' 
+            ✈️ Membro da {new Date(profile.createdAt).toLocaleDateString('it-IT', {
+              month: 'long',
+              year: 'numeric'
             })}
           </p>
 
@@ -200,7 +206,7 @@ const avatarURL = await resizeAndUploadImage(
           </h3>
           <div className="space-y-1 text-sm text-gray-600">
             <p>Versione 1.0.0</p>
-            
+
           </div>
         </div>
 
@@ -223,12 +229,15 @@ const avatarURL = await resizeAndUploadImage(
             try {
               // Aggiorna localmente
               setProfile({ ...profile, ...updates });
-              
-              // Salva su Firestore
+
+              // Salva su Firestore (profilo utente)
               await updateUserProfile(user.uid, updates);
-              
+
+              // 🆕 Aggiorna in tutti i viaggi condivisi
+              await updateUserProfileInTrips(user.uid, updates);
+
               setShowEditModal(false);
-              console.log('✅ Profilo aggiornato');
+              console.log('✅ Profilo aggiornato ovunque');
             } catch (error) {
               console.error('Errore aggiornamento profilo:', error);
               alert('Errore nel salvataggio');
@@ -245,7 +254,7 @@ const ProfileEditModal = ({ profile, onClose, onSave, userId }) => {
   const [displayName, setDisplayName] = useState(profile.displayName);
   const [username, setUsername] = useState(profile.username);
   const [saving, setSaving] = useState(false);
-  
+
   // ⭐ Stati per validazione username
   const [usernameStatus, setUsernameStatus] = useState('idle'); // 'idle' | 'checking' | 'valid' | 'invalid' | 'taken'
   const [usernameError, setUsernameError] = useState('');
@@ -383,17 +392,16 @@ const ProfileEditModal = ({ profile, onClose, onSave, userId }) => {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="mariorossi"
-                className={`w-full pl-8 pr-12 py-3 border-2 rounded-xl focus:outline-none transition-colors ${
-                  usernameStatus === 'valid' ? 'border-green-300 focus:border-green-500' :
+                className={`w-full pl-8 pr-12 py-3 border-2 rounded-xl focus:outline-none transition-colors ${usernameStatus === 'valid' ? 'border-green-300 focus:border-green-500' :
                   usernameStatus === 'invalid' || usernameStatus === 'taken' ? 'border-red-300 focus:border-red-500' :
-                  'border-gray-200 focus:border-blue-500'
-                }`}
+                    'border-gray-200 focus:border-blue-500'
+                  }`}
               />
               <div className="absolute right-4 top-1/2 -translate-y-1/2">
                 {getUsernameIcon()}
               </div>
             </div>
-            
+
             {/* Messaggi di stato */}
             {usernameStatus === 'checking' && (
               <p className="text-xs text-gray-500 mt-1.5 flex items-center gap-1">
@@ -419,7 +427,7 @@ const ProfileEditModal = ({ profile, onClose, onSave, userId }) => {
                 {usernameError}
               </p>
             )}
-            
+
             <p className="text-xs text-gray-500 mt-1.5">3-20 caratteri: lettere, numeri e underscore</p>
           </div>
         </div>

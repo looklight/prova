@@ -19,6 +19,7 @@ export {
   leaveTrip,
   deleteTripForUser,
   loadTrip,
+  updateUserProfileInTrips
 } from './tripOperations';
 
 // Gestione membri

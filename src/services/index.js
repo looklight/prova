@@ -19,6 +19,7 @@ export {
   leaveTrip,
   deleteTripForUser,
   loadTrip,
+  updateUserProfileInTrips
 } from './trips/tripOperations';
 
 // Gestione membri
@@ -37,6 +38,15 @@ export {
   subscribeToPendingInvitations,
   deleteInvitation
 } from './trips/invitations';
+
+// Export link invites
+export {
+  generateInviteLink,
+  getInviteDetails,
+  acceptInviteLink,
+  getActiveInviteLink,
+  invalidateInviteLink
+} from './invites/linkInvites';
 
 // Media service
 export * from './mediaService';

@@ -16,9 +16,9 @@ export const TRANSPORT_OPTIONS = [
   { value: 'taxi', emoji: '🚕', label: 'Taxi' },
   { value: 'plane', emoji: '✈️', label: 'Aereo' },
   { value: 'train', emoji: '🚂', label: 'Treno' },
+  { value: 'default', emoji: '❌', label: 'Nessuno' }, // ← Torna al Default
   { value: 'bus', emoji: '🚌', label: 'Bus' },
   { value: 'ship', emoji: '⛴️', label: 'Nave' },
   { value: 'bike', emoji: '🚲', label: 'Bici' },
-  { value: 'walk', emoji: '🚶', label: 'A piedi' },
-  { value: 'none', emoji: '⁃', label: 'Nessuno' }
+  { value: 'walk', emoji: '🚶', label: 'A piedi' }
 ];

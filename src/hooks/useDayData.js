@@ -39,7 +39,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
     }));
   });
 
-  // Aggiorna quando cambiano trip o currentDay
+  // Aggiorna quando cambia currentDay
   useEffect(() => {
     const data = {};
     
@@ -63,7 +63,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
     });
     
     setCategoryData(data);
-  }, [trip, currentDay]);
+  }, [currentDay.id, trip.data]);
 
   useEffect(() => {
     const key = `${currentDay.id}-otherExpenses`;
@@ -78,8 +78,9 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
     }));
     
     setOtherExpenses(expensesWithBreakdown);
-  }, [trip, currentDay]);
+  }, [currentDay.id, trip.data]);
 
+  // 🆕 AGGIORNATO: Update categoria con auto-assegnazione
   const updateCategory = (catId, field, value) => {
     const key = `${currentDay.id}-${catId}`;
     const currentData = trip.data[key] || {};
@@ -89,27 +90,34 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
       [field]: value
     };
 
+    // 🆕 AUTO-ASSEGNAZIONE: Quando si modifica 'cost', crea/aggiorna breakdown
     if (field === 'cost' && value !== undefined) {
       const amount = parseFloat(value) || 0;
       
       if (amount > 0) {
+        // Crea breakdown automaticamente associato all'utente corrente
         updatedCellData.costBreakdown = [
           { userId: currentUserId, amount: amount }
         ];
-        updatedCellData.hasSplitCost = false;
+        updatedCellData.hasSplitCost = false; // Solo 1 utente
       } else {
+        // Se costo = 0 o vuoto, rimuovi breakdown
         updatedCellData.costBreakdown = null;
         updatedCellData.hasSplitCost = false;
         updatedCellData.cost = '';
       }
     }
 
+    // 🆕 Ricalcola hasSplitCost e totale quando si aggiorna costBreakdown
     if (field === 'costBreakdown') {
       if (Array.isArray(value) && value.length > 0) {
         updatedCellData.hasSplitCost = value.length > 1;
+        
+        // Ricalcola totale
         const total = value.reduce((sum, entry) => sum + entry.amount, 0);
         updatedCellData.cost = total.toString();
       } else {
+        // Se breakdown viene cancellato
         updatedCellData.costBreakdown = null;
         updatedCellData.hasSplitCost = false;
       }
@@ -125,9 +133,11 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
 
   const updateOtherExpense = (expenseId, field, value) => {
     const key = `${currentDay.id}-otherExpenses`;
-    const expenses = trip.data[key] || [];
     
-    const updated = expenses.map(exp => {
+    // 🆕 Ottieni expenses dallo stato locale, non da trip
+    const currentExpenses = [...otherExpenses];
+    
+    const updated = currentExpenses.map(exp => {
       if (exp.id !== expenseId) return exp;
       
       let updatedExpense = {
@@ -164,29 +174,49 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
       return updatedExpense;
     });
     
+    // 🆕 Aggiorna subito lo stato locale
+    setOtherExpenses(updated);
+    
+    // 🆕 Aggiorna Firebase con i dati corretti
+    const updatedData = {
+      ...trip.data,
+      [key]: updated
+    };
+    
     onUpdateTrip({
       ...trip,
-      data: { ...trip.data, [key]: updated }
+      data: updatedData
     });
   };
 
+  // 🆕 FIX: removeOtherExpense con stato locale
   const removeOtherExpense = (expenseId) => {
     const key = `${currentDay.id}-otherExpenses`;
-    const expenses = trip.data[key] || [];
+    const currentExpenses = [...otherExpenses];
     
-    if (expenses.length === 1) {
-      const updated = [{ id: Date.now(), title: '', cost: '', costBreakdown: null, hasSplitCost: false }];
-      onUpdateTrip({
-        ...trip,
-        data: { ...trip.data, [key]: updated }
-      });
+    let updated;
+    
+    if (currentExpenses.length === 1) {
+      // Se è l'unica spesa, resettala invece di rimuoverla
+      updated = [{ id: Date.now(), title: '', cost: '', costBreakdown: null, hasSplitCost: false }];
     } else {
-      const updated = expenses.filter(exp => exp.id !== expenseId);
-      onUpdateTrip({
-        ...trip,
-        data: { ...trip.data, [key]: updated }
-      });
+      // Rimuovi la spesa
+      updated = currentExpenses.filter(exp => exp.id !== expenseId);
     }
+    
+    // Aggiorna lo stato locale
+    setOtherExpenses(updated);
+    
+    // Aggiorna Firebase
+    const updatedData = {
+      ...trip.data,
+      [key]: updated
+    };
+    
+    onUpdateTrip({
+      ...trip,
+      data: updatedData
+    });
   };
 
   return {

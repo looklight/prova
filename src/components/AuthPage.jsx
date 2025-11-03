@@ -49,6 +49,14 @@ const AuthPage = ({ onAuthSuccess }) => {
         await createUserWithEmailAndPassword(auth, email, password);
       }
       
+      // ⭐ Controlla se c'è un invite token salvato
+      const inviteToken = sessionStorage.getItem('inviteToken');
+      if (inviteToken) {
+        console.log('🔗 Token invito trovato, redirect dopo login');
+        // Il redirect path è già impostato da InviteHandler
+        // App.jsx gestirà il redirect automaticamente
+      }
+      
       // Successo - il componente padre gestirà il redirect
       onAuthSuccess();
     } catch (err) {
@@ -70,6 +78,9 @@ const AuthPage = ({ onAuthSuccess }) => {
           break;
         case 'auth/weak-password':
           setError('Password troppo debole (minimo 6 caratteri)');
+          break;
+        case 'auth/invalid-credential':
+          setError('Credenziali non valide');
           break;
         default:
           setError('Errore durante l\'autenticazione. Riprova.');

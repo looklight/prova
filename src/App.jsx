@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import TravelPlannerApp from "./components/TravelPlanner";
 import AuthPage from "./components/AuthPage";
+import InviteHandler from "./components/InviteHandler";
 import { auth } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { loadUserProfile } from './services';
@@ -25,19 +26,18 @@ function AppContent() {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       console.log('👤 Utente corrente:', currentUser);
       setUser(currentUser);
-      
+
       // Carica profilo utente se loggato
       if (currentUser) {
         try {
-          const profile = await loadUserProfile(currentUser.uid);
+          const profile = await loadUserProfile(currentUser.uid, currentUser.email);
           setUserProfile(profile);
-          
+
           // ⭐ Controlla se c'è un redirect da fare dopo login
           const redirectPath = sessionStorage.getItem('redirectAfterLogin');
           if (redirectPath && redirectPath !== '/') {
             console.log('🔗 Redirect dopo login a:', redirectPath);
             sessionStorage.removeItem('redirectAfterLogin');
-            
             // Aspetta un attimo per assicurarsi che il profilo sia caricato
             setTimeout(() => {
               navigate(redirectPath);
@@ -49,7 +49,7 @@ function AppContent() {
       } else {
         setUserProfile(null);
       }
-      
+
       setLoading(false);
     });
 
@@ -77,6 +77,21 @@ function AppContent() {
           ) : (
             <AuthPage onAuthSuccess={() => console.log('Login effettuato!')} />
           )
+        } 
+      />
+
+      {/* ⭐ NUOVA ROUTE: Gestione inviti via link */}
+      <Route 
+        path="/invite/:token" 
+        element={
+          <InviteHandler 
+            userProfile={userProfile && user ? {
+              uid: user.uid,
+              displayName: userProfile.displayName,
+              username: userProfile.username,
+              avatar: userProfile.avatar
+            } : undefined}
+          />
         } 
       />
 

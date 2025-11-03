@@ -34,6 +34,9 @@ const BudgetView: React.FC<BudgetViewProps> = ({ trip, onUpdateTrip }) => {
   const remaining = totalBudget - totalSpent;
   const percentageSpent = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
+  // ⭐ Calcola numero giorni
+  const numberOfDays = trip.days?.length || 0;
+
   // Gestione edit
   const handleStartEdit = (category: string) => {
     setEditingCategory(category);
@@ -64,7 +67,9 @@ const BudgetView: React.FC<BudgetViewProps> = ({ trip, onUpdateTrip }) => {
       {/* Header con totale */}
       <div className="bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-xl shadow-lg p-6">
         <div className="text-center mb-4">
-          <p className="text-sm opacity-90 mb-1">Budget Totale</p>
+          <p className="text-sm opacity-90 mb-1">
+            Budget Totale per {numberOfDays} {numberOfDays === 1 ? 'giorno' : 'giorni'}
+          </p>
           <p className="text-4xl font-bold">{Math.round(totalBudget)}€</p>
         </div>
         
