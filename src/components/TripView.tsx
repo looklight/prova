@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Calendar } from 'lucide-react';
 import CalendarView from './CalendarView';
 import DayDetailView from './DayDetail/DayDetailView';
-import InviteMembersModal from './InviteMembersModal';
 import { UserPlus } from 'lucide-react';
 
 const useMediaQuery = (query) => {
@@ -89,13 +88,6 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
             isDesktop={false}
             user={currentUser}
           />
-          
-          <InviteMembersModal
-            isOpen={showInviteModal}
-            onClose={() => setShowInviteModal(false)}
-            trip={trip}
-            currentUser={currentUser}
-          />
         </>
       );
     }
@@ -114,13 +106,6 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
           selectedDayIndex={selectedDayIndex}
           currentUser={currentUser}
           onInviteClick={() => setShowInviteModal(true)}
-        />
-        
-        <InviteMembersModal
-          isOpen={showInviteModal}
-          onClose={() => setShowInviteModal(false)}
-          trip={trip}
-          currentUser={currentUser}
         />
       </>
     );
@@ -168,13 +153,6 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
           </div>
         )}
       </div>
-
-      <InviteMembersModal
-        isOpen={showInviteModal}
-        onClose={() => setShowInviteModal(false)}
-        trip={trip}
-        currentUser={currentUser}
-      />
     </div>
   );
 };

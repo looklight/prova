@@ -15,6 +15,7 @@ import {
   onSnapshot,
   arrayUnion
 } from 'firebase/firestore';
+import { createUsernameInviteAcceptedNotification } from '../notifications/inviteNotifications';
 
 /**
  * Invita un utente a unirsi al viaggio (ruolo: member)
@@ -116,6 +117,14 @@ export const acceptInvitation = async (invitationId, tripId, userId, userProfile
       status: 'accepted',
       acceptedAt: new Date()
     });
+
+    // ⭐ NUOVO: Crea notifica per owner
+    await createUsernameInviteAcceptedNotification(
+      invite.invitedBy,      // Owner che ha invitato
+      tripId,
+      invite.tripName,       // Nome viaggio dall'invito
+      userProfile            // Chi ha accettato
+    );
 
     console.log(`✅ Invito accettato: ${userProfile.username || userProfile.displayName} come member`);
   } catch (error) {

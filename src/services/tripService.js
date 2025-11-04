@@ -1,19 +1,20 @@
 import { db } from '../firebase';
-import { 
-  collection, 
+import {
+  collection,
   collectionGroup,
-  doc, 
-  getDoc, 
-  getDocs, 
-  setDoc, 
-  updateDoc, 
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  updateDoc,
   deleteDoc,
   query,
   where,
   orderBy,
   onSnapshot,
   arrayUnion,
-  arrayRemove
+  arrayRemove,
+  writeBatch
 } from 'firebase/firestore';
 
 // ============= FUNZIONI HELPER PER PERMESSI =============
@@ -26,18 +27,18 @@ export const getUserRole = async (tripId, userId) => {
   try {
     const tripRef = doc(db, 'trips', tripId.toString());
     const tripSnap = await getDoc(tripRef);
-    
+
     if (!tripSnap.exists()) {
       return null;
     }
-    
+
     const trip = tripSnap.data();
     const member = trip.sharing?.members?.[userId];
-    
+
     if (!member || member.status !== 'active') {
       return null;
     }
-    
+
     return member.role;
   } catch (error) {
     console.error('❌ Errore verifica ruolo:', error);
@@ -78,21 +79,21 @@ export const isActiveMember = async (tripId, userId) => {
 export const subscribeToUserTrips = (userId, onTripsUpdate, onError) => {
   try {
     const tripsRef = collection(db, 'trips');
-    
+
     // ⭐ Query: viaggi dove l'utente è membro
     const q = query(
       tripsRef,
       where('sharing.memberIds', 'array-contains', userId),
       orderBy('createdAt', 'desc')
     );
-    
+
     // Listener real-time
-    const unsubscribe = onSnapshot(q, 
+    const unsubscribe = onSnapshot(q,
       (snapshot) => {
         const trips = [];
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
-          
+
           // ⭐ Filtra solo membri con status 'active'
           const member = data.sharing?.members?.[userId];
           if (member && member.status === 'active') {
@@ -110,7 +111,7 @@ export const subscribeToUserTrips = (userId, onTripsUpdate, onError) => {
             });
           }
         });
-        
+
         console.log('🔄 Viaggi aggiornati in tempo reale:', trips.length);
         onTripsUpdate(trips);
       },
@@ -119,7 +120,7 @@ export const subscribeToUserTrips = (userId, onTripsUpdate, onError) => {
         if (onError) onError(error);
       }
     );
-    
+
     return unsubscribe;
   } catch (error) {
     console.error('❌ Errore sottoscrizione viaggi:', error);
@@ -135,7 +136,7 @@ export const subscribeToUserTrips = (userId, onTripsUpdate, onError) => {
 export const createTrip = async (trip, userProfile) => {
   try {
     const tripRef = doc(db, 'trips', trip.id.toString());
-    
+
     // ⭐ Prepara metadata
     const metadata = trip.metadata || {
       name: trip.name || 'Nuovo Viaggio',
@@ -143,7 +144,7 @@ export const createTrip = async (trip, userProfile) => {
       destinations: [],
       description: ''
     };
-    
+
     // ⭐ Prepara sharing con owner come primo membro
     const sharing = {
       memberIds: [userProfile.uid],  // Array per query
@@ -161,7 +162,7 @@ export const createTrip = async (trip, userProfile) => {
       invitations: {},
       shareLink: null
     };
-    
+
     const tripData = {
       ...trip,
       metadata,
@@ -178,7 +179,7 @@ export const createTrip = async (trip, userProfile) => {
         date: day.date
       }))
     };
-    
+
     await setDoc(tripRef, tripData);
     console.log('✅ Viaggio creato in /trips:', trip.id);
     return trip;
@@ -215,15 +216,15 @@ export const updateTrip = async (userId, tripId, updates) => {
     if (!hasPermission) {
       throw new Error('Non hai i permessi per modificare questo viaggio');
     }
-    
+
     const tripRef = doc(db, 'trips', tripId.toString());
-    
+
     // Prepara i dati da salvare
     const updateData = {
       ...updates,
       updatedAt: new Date()
     };
-    
+
     // Se ci sono days, assicurati che siano formattati correttamente
     if (updates.days) {
       updateData.days = updates.days.map(day => ({
@@ -231,16 +232,16 @@ export const updateTrip = async (userId, tripId, updates) => {
         date: day.date
       }));
     }
-    
+
     // Verifica se il documento esiste
     const docSnap = await getDoc(tripRef);
-    
+
     if (docSnap.exists()) {
       await updateDoc(tripRef, updateData);
     } else {
       await setDoc(tripRef, updateData);
     }
-    
+
     console.log('✅ Viaggio aggiornato:', tripId);
   } catch (error) {
     console.error('❌ Errore aggiornamento viaggio:', error);
@@ -259,9 +260,9 @@ export const updateTripMetadata = async (userId, tripId, metadata) => {
     if (role !== 'owner') {
       throw new Error('Solo il proprietario può modificare le informazioni del viaggio');
     }
-    
+
     const tripRef = doc(db, 'trips', tripId.toString());
-    
+
     await updateDoc(tripRef, {
       'metadata': metadata,
       // Retrocompatibilità
@@ -269,7 +270,7 @@ export const updateTripMetadata = async (userId, tripId, metadata) => {
       'image': metadata.image || null,
       'updatedAt': new Date()
     });
-    
+
     console.log('✅ Metadata viaggio aggiornati:', tripId);
   } catch (error) {
     console.error('❌ Errore aggiornamento metadata:', error);
@@ -287,86 +288,98 @@ export const leaveTrip = async (tripId, userId) => {
   try {
     const tripRef = doc(db, 'trips', tripId.toString());
     const tripSnap = await getDoc(tripRef);
-    
+
     if (!tripSnap.exists()) {
       throw new Error('Viaggio non trovato');
     }
-    
+
     const trip = tripSnap.data();
     const members = trip.sharing.members;
     const memberIds = trip.sharing.memberIds;
-    
+
     // Verifica che l'utente sia membro
     if (!members[userId] || members[userId].status !== 'active') {
       throw new Error('Non sei membro di questo viaggio');
     }
-    
+
     // Conta membri attivi
     const activeMembers = Object.entries(members).filter(
       ([id, member]) => member.status === 'active'
     );
-    
-    // ⭐ CASO 1: Ultimo membro → Elimina viaggio
+
+    // ⭐ CASO 1: Ultimo membro → Elimina viaggio + inviti
     if (activeMembers.length === 1) {
       console.log('🗑️ Ultimo membro, eliminazione viaggio...');
+
+      // ⭐ Pulizia inviti link
+      const invitesRef = collection(db, 'invites');
+      const invitesQuery = query(invitesRef, where('tripId', '==', String(tripId)));
+      const invitesSnap = await getDocs(invitesQuery);
+
+      if (!invitesSnap.empty) {
+        const batch = writeBatch(db);
+        invitesSnap.forEach(doc => batch.delete(doc.ref));
+        await batch.commit();
+        console.log(`🗑️ Eliminati ${invitesSnap.size} inviti link collegati`);
+      }
+
       await deleteDoc(tripRef);
       console.log('✅ Viaggio eliminato definitivamente');
       return { action: 'deleted' };
     }
-    
-    // ⭐ CASO 2: Owner che abbandona → Promuovi primo editor
+
+    // ⭐ CASO 2: Owner che abbandona → Promuovi primo member
     if (members[userId].role === 'owner') {
-      const editors = activeMembers.filter(
-        ([id, member]) => id !== userId && member.role === 'editor'
+      const otherMembers = activeMembers.filter(
+        ([id, member]) => id !== userId && member.role === 'member'
       );
-      
-      if (editors.length > 0) {
-        // Promuovi primo editor a owner
-        const [newOwnerId] = editors[0];
+
+      if (otherMembers.length > 0) {
+        // Promuovi primo member a owner
+        const [newOwnerId] = otherMembers[0];
         console.log(`👑 Promozione ${newOwnerId} a owner`);
-        
+
         await updateDoc(tripRef, {
           [`sharing.members.${newOwnerId}.role`]: 'owner',
           [`sharing.members.${userId}.status`]: 'left',
           'sharing.memberIds': arrayRemove(userId),
           'updatedAt': new Date()
         });
-        
-        console.log('✅ Owner promosso, hai abbandonato il viaggio');
+
+        console.log('✅ Member promosso a owner, hai abbandonato il viaggio');
         return { action: 'left', newOwner: newOwnerId };
       } else {
-        // Nessun editor, promuovi primo viewer
-        const viewers = activeMembers.filter(
-          ([id, member]) => id !== userId && member.role === 'viewer'
-        );
-        
-        if (viewers.length > 0) {
-          const [newOwnerId] = viewers[0];
-          console.log(`👑 Promozione ${newOwnerId} (viewer) a owner`);
-          
-          await updateDoc(tripRef, {
-            [`sharing.members.${newOwnerId}.role`]: 'owner',
-            [`sharing.members.${userId}.status`]: 'left',
-            'sharing.memberIds': arrayRemove(userId),
-            'updatedAt': new Date()
-          });
-          
-          console.log('✅ Viewer promosso a owner, hai abbandonato il viaggio');
-          return { action: 'left', newOwner: newOwnerId };
+        // Nessun altro membro, elimina viaggio + inviti
+        console.log('🗑️ Nessun altro membro, eliminazione viaggio...');
+
+        // ⭐ Pulizia inviti link
+        const invitesRef = collection(db, 'invites');
+        const invitesQuery = query(invitesRef, where('tripId', '==', String(tripId)));
+        const invitesSnap = await getDocs(invitesQuery);
+
+        if (!invitesSnap.empty) {
+          const batch = writeBatch(db);
+          invitesSnap.forEach(doc => batch.delete(doc.ref));
+          await batch.commit();
+          console.log(`🗑️ Eliminati ${invitesSnap.size} inviti link collegati`);
         }
+
+        await deleteDoc(tripRef);
+        console.log('✅ Viaggio eliminato definitivamente');
+        return { action: 'deleted' };
       }
     }
-    
-    // ⭐ CASO 3: Editor/Viewer che abbandona → Imposta status left
+
+    // ⭐ CASO 3: Member che abbandona → Imposta status left
     await updateDoc(tripRef, {
       [`sharing.members.${userId}.status`]: 'left',
       'sharing.memberIds': arrayRemove(userId),
       'updatedAt': new Date()
     });
-    
+
     console.log('✅ Hai abbandonato il viaggio');
     return { action: 'left' };
-    
+
   } catch (error) {
     console.error('❌ Errore abbandono viaggio:', error);
     throw error;
@@ -392,7 +405,19 @@ export const deleteTrip = async (userId, tripId) => {
     if (role !== 'owner') {
       throw new Error('Solo il proprietario può eliminare il viaggio');
     }
-    
+
+    // ⭐ Pulizia inviti link
+    const invitesRef = collection(db, 'invites');
+    const invitesQuery = query(invitesRef, where('tripId', '==', String(tripId)));
+    const invitesSnap = await getDocs(invitesQuery);
+
+    if (!invitesSnap.empty) {
+      const batch = writeBatch(db);
+      invitesSnap.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+      console.log(`🗑️ Eliminati ${invitesSnap.size} inviti link`);
+    }
+
     const tripRef = doc(db, 'trips', tripId.toString());
     await deleteDoc(tripRef);
     console.log('✅ Viaggio eliminato:', tripId);
@@ -409,19 +434,19 @@ export const loadTrip = async (userId, tripId) => {
   try {
     const tripRef = doc(db, 'trips', tripId.toString());
     const snapshot = await getDoc(tripRef);
-    
+
     if (!snapshot.exists()) {
       throw new Error('Viaggio non trovato');
     }
-    
+
     const data = snapshot.data();
-    
+
     // Verifica che l'utente sia membro attivo
     const member = data.sharing?.members?.[userId];
     if (!member || member.status !== 'active') {
       throw new Error('Non hai accesso a questo viaggio');
     }
-    
+
     return {
       id: snapshot.id,
       ...data,
@@ -452,11 +477,11 @@ export const loadUserTrips = async (userId) => {
       orderBy('createdAt', 'desc')
     );
     const snapshot = await getDocs(q);
-    
+
     const trips = [];
     snapshot.forEach((docSnap) => {
       const data = docSnap.data();
-      
+
       // Filtra solo membri attivi
       const member = data.sharing?.members?.[userId];
       if (member && member.status === 'active') {
@@ -473,7 +498,7 @@ export const loadUserTrips = async (userId) => {
         });
       }
     });
-    
+
     console.log('✅ Viaggi caricati:', trips.length);
     return trips;
   } catch (error) {
@@ -499,9 +524,9 @@ export const addMemberToTrip = async (tripId, invitedUserId, invitedUserProfile,
     if (inviterRole !== 'owner') {
       throw new Error('Solo il proprietario può invitare altri utenti');
     }
-    
+
     const tripRef = doc(db, 'trips', tripId.toString());
-    
+
     // Aggiungi membro
     await updateDoc(tripRef, {
       'sharing.memberIds': arrayUnion(invitedUserId),
@@ -516,7 +541,7 @@ export const addMemberToTrip = async (tripId, invitedUserId, invitedUserProfile,
       },
       'updatedAt': new Date()
     });
-    
+
     console.log('✅ Membro aggiunto al viaggio:', invitedUserId);
   } catch (error) {
     console.error('❌ Errore aggiunta membro:', error);
@@ -534,20 +559,20 @@ export const removeMemberFromTrip = async (tripId, memberIdToRemove, removedBy) 
     if (removerRole !== 'owner') {
       throw new Error('Solo il proprietario può rimuovere membri');
     }
-    
+
     // Non puoi rimuovere te stesso (usa leaveTrip)
     if (memberIdToRemove === removedBy) {
       throw new Error('Usa leaveTrip per abbandonare il viaggio');
     }
-    
+
     const tripRef = doc(db, 'trips', tripId.toString());
-    
+
     await updateDoc(tripRef, {
       'sharing.memberIds': arrayRemove(memberIdToRemove),
       [`sharing.members.${memberIdToRemove}.status`]: 'removed',
       'updatedAt': new Date()
     });
-    
+
     console.log('✅ Membro rimosso dal viaggio:', memberIdToRemove);
   } catch (error) {
     console.error('❌ Errore rimozione membro:', error);
@@ -565,19 +590,19 @@ export const changeMemberRole = async (tripId, memberId, newRole, changedBy) => 
     if (changerRole !== 'owner') {
       throw new Error('Solo il proprietario può cambiare i ruoli');
     }
-    
+
     // Non puoi cambiare il tuo ruolo
     if (memberId === changedBy) {
       throw new Error('Non puoi cambiare il tuo ruolo');
     }
-    
+
     const tripRef = doc(db, 'trips', tripId.toString());
-    
+
     await updateDoc(tripRef, {
       [`sharing.members.${memberId}.role`]: newRole,
       'updatedAt': new Date()
     });
-    
+
     console.log(`✅ Ruolo cambiato: ${memberId} → ${newRole}`);
   } catch (error) {
     console.error('❌ Errore cambio ruolo:', error);
@@ -603,20 +628,20 @@ export const inviteMemberByUsername = async (tripId, invitedUserId, invitedUserP
     if (inviterRole !== 'owner') {
       throw new Error('Solo il proprietario può invitare altri utenti');
     }
-    
+
     // Verifica che l'utente non sia già membro
     const tripRef = doc(db, 'trips', tripId.toString());
     const tripSnap = await getDoc(tripRef);
-    
+
     if (!tripSnap.exists()) {
       throw new Error('Viaggio non trovato');
     }
-    
+
     const trip = tripSnap.data();
     if (trip.sharing.memberIds.includes(invitedUserId)) {
       throw new Error('Questo utente è già membro del viaggio');
     }
-    
+
     // Verifica che non ci sia già un invito pendente
     const invitationsRef = collection(db, 'trips', tripId.toString(), 'invitations');
     const existingInvitesQuery = query(
@@ -625,15 +650,15 @@ export const inviteMemberByUsername = async (tripId, invitedUserId, invitedUserP
       where('status', '==', 'pending')
     );
     const existingSnap = await getDocs(existingInvitesQuery);
-    
+
     if (!existingSnap.empty) {
       throw new Error('Hai già inviato un invito a questo utente');
     }
-    
+
     // Crea l'invito
     const inviteId = `inv_${Date.now()}`;
     const inviteRef = doc(db, 'trips', tripId.toString(), 'invitations', inviteId);
-    
+
     const inviteData = {
       invitedUserId,
       invitedUsername: invitedUserProfile.username,
@@ -646,9 +671,9 @@ export const inviteMemberByUsername = async (tripId, invitedUserId, invitedUserP
       tripId,
       tripName: trip.metadata?.name || trip.name || 'Viaggio'
     };
-    
+
     await setDoc(inviteRef, inviteData);
-    
+
     console.log(`✅ Invito creato: ${invitedUserProfile.username} → ${role}`);
     return inviteId;
   } catch (error) {
@@ -668,28 +693,28 @@ export const acceptInvitation = async (invitationId, tripId, userId, userProfile
   try {
     const inviteRef = doc(db, 'trips', tripId.toString(), 'invitations', invitationId);
     const inviteSnap = await getDoc(inviteRef);
-    
+
     if (!inviteSnap.exists()) {
       throw new Error('Invito non trovato');
     }
-    
+
     const invite = inviteSnap.data();
-    
+
     // Verifica che l'invito sia per te
     if (invite.invitedUserId !== userId) {
       throw new Error('Questo invito non è per te');
     }
-    
+
     // Verifica che sia ancora pendente
     if (invite.status !== 'pending') {
       throw new Error('Questo invito non è più valido');
     }
-    
+
     // Verifica scadenza
     if (invite.expiresAt.toDate() < new Date()) {
       throw new Error('Questo invito è scaduto');
     }
-    
+
     // Aggiungi come membro del viaggio
     await addMemberToTrip(
       tripId,
@@ -698,13 +723,13 @@ export const acceptInvitation = async (invitationId, tripId, userId, userProfile
       invite.role,
       invite.invitedBy
     );
-    
+
     // Aggiorna status invito
     await updateDoc(inviteRef, {
       status: 'accepted',
       acceptedAt: new Date()
     });
-    
+
     console.log(`✅ Invito accettato: ${userProfile.username} → ${invite.role}`);
   } catch (error) {
     console.error('❌ Errore accettazione invito:', error);
@@ -722,29 +747,29 @@ export const rejectInvitation = async (invitationId, tripId, userId) => {
   try {
     const inviteRef = doc(db, 'trips', tripId.toString(), 'invitations', invitationId);
     const inviteSnap = await getDoc(inviteRef);
-    
+
     if (!inviteSnap.exists()) {
       throw new Error('Invito non trovato');
     }
-    
+
     const invite = inviteSnap.data();
-    
+
     // Verifica che l'invito sia per te
     if (invite.invitedUserId !== userId) {
       throw new Error('Questo invito non è per te');
     }
-    
+
     // Verifica che sia ancora pendente
     if (invite.status !== 'pending') {
       throw new Error('Questo invito non è più valido');
     }
-    
+
     // Aggiorna status invito
     await updateDoc(inviteRef, {
       status: 'rejected',
       rejectedAt: new Date()
     });
-    
+
     console.log(`❌ Invito rifiutato da ${userId}`);
   } catch (error) {
     console.error('❌ Errore rifiuto invito:', error);
@@ -768,10 +793,10 @@ export const loadPendingInvitations = async (userId) => {
       where('status', '==', 'pending'),
       orderBy('invitedAt', 'desc')
     );
-    
+
     const snapshot = await getDocs(q);
     const invitations = [];
-    
+
     snapshot.forEach(docSnap => {
       invitations.push({
         id: docSnap.id,
@@ -780,7 +805,7 @@ export const loadPendingInvitations = async (userId) => {
         expiresAt: docSnap.data().expiresAt?.toDate()
       });
     });
-    
+
     console.log(`✅ Inviti pendenti caricati: ${invitations.length}`);
     return invitations;
   } catch (error) {
@@ -805,7 +830,7 @@ export const subscribeToPendingInvitations = (userId, onInvitationsUpdate, onErr
       where('status', '==', 'pending'),
       orderBy('invitedAt', 'desc')
     );
-    
+
     const unsubscribe = onSnapshot(q,
       (snapshot) => {
         const invitations = [];
@@ -817,7 +842,7 @@ export const subscribeToPendingInvitations = (userId, onInvitationsUpdate, onErr
             expiresAt: docSnap.data().expiresAt?.toDate()
           });
         });
-        
+
         console.log(`🔄 Inviti pendenti aggiornati: ${invitations.length}`);
         onInvitationsUpdate(invitations);
       },
@@ -826,7 +851,7 @@ export const subscribeToPendingInvitations = (userId, onInvitationsUpdate, onErr
         if (onError) onError(error);
       }
     );
-    
+
     return unsubscribe;
   } catch (error) {
     console.error('❌ Errore sottoscrizione inviti:', error);
@@ -848,10 +873,10 @@ export const generateShareLink = async (tripId, userId, role = 'viewer') => {
     if (userRole !== 'owner') {
       throw new Error('Solo il proprietario può generare link di condivisione');
     }
-    
+
     // Genera token univoco
     const token = `share_${tripId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
     // Salva in sharing.shareLink
     const tripRef = doc(db, 'trips', tripId.toString());
     await updateDoc(tripRef, {
@@ -865,7 +890,7 @@ export const generateShareLink = async (tripId, userId, role = 'viewer') => {
       },
       'updatedAt': new Date()
     });
-    
+
     console.log(`✅ Link condivisione generato: ${token}`);
     return token;
   } catch (error) {
@@ -889,27 +914,27 @@ export const joinViaShareLink = async (token, userId, userProfile) => {
       where('sharing.shareLink.token', '==', token),
       where('sharing.shareLink.isActive', '==', true)
     );
-    
+
     const snapshot = await getDocs(q);
-    
+
     if (snapshot.empty) {
       throw new Error('Link non valido o scaduto');
     }
-    
+
     const tripSnap = snapshot.docs[0];
     const trip = tripSnap.data();
     const tripId = tripSnap.id;
-    
+
     // Verifica scadenza
     if (trip.sharing.shareLink.expiresAt.toDate() < new Date()) {
       throw new Error('Questo link è scaduto');
     }
-    
+
     // Verifica che non sia già membro
     if (trip.sharing.memberIds.includes(userId)) {
       throw new Error('Sei già membro di questo viaggio');
     }
-    
+
     // Aggiungi come membro
     await addMemberToTrip(
       tripId,
@@ -918,7 +943,7 @@ export const joinViaShareLink = async (token, userId, userProfile) => {
       trip.sharing.shareLink.role,
       trip.sharing.shareLink.createdBy
     );
-    
+
     console.log(`✅ Utente aggiunto via link: ${userProfile.username}`);
     return tripId;
   } catch (error) {
@@ -939,13 +964,13 @@ export const disableShareLink = async (tripId, userId) => {
     if (userRole !== 'owner') {
       throw new Error('Solo il proprietario può disattivare il link');
     }
-    
+
     const tripRef = doc(db, 'trips', tripId.toString());
     await updateDoc(tripRef, {
       'sharing.shareLink.isActive': false,
       'updatedAt': new Date()
     });
-    
+
     console.log(`✅ Link condivisione disattivato`);
   } catch (error) {
     console.error('❌ Errore disattivazione link:', error);
@@ -963,34 +988,34 @@ export const updateMemberRole = async (tripId, targetUserId, newRole) => {
   try {
     const tripRef = doc(db, 'trips', tripId.toString());
     const tripSnap = await getDoc(tripRef);
-    
+
     if (!tripSnap.exists()) {
       throw new Error('Viaggio non trovato');
     }
-    
+
     const trip = tripSnap.data();
     const targetMember = trip.sharing?.members?.[targetUserId];
-    
+
     if (!targetMember) {
       throw new Error('Membro non trovato');
     }
-    
+
     // Non si può modificare il ruolo dell'owner
     if (targetMember.role === 'owner') {
       throw new Error('Non puoi modificare il ruolo del proprietario');
     }
-    
+
     // Non si può assegnare ruolo owner
     if (newRole === 'owner') {
       throw new Error('Non puoi assegnare il ruolo di proprietario');
     }
-    
+
     // Aggiorna il ruolo
     await updateDoc(tripRef, {
       [`sharing.members.${targetUserId}.role`]: newRole,
       'updatedAt': new Date()
     });
-    
+
     console.log(`✅ Ruolo aggiornato: ${targetUserId} → ${newRole}`);
   } catch (error) {
     console.error('❌ Errore cambio ruolo:', error);
@@ -1007,23 +1032,23 @@ export const removeMember = async (tripId, targetUserId) => {
   try {
     const tripRef = doc(db, 'trips', tripId.toString());
     const tripSnap = await getDoc(tripRef);
-    
+
     if (!tripSnap.exists()) {
       throw new Error('Viaggio non trovato');
     }
-    
+
     const trip = tripSnap.data();
     const targetMember = trip.sharing?.members?.[targetUserId];
-    
+
     if (!targetMember) {
       throw new Error('Membro non trovato');
     }
-    
+
     // Non si può rimuovere l'owner
     if (targetMember.role === 'owner') {
       throw new Error('Non puoi rimuovere il proprietario');
     }
-    
+
     // Cambia status a 'removed' e rimuovi da memberIds
     await updateDoc(tripRef, {
       [`sharing.members.${targetUserId}.status`]: 'removed',
@@ -1031,7 +1056,7 @@ export const removeMember = async (tripId, targetUserId) => {
       'sharing.memberIds': arrayRemove(targetUserId),
       'updatedAt': new Date()
     });
-    
+
     console.log(`✅ Membro rimosso: ${targetUserId}`);
   } catch (error) {
     console.error('❌ Errore rimozione membro:', error);

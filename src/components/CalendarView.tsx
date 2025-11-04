@@ -5,7 +5,6 @@ import { calculateDayCost } from '../costsUtils.js';
 import TripMetadataModal from './TripMetadataModal.js';
 import TripMembersModal from './TripMembersModal.js';
 import MembersAvatarStack from './MembersAvatarStack.js';
-import InviteMembersModal from './InviteMembersModal.js';
 
 /**
  * Componente principale per la visualizzazione calendario del viaggio
@@ -617,16 +616,6 @@ const showMembersButton = members.length > 1;
           </tbody>
         </table>
       </div>
-
-      {/* ⭐ Modal Inviti */}
-      {showInviteModal && (
-        <InviteMembersModal
-          isOpen={showInviteModal}
-          onClose={() => setShowInviteModal(false)}
-          trip={trip}
-          currentUser={currentUser}
-        />
-      )}
     </div>
   );
 };

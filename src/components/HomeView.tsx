@@ -3,7 +3,7 @@ import { MapPin, User, Plus, Upload, Download, Trash2 } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import TripMetadataModal from './TripMetadataModal';
-import InvitationsNotifications from './InvitationsNotifications';
+import NotificationCenter from './NotificationCenter';
 import MembersAvatarStack from './MembersAvatarStack';
 import TripMembersModal from './TripMembersModal';
 import CostSummaryByUserView from './DayDetail/CostSummaryByUserView';
@@ -151,8 +151,8 @@ const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExp
           <h1 className="text-3xl font-bold">I Miei Viaggi</h1>
           
           <div className="flex items-center gap-2">
-            <InvitationsNotifications
-              currentUser={currentUser}
+            {/* ✅ Badge unificato - sostituisce NotificationBadge + InvitationsNotifications */}
+            <NotificationCenter 
               userProfile={{
                 displayName: currentUser.displayName,
                 username: currentUser.username,

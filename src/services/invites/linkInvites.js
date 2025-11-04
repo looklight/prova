@@ -12,6 +12,7 @@ import {
   getDocs,
   deleteDoc
 } from 'firebase/firestore';
+import { createLinkInviteAcceptedNotification } from '../notifications/inviteNotifications';
 
 /**
  * Genera un token univoco per il link invito
@@ -162,18 +163,49 @@ export const acceptInviteLink = async (token, userId, userProfile) => {
     console.log('✅ STEP 2: Dati preparati', updateData);
     console.log('🔍 STEP 3: Esecuzione updateDoc...');
     
-    await updateDoc(tripRef, updateData);
+    try {
+      await updateDoc(tripRef, updateData);
+      console.log('✅ STEP 3: Update completato!');
+    } catch (error) {
+      // ⭐ Se viaggio non esiste, elimina l'invito orfano
+      if (error.code === 'not-found') {
+        console.log('🗑️ Viaggio non trovato, elimino invito orfano...');
+        const inviteRef = doc(db, 'invites', token);
+        await deleteDoc(inviteRef);
+        throw new Error('Questo viaggio non esiste più');
+      }
+      throw error;
+    }
     
-    console.log('✅ STEP 3: Update completato!');
-    
-    // Aggiorna invito (tracking utilizzo)
+    // Aggiorna invito (tracking utilizzo + dettagli)
     console.log('🔍 STEP 4: Aggiornamento tracking invito...');
     const inviteRef = doc(db, 'invites', token);
     await updateDoc(inviteRef, {
-      usedBy: arrayUnion(userId)
+      usedBy: arrayUnion(userId),
+      [`usageDetails.${userId}`]: {
+        acceptedAt: new Date(),
+        displayName: userProfile.displayName || 'Utente',
+        avatar: userProfile.avatar || null,
+        username: userProfile.username || null
+      }
     });
     
     console.log('✅ STEP 4: Tracking completato!');
+    
+    // ⭐ NUOVO: Crea notifica per owner
+    console.log('🔍 STEP 5: Creazione notifica per owner...');
+    console.log('   - Owner ID:', invite.invitedBy);
+    console.log('   - Trip ID:', invite.tripId);
+    console.log('   - Trip Name:', invite.tripName);
+    console.log('   - User Profile:', userProfile);
+    
+    await createLinkInviteAcceptedNotification(
+      invite.invitedBy,
+      invite.tripId,
+      invite.tripName,
+      userProfile
+    );
+    console.log('✅ STEP 5: Notifica creata!');
     console.log(`✅ Invito accettato tramite link: ${userProfile.username || userProfile.displayName}`);
     
     return {
@@ -241,5 +273,50 @@ export const invalidateInviteLink = async (token) => {
   } catch (error) {
     console.error('❌ Errore invalidazione link:', error);
     throw error;
+  }
+};
+
+/**
+ * 📊 Ottieni statistiche utilizzo link invito
+ * @param {string} token - Token del link
+ * @returns {Object} - { totalUses, users: [...] }
+ */
+export const getInviteLinkStats = async (token) => {
+  try {
+    const inviteRef = doc(db, 'invites', token);
+    const inviteSnap = await getDoc(inviteRef);
+    
+    if (!inviteSnap.exists()) {
+      return null;
+    }
+    
+    const invite = inviteSnap.data();
+    const usedBy = invite.usedBy || [];
+    const usageDetails = invite.usageDetails || {};
+    
+    // Costruisci array con dettagli utenti
+    const users = usedBy.map(userId => {
+      const details = usageDetails[userId] || {};
+      return {
+        userId,
+        displayName: details.displayName || 'Utente',
+        avatar: details.avatar || null,
+        username: details.username || null,
+        acceptedAt: details.acceptedAt?.toDate() || null
+      };
+    }).sort((a, b) => {
+      // Ordina per data decrescente (più recenti prima)
+      if (!a.acceptedAt) return 1;
+      if (!b.acceptedAt) return -1;
+      return b.acceptedAt - a.acceptedAt;
+    });
+    
+    return {
+      totalUses: usedBy.length,
+      users
+    };
+  } catch (error) {
+    console.error('❌ Errore caricamento statistiche:', error);
+    return null;
   }
 };
