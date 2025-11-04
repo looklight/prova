@@ -108,7 +108,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
         IMAGE_COMPRESSION.tripCover.maxHeight,
         IMAGE_COMPRESSION.tripCover.quality
       );
-      
+
       setImage(imageURL);
     } catch (error) {
       console.error('Errore caricamento immagine:', error);
@@ -120,7 +120,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
 
   const handleSave = () => {
     const finalName = tripName.trim() || 'Nuovo Viaggio';
-    
+
     const metadata: TripMetadata = {
       name: finalName,
       image,
@@ -163,13 +163,13 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
     <>
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-          
+
           {/* HEADER */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
             <h2 className="text-xl font-bold text-gray-800">
               {mode === 'create' ? '✈️ Nuovo Viaggio' : '✏️ Modifica Viaggio'}
             </h2>
-            <button 
+            <button
               onClick={onClose}
               className="p-2 hover:bg-gray-100 rounded-full transition-colors"
             >
@@ -179,7 +179,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
 
           {/* CONTENT - Scrollable */}
           <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
-            
+
             {/* IMMAGINE COPERTINA - Cerchio centrato */}
             <div className="flex flex-col items-center">
               <input
@@ -193,9 +193,9 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                 <div className="relative">
                   {image ? (
                     <div className="relative">
-                      <img 
-                        src={image} 
-                        alt="Viaggio" 
+                      <img
+                        src={image}
+                        alt="Viaggio"
                         className="w-32 h-32 rounded-full object-cover border-4 border-gray-200 shadow-lg"
                       />
                       <button
@@ -241,12 +241,12 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
               <label className="block text-sm font-semibold text-gray-700 mb-3">
                 🌍 Destinazioni
               </label>
-              
+
               {/* Lista destinazioni */}
               {destinations.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-3">
                   {destinations.map((dest, index) => (
-                    <span 
+                    <span
                       key={index}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 text-blue-800 rounded-full text-sm font-medium group hover:bg-blue-200 transition-colors"
                     >
@@ -282,7 +282,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                   + Inserisci
                 </button>
               </div>
-              
+
               {destinations.length >= 10 && (
                 <p className="text-xs text-amber-600 mt-2">
                   ⚠️ Massimo 10 destinazioni
@@ -296,7 +296,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                 <span>👥</span>
                 <span>Chi organizza questo viaggio</span>
               </label>
-              
+
               {/* LISTA MEMBRI */}
               <div className="space-y-2">
                 {mode === 'edit' && initialData?.sharing?.members ? (
@@ -310,17 +310,16 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                     })
                     .map(([userId, member]) => {
                       const isCurrentUser = userId === currentUser.uid;
-                      
+
                       return (
-                        <div 
+                        <div
                           key={userId}
-                          className={`flex items-center gap-3 rounded-lg p-3 shadow-sm ${
-                            isCurrentUser ? 'bg-blue-100 border-2 border-blue-300' : 'bg-white'
-                          }`}
+                          className={`flex items-center gap-3 rounded-lg p-3 shadow-sm ${isCurrentUser ? 'bg-blue-100 border-2 border-blue-300' : 'bg-white'
+                            }`}
                         >
                           {member.avatar ? (
-                            <img 
-                              src={member.avatar} 
+                            <img
+                              src={member.avatar}
                               alt={member.displayName}
                               className="w-12 h-12 rounded-full object-cover border-2 border-blue-300 shadow"
                             />
@@ -344,11 +343,10 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                               <p className="text-xs text-gray-500">@{member.username}</p>
                             )}
                           </div>
-                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                            member.role === 'owner' 
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${member.role === 'owner'
                               ? 'bg-yellow-100 text-yellow-700 border border-yellow-300'
                               : 'bg-blue-100 text-blue-700 border border-blue-300'
-                          }`}>
+                            }`}>
                             {member.role === 'owner' ? 'Owner' : 'Member'}
                           </span>
                         </div>
@@ -358,8 +356,8 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                   // Modalità create: mostra solo currentUser
                   <div className="flex items-center gap-3 bg-white rounded-lg p-3 shadow-sm">
                     {currentUser.photoURL ? (
-                      <img 
-                        src={currentUser.photoURL} 
+                      <img
+                        src={currentUser.photoURL}
                         alt={currentUser.displayName}
                         className="w-12 h-12 rounded-full object-cover border-2 border-blue-300 shadow"
                       />
@@ -380,19 +378,21 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                   </div>
                 )}
               </div>
-              
-              {/* Pulsante Invita (solo in edit) */}
-              {mode === 'edit' && tripForInvite && (
-                <button
-                  type="button"
-                  onClick={() => setShowInviteModal(true)}
-                  className="w-full mt-3 px-4 py-2.5 bg-white border-2 border-blue-400 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-semibold text-sm flex items-center justify-center gap-2 shadow-sm"
-                >
-                  <UserPlus size={18} />
-                  Invita collaboratori
-                </button>
-              )}
-              
+
+              {/* Pulsante Invita (solo in edit E solo se owner) */}
+              {mode === 'edit' &&
+                tripForInvite &&
+                initialData?.sharing?.members?.[currentUser.uid]?.role === 'owner' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowInviteModal(true)}
+                    className="w-full mt-3 px-4 py-2.5 bg-white border-2 border-blue-400 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-semibold text-sm flex items-center justify-center gap-2 shadow-sm"
+                  >
+                    <UserPlus size={18} />
+                    Invita collaboratori
+                  </button>
+                )}
+
               {/* Messaggio in creazione */}
               {mode === 'create' && (
                 <p className="text-xs text-gray-500 mt-3 italic">
