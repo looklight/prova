@@ -32,6 +32,14 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
   
   const isDesktop = useMediaQuery('(min-width: 1024px)');
 
+  // 🆕 Valida selectedDayIndex quando cambiano i giorni
+  useEffect(() => {
+    if (selectedDayIndex !== null && selectedDayIndex >= trip.days.length) {
+      console.log('⚠️ selectedDayIndex invalido, reset a null');
+      setSelectedDayIndex(null);
+    }
+  }, [trip.days.length, selectedDayIndex]);
+
   const handleOpenDay = (dayIndex, currentScrollPosition = null, categoryId = null) => {
     setSelectedDayIndex(dayIndex);
     if (!isDesktop) {

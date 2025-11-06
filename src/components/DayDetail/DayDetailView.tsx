@@ -13,6 +13,12 @@ import CostBreakdownModal from './CostBreakdownModal';
 import CostSummaryByUserView from './CostSummaryByUserView';
 
 const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex, isDesktop = false, user }) => {
+  // 🆕 Safety check: se dayIndex è invalido, non renderizzare nulla
+  if (dayIndex === null || dayIndex === undefined || dayIndex >= trip.days.length || dayIndex < 0) {
+    console.warn('⚠️ DayDetailView: dayIndex invalido', dayIndex);
+    return null;
+  }
+
   const currentDay = trip.days[dayIndex];
 
   // Custom Hooks

@@ -12,21 +12,73 @@ const BudgetView: React.FC<BudgetViewProps> = ({ trip, onUpdateTrip }) => {
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<string>('');
 
-  // Inizializza budget suggerito se non esiste
+  // 🎯 STRATEGIA SEMPLICE: Traccia solo i numeri
+  const [prevDaysCount, setPrevDaysCount] = useState<number>(0);
+  const [prevMembersCount, setPrevMembersCount] = useState<number>(0);
+
+  // Calcola valori attuali
+  const daysCount = trip.days?.length || 0;
+  const membersCount = Object.values(trip.sharing?.members || {})
+    .filter((m: any) => m.status === 'active').length || 1;
+
+  // 🆕 Log per debug
+  console.log('🔍 BudgetView render - Days:', daysCount, 'Members:', membersCount, 'Trip ID:', trip.id);
+
+  // ✅ 1. INIZIALIZZAZIONE: Crea budget se non esiste
   useEffect(() => {
     if (!trip.budget || Object.keys(trip.budget).length === 0) {
+      console.log('📊 Inizializzazione budget per nuovo viaggio');
       const suggested = getSuggestedBudget(trip);
       setBudgets(suggested.categories);
       
-      // ⭐ Salva automaticamente su Firebase
       onUpdateTrip({
         ...trip,
         budget: suggested.categories
       });
       
-      console.log('✅ Budget suggerito salvato automaticamente:', suggested.categories);
+      // Salva valori iniziali
+      setPrevDaysCount(daysCount);
+      setPrevMembersCount(membersCount);
+      
+      console.log('✅ Budget inizializzato:', suggested.categories);
+    } else {
+      // Budget già esiste, salva solo i valori correnti
+      setPrevDaysCount(daysCount);
+      setPrevMembersCount(membersCount);
     }
-  }, [trip]);
+  }, []); // ⭐ Esegue SOLO al mount
+
+  // ✅ 2. RICALCOLO: Quando cambiano giorni o membri
+  useEffect(() => {
+    // Skip se è la prima volta (già gestito sopra)
+    if (prevDaysCount === 0 && prevMembersCount === 0) {
+      return;
+    }
+
+    // Controlla se sono cambiati
+    const daysChanged = daysCount !== prevDaysCount;
+    const membersChanged = membersCount !== prevMembersCount;
+
+    if (daysChanged || membersChanged) {
+      console.log('🔄 RICALCOLO BUDGET');
+      console.log('   Giorni:', prevDaysCount, '→', daysCount);
+      console.log('   Membri:', prevMembersCount, '→', membersCount);
+      
+      const suggested = getSuggestedBudget(trip);
+      setBudgets(suggested.categories);
+      
+      onUpdateTrip({
+        ...trip,
+        budget: suggested.categories
+      });
+      
+      // Aggiorna valori precedenti
+      setPrevDaysCount(daysCount);
+      setPrevMembersCount(membersCount);
+      
+      console.log('✅ Budget ricalcolato:', suggested.total, '€');
+    }
+  }, [daysCount, membersCount]); // ⭐ Ascolta SOLO i numeri
 
   const categoryGroups = Object.keys(CATEGORY_GROUPS);
 
@@ -41,11 +93,9 @@ const BudgetView: React.FC<BudgetViewProps> = ({ trip, onUpdateTrip }) => {
 
   const remaining = totalBudget - totalSpent;
   const percentageSpent = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
-
-  // ⭐ Calcola numero giorni
   const numberOfDays = trip.days?.length || 0;
 
-  // Gestione edit
+  // Gestione edit manuale
   const handleStartEdit = (category: string) => {
     setEditingCategory(category);
     setEditValue((budgets[category] || 0).toString());
@@ -56,7 +106,6 @@ const BudgetView: React.FC<BudgetViewProps> = ({ trip, onUpdateTrip }) => {
     const updatedBudgets = { ...budgets, [category]: newValue };
     setBudgets(updatedBudgets);
     
-    // Salva su Firebase
     onUpdateTrip({
       ...trip,
       budget: updatedBudgets

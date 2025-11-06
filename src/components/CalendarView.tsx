@@ -152,10 +152,19 @@ const CalendarView = ({ trip, onUpdateTrip, onBack, onOpenDay, scrollToDayId, sa
       return;
     }
     
-    // Filtra e rinumera i giorni rimanenti
+    // Filtra i giorni rimanenti
     const updatedDays = trip.days
-      .filter((_, index) => !selectedDays.includes(index))
-      .map((day, index) => ({ ...day, number: index + 1 }));
+      .filter((_, index) => !selectedDays.includes(index));
+    
+    // ⭐ Ricalcola numeri E date in sequenza
+    const startDate = new Date(updatedDays[0].date);
+    updatedDays.forEach((day, index) => {
+      day.number = index + 1;
+      // Ricalcola data in sequenza dal primo giorno
+      const newDate = new Date(startDate);
+      newDate.setDate(startDate.getDate() + index);
+      day.date = newDate;
+    });
     
     onUpdateTrip({ days: updatedDays });
     setSelectedDays([]);

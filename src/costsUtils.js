@@ -327,7 +327,9 @@ export const getSuggestedBudget = (trip) => {
   
   const categories = {};
   Object.keys(percentages).forEach(cat => {
-    categories[cat] = Math.round(totalBudget * percentages[cat]);
+    const rawValue = totalBudget * percentages[cat];
+    // ⭐ Arrotonda a multipli di 5€
+    categories[cat] = Math.round(rawValue / 5) * 5;
   });
   
   return {
