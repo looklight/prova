@@ -310,7 +310,7 @@ export const calculateCategoryGroupCost = (trip, groupKey) => {
   return { total, details };
 };
 
-// Calcola budget suggerito
+// Calcola il default budget suggerito
 export const getSuggestedBudget = (trip) => {
   const activeMembers = Object.values(trip.sharing?.members || {})
     .filter(m => m.status === 'active').length || 1;

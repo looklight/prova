@@ -3,6 +3,7 @@ import { Calendar } from 'lucide-react';
 import CalendarView from './CalendarView';
 import DayDetailView from './DayDetail/DayDetailView';
 import { UserPlus } from 'lucide-react';
+import { useBudgetSync } from '../hooks/useBudgetSync';
 
 const useMediaQuery = (query) => {
   const [matches, setMatches] = useState(() => {
@@ -31,6 +32,10 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
   const [showInviteModal, setShowInviteModal] = useState(false);
   
   const isDesktop = useMediaQuery('(min-width: 1024px)');
+
+  // 💰 Sincronizzazione automatica budget
+  // Gestisce inizializzazione e ricalcolo quando cambiano giorni/membri
+  useBudgetSync(trip, onUpdateTrip);
 
   // 🆕 Valida selectedDayIndex quando cambiano i giorni
   useEffect(() => {
