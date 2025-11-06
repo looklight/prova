@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { getInviteLinkStats } from '../services/invites/linkInvites';
 import { Users, Clock } from 'lucide-react';
+import Avatar from './Avatar';
 
 // Funzione per formattare tempo relativo
 const getTimeAgo = (date) => {
@@ -86,17 +87,11 @@ export default function InviteLinkStats({ token }) {
             className="flex items-center gap-3 p-3 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow"
           >
             {/* Avatar */}
-            {user.avatar ? (
-              <img 
-                src={user.avatar} 
-                alt={user.displayName}
-                className="w-10 h-10 rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-semibold text-lg">
-                {user.displayName?.[0]?.toUpperCase() || 'U'}
-              </div>
-            )}
+            <Avatar 
+              src={user.avatar} 
+              name={user.displayName || 'Utente'} 
+              size="sm"
+            />
             
             {/* Info */}
             <div className="flex-1 min-w-0">

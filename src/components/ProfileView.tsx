@@ -141,11 +141,13 @@ const ProfileView = ({ onBack, user, trips = [] }) => {
                   className="w-24 h-24 rounded-full object-cover border-2 border-gray-200"
                 />
               ) : (
-                <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center">
+                <div className="w-24 h-24 rounded-full flex items-center justify-center border-2 border-gray-200 bg-gradient-to-br from-blue-500 to-purple-500">
                   {uploadingAvatar ? (
-                    <Loader size={32} className="text-gray-400 animate-spin" />
+                    <Loader size={32} className="text-white animate-spin" />
                   ) : (
-                    <User size={40} className="text-gray-400" />
+                    <span className="text-white text-3xl font-bold">
+                      {profile.displayName?.[0]?.toUpperCase() || '?'}
+                    </span>
                   )}
                 </div>
               )}
@@ -165,10 +167,16 @@ const ProfileView = ({ onBack, user, trips = [] }) => {
 
           {/* Data iscrizione */}
           <p className="text-xs text-gray-400">
-            ✈️ Membro da {new Date(profile.createdAt).toLocaleDateString('it-IT', {
-              month: 'long',
-              year: 'numeric'
-            })}
+            ✈️ Membro da {profile.createdAt?.toDate ? 
+              profile.createdAt.toDate().toLocaleDateString('it-IT', {
+                month: 'long',
+                year: 'numeric'
+              }) :
+              new Date(profile.createdAt).toLocaleDateString('it-IT', {
+                month: 'long',
+                year: 'numeric'
+              })
+            }
           </p>
 
           {/* Bottone Modifica Profilo */}

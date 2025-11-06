@@ -1,12 +1,12 @@
 import React from 'react';
-import { User } from 'lucide-react';
+import Avatar from './Avatar';
 
 interface MembersAvatarStackProps {
   members: {
     userId: string;
     displayName: string;
     avatar?: string;
-    role: 'owner' | 'member'; // ⭐ CORRETTO: 'member' invece di 'editor'
+    role: 'owner' | 'member';
   }[];
   maxVisible?: number;
   size?: 'sm' | 'md' | 'lg';
@@ -32,7 +32,6 @@ const MembersAvatarStack: React.FC<MembersAvatarStackProps> = ({
   };
 
   const avatarSize = sizeClasses[size];
-  const iconSize = size === 'sm' ? 16 : size === 'md' ? 20 : 24;
 
   if (activeMembers.length === 0) {
     return null;
@@ -49,20 +48,15 @@ const MembersAvatarStack: React.FC<MembersAvatarStackProps> = ({
         {visibleMembers.map((member, index) => (
           <div
             key={member.userId}
-            className={`${avatarSize} rounded-full border-2 border-white shadow-sm overflow-hidden relative`}
+            className="relative"
             style={{ zIndex: visibleMembers.length - index }}
           >
-            {member.avatar ? (
-              <img
-                src={member.avatar}
-                alt={member.displayName}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center">
-                <User size={iconSize} className="text-white" />
-              </div>
-            )}
+            <Avatar
+              src={member.avatar}
+              name={member.displayName}
+              size={size === 'sm' ? 'xs' : size}
+              className="border-2 border-white shadow-sm"
+            />
           </div>
         ))}
 

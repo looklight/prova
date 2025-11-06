@@ -3,6 +3,7 @@ import { ChevronLeft } from 'lucide-react';
 import { calculateTripCost } from '../../costsUtils';
 import CategoryBreakdownView from './CategoryBreakdownView';
 import BudgetView from './BudgetView';
+import Avatar from '../Avatar';
 
 interface CostSummaryByUserViewProps {
   trip: any;
@@ -136,17 +137,11 @@ const CostSummaryByUserView: React.FC<CostSummaryByUserViewProps> = ({
           {Object.entries(userBreakdown).map(([userId, data]) => (
             <div key={userId} className="bg-white rounded-xl shadow p-4">
               <div className="flex items-center gap-3 mb-3">
-                {data.avatar ? (
-                  <img
-                    src={data.avatar}
-                    alt={data.displayName}
-                    className="w-12 h-12 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold">
-                    {data.displayName.charAt(0).toUpperCase()}
-                  </div>
-                )}
+                <Avatar 
+                  src={data.avatar} 
+                  name={data.displayName} 
+                  size="lg"
+                />
                 <div className="flex-1">
                   <h3 className="font-semibold">{data.displayName}</h3>
                   <p className="text-sm text-gray-500">

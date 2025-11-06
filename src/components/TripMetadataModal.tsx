@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, Upload, User, UserPlus } from 'lucide-react';
+import { X, Upload, UserPlus } from 'lucide-react';
 import { resizeAndUploadImage } from '../services';
 import { IMAGE_COMPRESSION } from '../config/imageConfig';
 import InviteOptionsModal from './InviteOptionsModal';
+import Avatar from './Avatar';
 
 interface TripMetadataModalProps {
   isOpen: boolean;
@@ -317,17 +318,11 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                           className={`flex items-center gap-3 rounded-lg p-3 shadow-sm ${isCurrentUser ? 'bg-blue-100 border-2 border-blue-300' : 'bg-white'
                             }`}
                         >
-                          {member.avatar ? (
-                            <img
-                              src={member.avatar}
-                              alt={member.displayName}
-                              className="w-12 h-12 rounded-full object-cover border-2 border-blue-300 shadow"
-                            />
-                          ) : (
-                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow">
-                              <User size={22} className="text-white" />
-                            </div>
-                          )}
+                          <Avatar 
+                            src={member.avatar} 
+                            name={member.displayName} 
+                            size="lg"
+                          />
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
                               <p className="font-semibold text-gray-800 text-sm">
@@ -355,17 +350,11 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                 ) : (
                   // Modalità create: mostra solo currentUser
                   <div className="flex items-center gap-3 bg-white rounded-lg p-3 shadow-sm">
-                    {currentUser.photoURL ? (
-                      <img
-                        src={currentUser.photoURL}
-                        alt={currentUser.displayName}
-                        className="w-12 h-12 rounded-full object-cover border-2 border-blue-300 shadow"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow">
-                        <User size={22} className="text-white" />
-                      </div>
-                    )}
+                    <Avatar 
+                      src={currentUser.photoURL} 
+                      name={currentUser.displayName} 
+                      size="lg"
+                    />
                     <div className="flex-1">
                       <p className="font-semibold text-gray-800 text-sm">{currentUser.displayName}</p>
                       {currentUser.username && (

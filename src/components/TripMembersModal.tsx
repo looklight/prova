@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, User, Crown, Trash2, UserPlus } from 'lucide-react';
 import { removeMember } from '../services/tripService';
 import InviteOptionsModal from './InviteOptionsModal';
+import Avatar from './Avatar';
 
 interface TripMembersModalProps {
   isOpen: boolean;
@@ -145,17 +146,11 @@ const TripMembersModal: React.FC<TripMembersModalProps> = ({
                     <div className="flex items-center gap-4">
                       
                       {/* Avatar */}
-                      {member.avatar ? (
-                        <img
-                          src={member.avatar}
-                          alt={member.displayName}
-                          className="w-14 h-14 rounded-full object-cover border-2 border-gray-300"
-                        />
-                      ) : (
-                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center">
-                          <User size={24} className="text-white" />
-                        </div>
-                      )}
+                      <Avatar 
+                        src={member.avatar} 
+                        name={member.displayName} 
+                        size="lg"
+                      />
 
                       {/* Info */}
                       <div className="flex-1 min-w-0">

@@ -17,6 +17,14 @@ const BudgetView: React.FC<BudgetViewProps> = ({ trip, onUpdateTrip }) => {
     if (!trip.budget || Object.keys(trip.budget).length === 0) {
       const suggested = getSuggestedBudget(trip);
       setBudgets(suggested.categories);
+      
+      // ⭐ Salva automaticamente su Firebase
+      onUpdateTrip({
+        ...trip,
+        budget: suggested.categories
+      });
+      
+      console.log('✅ Budget suggerito salvato automaticamente:', suggested.categories);
     }
   }, [trip]);
 

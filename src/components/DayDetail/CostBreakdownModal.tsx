@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus } from 'lucide-react';
+import Avatar from '../Avatar';
 
 interface BreakdownEntry {
   id: number;
@@ -96,9 +97,8 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
     onClose();
   };
 
-  const getMemberName = (userId: string) => {
-    const member = tripMembers.find(m => m.uid === userId);
-    return member?.displayName || 'Utente';
+  const getMember = (userId: string) => {
+    return tripMembers.find(m => m.uid === userId);
   };
 
   if (!isOpen) return null;
@@ -131,48 +131,62 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
         {/* Body - Scrollable */}
         <div className="flex-1 overflow-y-auto p-6">
           <div className="space-y-3">
-            {entries.map((entry) => (
-              <div key={entry.id} className="flex gap-2 items-center">
-                {/* Dropdown Membro */}
-                <select
-                  value={entry.userId}
-                  onChange={(e) => updateEntry(entry.id, 'userId', e.target.value)}
-                  className="flex-1 px-3 py-2.5 border rounded-lg text-sm bg-white"
-                >
-                  {tripMembers.map(member => (
-                    <option key={member.uid} value={member.uid}>
-                      {member.displayName}
-                    </option>
-                  ))}
-                </select>
+            {entries.map((entry) => {
+              const member = getMember(entry.userId);
+              
+              return (
+                <div key={entry.id} className="flex gap-2 items-center">
+                  {/* Dropdown Membro con Avatar */}
+                  <div className="flex-1 relative">
+                    <select
+                      value={entry.userId}
+                      onChange={(e) => updateEntry(entry.id, 'userId', e.target.value)}
+                      className="w-full pl-12 pr-3 py-2.5 border rounded-lg text-sm bg-white appearance-none cursor-pointer"
+                    >
+                      {tripMembers.map(m => (
+                        <option key={m.uid} value={m.uid}>
+                          {m.displayName}
+                        </option>
+                      ))}
+                    </select>
+                    {/* Avatar sovrapposto */}
+                    <div className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <Avatar 
+                        src={member?.avatar} 
+                        name={member?.displayName || 'Utente'} 
+                        size="xs"
+                      />
+                    </div>
+                  </div>
 
-                {/* Input Importo */}
-                <div className="relative" style={{ width: '100px' }}>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    value={entry.amount}
-                    onChange={(e) => updateEntry(entry.id, 'amount', e.target.value)}
-                    placeholder="0"
-                    className="w-full px-3 py-2.5 pr-7 border rounded-lg text-sm text-center"
-                    onWheel={(e) => e.currentTarget.blur()}
-                  />
-                  <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm pointer-events-none">
-                    €
-                  </span>
+                  {/* Input Importo */}
+                  <div className="relative" style={{ width: '100px' }}>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={entry.amount}
+                      onChange={(e) => updateEntry(entry.id, 'amount', e.target.value)}
+                      placeholder="0"
+                      className="w-full px-3 py-2.5 pr-7 border rounded-lg text-sm text-center"
+                      onWheel={(e) => e.currentTarget.blur()}
+                    />
+                    <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm pointer-events-none">
+                      €
+                    </span>
+                  </div>
+
+                  {/* Bottone Rimuovi */}
+                  {entries.length > 1 && (
+                    <button
+                      onClick={() => removeEntry(entry.id)}
+                      className="w-9 h-9 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
                 </div>
-
-                {/* Bottone Rimuovi */}
-                {entries.length > 1 && (
-                  <button
-                    onClick={() => removeEntry(entry.id)}
-                    className="w-9 h-9 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors"
-                  >
-                    <X size={16} />
-                  </button>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Bottone Aggiungi */}
@@ -193,15 +207,25 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
             
             {/* Dettaglio per membro */}
             {entries.length > 1 && (
-              <div className="mt-3 pt-3 border-t border-blue-200 space-y-1">
+              <div className="mt-3 pt-3 border-t border-blue-200 space-y-2">
                 {entries
                   .filter(e => parseFloat(e.amount) > 0)
-                  .map((entry) => (
-                    <div key={entry.id} className="flex justify-between text-xs text-gray-600">
-                      <span>{getMemberName(entry.userId)}</span>
-                      <span>{parseFloat(entry.amount).toFixed(2)} €</span>
-                    </div>
-                  ))}
+                  .map((entry) => {
+                    const member = getMember(entry.userId);
+                    return (
+                      <div key={entry.id} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Avatar 
+                            src={member?.avatar} 
+                            name={member?.displayName || 'Utente'} 
+                            size="xs"
+                          />
+                          <span className="text-xs text-gray-600">{member?.displayName}</span>
+                        </div>
+                        <span className="text-xs font-medium">{parseFloat(entry.amount).toFixed(2)} €</span>
+                      </div>
+                    );
+                  })}
               </div>
             )}
           </div>

@@ -12,6 +12,7 @@ import {
   acceptInvitation,
   rejectInvitation 
 } from '../services/trips/invitations';
+import Avatar from './Avatar';
 
 const getTimeAgo = (date) => {
   const seconds = Math.floor((new Date() - date) / 1000);
@@ -208,17 +209,11 @@ export default function NotificationCenter({ userProfile }) {
                         className="p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
                       >
                         <div className="flex items-start gap-3">
-                          {item.actorAvatar ? (
-                            <img 
-                              src={item.actorAvatar} 
-                              alt={item.actorName}
-                              className="w-10 h-10 rounded-full"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center font-semibold">
-                              {item.actorName?.[0]?.toUpperCase() || 'U'}
-                            </div>
-                          )}
+                          <Avatar 
+                            src={item.actorAvatar} 
+                            name={item.actorName || 'Utente'} 
+                            size="sm"
+                          />
                           
                           <div className="flex-1 min-w-0">
                             <p className="text-sm text-gray-900">
@@ -245,9 +240,11 @@ export default function NotificationCenter({ userProfile }) {
                         className="p-4 border-b border-gray-100 bg-amber-50"
                       >
                         <div className="flex items-start gap-3 mb-3">
-                          <div className="w-10 h-10 rounded-full bg-amber-500 text-white flex items-center justify-center font-semibold">
-                            {item.invitedByDisplayName?.[0]?.toUpperCase() || 'U'}
-                          </div>
+                          <Avatar 
+                            src={null} 
+                            name={item.invitedByDisplayName || 'Utente'} 
+                            size="sm"
+                          />
                           
                           <div className="flex-1 min-w-0">
                             <p className="text-sm text-gray-900">

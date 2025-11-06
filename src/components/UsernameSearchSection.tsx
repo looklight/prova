@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, UserPlus, AlertCircle, Check } from 'lucide-react';
 import { searchUsersByUsername, inviteMemberByUsername } from '../services';
+import Avatar from './Avatar';
 
 interface UsernameSearchSectionProps {
   trip: any;
@@ -136,13 +137,12 @@ const UsernameSearchSection: React.FC<UsernameSearchSectionProps> = ({ trip, cur
               }`}
             >
               <div className="flex items-center">
-                {user.avatar ? (
-                  <img src={user.avatar} alt={user.displayName} className="w-10 h-10 rounded-full mr-3" />
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center mr-3">
-                    <span className="text-gray-600 font-semibold">{user.displayName[0].toUpperCase()}</span>
-                  </div>
-                )}
+                <Avatar 
+                  src={user.avatar} 
+                  name={user.displayName} 
+                  size="sm" 
+                  className="mr-3"
+                />
                 <div>
                   <div className="font-semibold text-gray-800">{user.displayName}</div>
                   <div className="text-sm text-gray-500">@{user.username}</div>
