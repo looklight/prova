@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { CATEGORIES } from '../constants';
 
 export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
-  // 🆕 CORRETTO: Inizializza subito con dati validi
+  // ✅ Inizializza con dati validi
   const [categoryData, setCategoryData] = useState(() => {
     const data = {};
     CATEGORIES.forEach(cat => {
@@ -39,7 +39,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
     }));
   });
 
-  // Aggiorna quando cambia currentDay
+  // ✅ SOLO quando cambia il giorno (non trip.data!)
   useEffect(() => {
     const data = {};
     
@@ -63,7 +63,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
     });
     
     setCategoryData(data);
-  }, [currentDay.id, trip.data]);
+  }, [currentDay.id]); // ⭐ SOLO currentDay.id, NON trip.data
 
   useEffect(() => {
     const key = `${currentDay.id}-otherExpenses`;
@@ -78,10 +78,19 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
     }));
     
     setOtherExpenses(expensesWithBreakdown);
-  }, [currentDay.id, trip.data]);
+  }, [currentDay.id]); // ⭐ SOLO currentDay.id, NON trip.data
 
-  // 🆕 AGGIORNATO: Update categoria con auto-assegnazione
+  // ✅ Update categoria - aggiorna stato locale E Firebase
   const updateCategory = (catId, field, value) => {
+    // 🆕 Aggiorna PRIMA lo stato locale per UI reattiva
+    setCategoryData(prev => ({
+      ...prev,
+      [catId]: {
+        ...prev[catId],
+        [field]: value
+      }
+    }));
+
     const key = `${currentDay.id}-${catId}`;
     const currentData = trip.data[key] || {};
     
@@ -90,34 +99,29 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
       [field]: value
     };
 
-    // 🆕 AUTO-ASSEGNAZIONE: Quando si modifica 'cost', crea/aggiorna breakdown
+    // AUTO-ASSEGNAZIONE: Quando si modifica 'cost', crea/aggiorna breakdown
     if (field === 'cost' && value !== undefined) {
       const amount = parseFloat(value) || 0;
       
       if (amount > 0) {
-        // Crea breakdown automaticamente associato all'utente corrente
         updatedCellData.costBreakdown = [
           { userId: currentUserId, amount: amount }
         ];
-        updatedCellData.hasSplitCost = false; // Solo 1 utente
+        updatedCellData.hasSplitCost = false;
       } else {
-        // Se costo = 0 o vuoto, rimuovi breakdown
         updatedCellData.costBreakdown = null;
         updatedCellData.hasSplitCost = false;
         updatedCellData.cost = '';
       }
     }
 
-    // 🆕 Ricalcola hasSplitCost e totale quando si aggiorna costBreakdown
+    // Ricalcola hasSplitCost e totale quando si aggiorna costBreakdown
     if (field === 'costBreakdown') {
       if (Array.isArray(value) && value.length > 0) {
         updatedCellData.hasSplitCost = value.length > 1;
-        
-        // Ricalcola totale
         const total = value.reduce((sum, entry) => sum + entry.amount, 0);
         updatedCellData.cost = total.toString();
       } else {
-        // Se breakdown viene cancellato
         updatedCellData.costBreakdown = null;
         updatedCellData.hasSplitCost = false;
       }
@@ -128,16 +132,14 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
       [key]: updatedCellData
     };
     
+    // Salva su Firebase in background (non blocca UI)
     onUpdateTrip({ ...trip, data: updatedData });
   };
 
   const updateOtherExpense = (expenseId, field, value) => {
     const key = `${currentDay.id}-otherExpenses`;
     
-    // 🆕 Ottieni expenses dallo stato locale, non da trip
-    const currentExpenses = [...otherExpenses];
-    
-    const updated = currentExpenses.map(exp => {
+    const updated = otherExpenses.map(exp => {
       if (exp.id !== expenseId) return exp;
       
       let updatedExpense = {
@@ -174,37 +176,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
       return updatedExpense;
     });
     
-    // 🆕 Aggiorna subito lo stato locale
-    setOtherExpenses(updated);
-    
-    // 🆕 Aggiorna Firebase con i dati corretti
-    const updatedData = {
-      ...trip.data,
-      [key]: updated
-    };
-    
-    onUpdateTrip({
-      ...trip,
-      data: updatedData
-    });
-  };
-
-  // 🆕 FIX: removeOtherExpense con stato locale
-  const removeOtherExpense = (expenseId) => {
-    const key = `${currentDay.id}-otherExpenses`;
-    const currentExpenses = [...otherExpenses];
-    
-    let updated;
-    
-    if (currentExpenses.length === 1) {
-      // Se è l'unica spesa, resettala invece di rimuoverla
-      updated = [{ id: Date.now(), title: '', cost: '', costBreakdown: null, hasSplitCost: false }];
-    } else {
-      // Rimuovi la spesa
-      updated = currentExpenses.filter(exp => exp.id !== expenseId);
-    }
-    
-    // Aggiorna lo stato locale
+    // Aggiorna stato locale
     setOtherExpenses(updated);
     
     // Aggiorna Firebase
@@ -219,11 +191,65 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
     });
   };
 
+  const removeOtherExpense = (expenseId) => {
+    const key = `${currentDay.id}-otherExpenses`;
+    
+    let updated;
+    
+    if (otherExpenses.length === 1) {
+      updated = [{ id: Date.now(), title: '', cost: '', costBreakdown: null, hasSplitCost: false }];
+    } else {
+      updated = otherExpenses.filter(exp => exp.id !== expenseId);
+    }
+    
+    setOtherExpenses(updated);
+    
+    const updatedData = {
+      ...trip.data,
+      [key]: updated
+    };
+    
+    onUpdateTrip({
+      ...trip,
+      data: updatedData
+    });
+  };
+
+  // 🆕 Aggiungi nuova spesa
+  const addOtherExpense = () => {
+    const key = `${currentDay.id}-otherExpenses`;
+    
+    const newExpense = {
+      id: Date.now() + Math.floor(Math.random() * 1000),
+      title: '',
+      cost: '',
+      costBreakdown: null,
+      hasSplitCost: false
+    };
+    
+    const updated = [...otherExpenses, newExpense];
+    
+    setOtherExpenses(updated);
+    
+    const updatedData = {
+      ...trip.data,
+      [key]: updated
+    };
+    
+    onUpdateTrip({
+      ...trip,
+      data: updatedData
+    });
+    
+    console.log('✅ Nuova spesa aggiunta:', newExpense.id);
+  };
+
   return {
     categoryData,
     otherExpenses,
     updateCategory,
     updateOtherExpense,
-    removeOtherExpense
+    removeOtherExpense,
+    addOtherExpense
   };
 };
