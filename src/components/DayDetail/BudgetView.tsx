@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Edit2, Check, X } from 'lucide-react';
-import { calculateCategoryGroupCost, getSuggestedBudget, CATEGORY_GROUPS, CATEGORY_ICONS, CATEGORY_LABELS } from '../../costsUtils';
+import { calculateCategoryGroupCost, getSuggestedBudget, CATEGORY_GROUPS, CATEGORY_ICONS, CATEGORY_LABELS } from '../../utils/costsUtils';
 
 interface BudgetViewProps {
   trip: any;

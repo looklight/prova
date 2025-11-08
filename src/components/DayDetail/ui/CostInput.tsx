@@ -21,17 +21,52 @@ const CostInput: React.FC<CostInputProps> = ({
 }) => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
+    const currentAmount = parseFloat(value) || 0;
+    const newAmount = parseFloat(newValue) || 0;
     
-    // Verifica se c'è un breakdown multi-utente o se il costo è di un altro user
+    // 🆕 DEBUG: Log per capire cosa succede
+    console.log('🔍 [CostInput] handleChange:', {
+      currentValue: value,
+      newValue,
+      costBreakdown,
+      currentUserId,
+      hasSplitCost
+    });
+    
+    // Verifica breakdown
     const isMultiUser = costBreakdown && costBreakdown.length > 1;
     const isOtherUserCost = costBreakdown && 
-                            costBreakdown.length === 1 && 
-                            costBreakdown[0].userId !== currentUserId;
+      costBreakdown.length === 1 && 
+      costBreakdown[0].userId !== currentUserId;
     
-    // Mostra alert solo se:
-    // 1. C'è un breakdown multi-utente, OPPURE
-    // 2. Il costo è stato inserito da un altro user
-    if ((isMultiUser || isOtherUserCost) && newValue !== value && onClearBreakdown) {
+    // 🆕 CRITICAL FIX: Se il breakdown ha 1 utente (tu) E l'importo corrisponde al valore attuale,
+    // significa che stai CONTINUANDO a digitare nello stesso campo (non è un breakdown "protetto")
+    const isYourSingleUserBreakdown = costBreakdown && 
+      costBreakdown.length === 1 && 
+      costBreakdown[0].userId === currentUserId;
+    
+    // 🆕 Verifica se l'importo nel breakdown corrisponde al valore attuale
+    // Se sì, significa che è il breakdown auto-generato mentre digiti
+    const isActivelyEditing = isYourSingleUserBreakdown && 
+      costBreakdown[0].amount === currentAmount;
+    
+    console.log('🔍 [CostInput] Checks:', {
+      isMultiUser,
+      isOtherUserCost,
+      isYourSingleUserBreakdown,
+      isActivelyEditing,
+      breakdownAmount: costBreakdown?.[0]?.amount,
+      currentAmount
+    });
+    
+    // Mostra alert SOLO se:
+    // 1. Breakdown multi-utente (2+ persone), O
+    // 2. Breakdown di altro utente
+    // MA NON se stai attivamente modificando il tuo breakdown singolo
+    const shouldShowAlert = (isMultiUser || isOtherUserCost) && !isActivelyEditing;
+    
+    if (shouldShowAlert && newValue !== value && onClearBreakdown) {
+      console.log('⚠️ [CostInput] Showing alert');
       const confirmed = window.confirm(
         'Sovrascrivendo il costo, la ripartizione verrà cancellata.\n\n' +
         'Per aggiungere contributi, usa \'Gestisci spesa\'.\n\n' +
@@ -43,6 +78,7 @@ const CostInput: React.FC<CostInputProps> = ({
         onChange(e);
       }
     } else {
+      console.log('✅ [CostInput] Normal onChange');
       onChange(e);
     }
   };

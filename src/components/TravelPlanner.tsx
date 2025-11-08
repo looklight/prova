@@ -11,9 +11,9 @@ const TravelPlannerApp = ({ user }) => {
   const [currentTripId, setCurrentTripId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [userProfile, setUserProfile] = useState(null); // ⭐ NUOVO: Profilo Firestore
+  const [userProfile, setUserProfile] = useState(null);
 
-  // ⭐ AGGIUNTO: Monitora connessione
+  // 🚀 OTTIMIZZAZIONE: Monitora connessione (già ottimale)
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
@@ -22,7 +22,7 @@ const TravelPlannerApp = ({ user }) => {
     
     const handleOffline = () => {
       setIsOnline(false);
-      console.log('🔴 Connessione persa - le modifiche saranno sincronizzate quando torni online');
+      console.log('🔴 Connessione persa');
     };
 
     window.addEventListener('online', handleOnline);
@@ -34,101 +34,94 @@ const TravelPlannerApp = ({ user }) => {
     };
   }, []);
 
-  // ⭐ NUOVO: Carica profilo utente da Firestore
+  // 🚀 OTTIMIZZAZIONE 1: Carica profilo in parallelo con viaggi
   useEffect(() => {
     if (!user) return;
 
+    console.time('📝 Load Profile'); // ← Misura tempo
+    
     const loadProfile = async () => {
       try {
-        console.log('📝 Caricamento profilo Firestore...');
         const profile = await loadUserProfile(user.uid, user.email);
         setUserProfile(profile);
-        console.log('✅ Profilo caricato:', profile.displayName, profile.username);
+        console.timeEnd('📝 Load Profile');
+        console.log('✅ Profilo caricato:', profile.displayName);
       } catch (error) {
         console.error('❌ Errore caricamento profilo:', error);
-        // In caso di errore, usa i dati base di Firebase Auth
+        // Fallback ai dati Auth
         setUserProfile({
           displayName: user.displayName || 'Utente',
           username: null,
           avatar: user.photoURL,
           email: user.email
         });
+        console.timeEnd('📝 Load Profile');
       }
     };
 
     loadProfile();
   }, [user]);
 
-  // ⭐ MODIFICATO: Usa listener real-time invece di caricamento singolo
+  // 🚀 OTTIMIZZAZIONE 2: Listener viaggi con early UI update
   useEffect(() => {
-  if (!user?.uid) return;
-  
-  console.log('🔄 Inizializzazione listener real-time...');
-  setLoading(true);
-  
-  const unsubscribe = subscribeToUserTrips(
-    user.uid,
-    (updatedTrips) => {
-      console.log('🔥 Viaggi aggiornati da Firestore:', updatedTrips.length);
-      setTrips(updatedTrips);
-      setLoading(false);
-    },
-    (error) => {
-      console.error('❌ Errore listener viaggi:', error);
-      alert('Errore nella sincronizzazione dei viaggi');
-      setLoading(false);
-    }
-  );
-  
-  return () => {
-    console.log('🔌 Disconnessione listener real-time');
-    unsubscribe();
-    setTrips([]);
-    setCurrentTripId(null);
-    setLoading(true);
-  };
-}, [user?.uid]);
+    if (!user?.uid) return;
+    
+    console.time('📦 Load Trips'); // ← Misura tempo
+    console.log('🔄 Inizializzazione listener real-time...');
+    
+    const unsubscribe = subscribeToUserTrips(
+      user.uid,
+      (updatedTrips) => {
+        console.timeEnd('📦 Load Trips');
+        console.log('🔥 Viaggi aggiornati:', updatedTrips.length);
+        
+        setTrips(updatedTrips);
+        setLoading(false); // ← Mostra UI appena arrivano i viaggi
+      },
+      (error) => {
+        console.error('❌ Errore listener viaggi:', error);
+        setLoading(false); // ← Mostra UI anche in caso di errore
+        alert('Errore nella sincronizzazione dei viaggi');
+      }
+    );
+    
+    return () => {
+      console.log('🔌 Disconnessione listener');
+      unsubscribe();
+      setTrips([]);
+      setCurrentTripId(null);
+      setLoading(true);
+    };
+  }, [user?.uid]);
 
-  // ⭐ AGGIUNTO: Usa useMemo per garantire che currentTrip venga ricalcolato quando trips cambia
+  // 🚀 OTTIMIZZAZIONE 3: Memoize currentTrip per evitare ricalcoli
   const currentTrip = useMemo(() => {
-    const trip = trips.find(t => t.id === currentTripId);
-    if (trip) {
-      console.log('🔄 currentTrip aggiornato:', trip.name, 'updatedAt:', trip.updatedAt);
-    }
-    return trip;
+    return trips.find(t => t.id === currentTripId);
   }, [trips, currentTripId]);
   
   const updateCurrentTrip = async (updates) => {
     try {
-      console.log('💾 Salvataggio modifiche...', updates);
-      
-     
+      console.log('💾 Salvataggio modifiche...');
       
       // Salva su Firestore in background
       await updateTrip(user.uid, currentTripId, updates);
       
       console.log('✅ Modifiche salvate su Firestore');
       
-      // Il listener riceverà la conferma e aggiornerà con i dati ufficiali
-      
     } catch (error) {
       console.error('❌ Errore aggiornamento viaggio:', error);
       alert('Errore nel salvataggio delle modifiche');
-      
-      // In caso di errore, il listener ripristinerà i dati corretti
     }
   };
 
   const createNewTrip = async (metadata) => {
     try {
-      // 🆕 Usa i metadata dal modal (o valori di default se non forniti)
       const finalName = metadata?.name || 'Nuovo Viaggio';
       
       const newTrip = {
         id: Date.now(),
-        name: finalName, // Retrocompatibilità
-        image: metadata?.image || null, // Retrocompatibilità
-        // 🆕 Nuova struttura metadata
+        name: finalName,
+        image: metadata?.image || null,
         metadata: {
           name: finalName,
           image: metadata?.image || null,
@@ -142,20 +135,26 @@ const TravelPlannerApp = ({ user }) => {
         data: {}
       };
       
-      console.log('💾 Creazione nuovo viaggio su Firestore...', newTrip.metadata);
+      console.log('💾 Creazione nuovo viaggio...');
       
-      // ⭐ NUOVO: Usa createTrip con profilo completo dell'utente
-      await createTrip(newTrip, {
+      // 🚀 OTTIMIZZAZIONE: Usa profilo se disponibile, altrimenti Auth
+      const ownerProfile = userProfile ? {
         uid: user.uid,
-        displayName: userProfile.displayName || user.displayName || 'Utente',
+        displayName: userProfile.displayName,
         username: userProfile.username,
-        avatar: userProfile.avatar || user.photoURL
-      });
+        avatar: userProfile.avatar
+      } : {
+        uid: user.uid,
+        displayName: user.displayName || 'Utente',
+        username: null,
+        avatar: user.photoURL
+      };
       
-      console.log('✅ Viaggio creato, listener aggiornerà lo stato');
+      await createTrip(newTrip, ownerProfile);
       
-      // Il listener aggiungerà automaticamente il viaggio allo stato
-      // Imposta subito la vista per evitare lag percepibile
+      console.log('✅ Viaggio creato');
+      
+      // 🚀 OTTIMIZZAZIONE: Apri subito il viaggio (UI ottimistica)
       setCurrentTripId(newTrip.id);
       setCurrentView('trip');
       
@@ -167,15 +166,9 @@ const TravelPlannerApp = ({ user }) => {
 
   const deleteTripHandler = async (tripId) => {
     try {
-      console.log('🗑️ Eliminazione viaggio da Firestore...');
-      
-      // ⭐ NUOVO: Usa deleteTripForUser (logica WhatsApp)
+      console.log('🗑️ Eliminazione viaggio...');
       await deleteTripForUser(user.uid, tripId);
-      
-      console.log('✅ Viaggio eliminato, listener aggiornerà lo stato');
-      
-      // Il listener aggiornerà automaticamente lo stato rimuovendo il viaggio
-      
+      console.log('✅ Viaggio eliminato');
     } catch (error) {
       console.error('❌ Errore eliminazione viaggio:', error);
       alert('Errore nell\'eliminazione del viaggio');
@@ -235,7 +228,7 @@ const TravelPlannerApp = ({ user }) => {
         const importData = JSON.parse(e.target.result);
         
         if (!importData.trip || !importData.trip.days) {
-          alert('❌ File non valido!\n\nAssicurati di importare un file esportato da questa app.');
+          alert('❌ File non valido!');
           return;
         }
 
@@ -282,33 +275,61 @@ const TravelPlannerApp = ({ user }) => {
           }
         });
 
-        // ⭐ NUOVO: Salva usando createTrip con profilo completo
-        await createTrip(newTrip, {
+        const ownerProfile = userProfile ? {
           uid: user.uid,
-          displayName: userProfile.displayName || user.displayName || 'Utente',
+          displayName: userProfile.displayName,
           username: userProfile.username,
-          avatar: userProfile.avatar || user.photoURL
-        });
+          avatar: userProfile.avatar
+        } : {
+          uid: user.uid,
+          displayName: user.displayName || 'Utente',
+          username: null,
+          avatar: user.photoURL
+        };
         
-        console.log('✅ Viaggio importato, listener aggiornerà lo stato');
+        await createTrip(newTrip, ownerProfile);
         
-        // Il listener aggiungerà automaticamente il viaggio
+        console.log('✅ Viaggio importato');
         alert(`✅ Viaggio "${tripName}" importato con successo!`);
       } catch (error) {
-        console.error('❌ Errore durante import:', error);
-        alert('❌ Errore durante l\'importazione!\n\nIl file potrebbe essere corrotto o in un formato non supportato.');
+        console.error('❌ Errore import:', error);
+        alert('❌ Errore durante l\'importazione!');
       }
     };
     reader.readAsText(file);
   };
 
-  if (loading || !userProfile) {
+  // 🚀 OTTIMIZZAZIONE 4: Progressive loading - mostra UI appena possibile
+  // Mostra loading SOLO se non abbiamo né viaggi né profilo
+  if (loading && trips.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-xl text-gray-600">Caricamento viaggi...</div>
+        <div className="text-center">
+          <div className="text-xl text-gray-600 mb-2">Caricamento...</div>
+          <div className="text-sm text-gray-400">
+            {!userProfile && '📝 Caricamento profilo...'}
+            {!trips.length && '📦 Caricamento viaggi...'}
+          </div>
+        </div>
       </div>
     );
   }
+
+  // 🚀 OTTIMIZZAZIONE 5: Usa profilo base se non ancora caricato
+  const effectiveUserProfile = userProfile || {
+    displayName: user.displayName || 'Utente',
+    username: null,
+    avatar: user.photoURL,
+    email: user.email
+  };
+
+  const userProps = {
+    uid: user.uid,
+    displayName: effectiveUserProfile.displayName,
+    photoURL: effectiveUserProfile.avatar,
+    username: effectiveUserProfile.username,
+    email: effectiveUserProfile.email
+  };
 
   if (currentView === 'home') {
     return <HomeView 
@@ -320,13 +341,7 @@ const TravelPlannerApp = ({ user }) => {
       onExportTrip={exportTrip}
       onImportTrip={importTrip}
       onOpenProfile={() => setCurrentView('profile')}
-      currentUser={{
-        uid: user.uid,
-        displayName: userProfile.displayName || user.displayName || 'Utente',
-        photoURL: userProfile.avatar || user.photoURL, // ⭐ USA 'avatar' da Firestore!
-        username: userProfile.username,
-        email: userProfile.email
-      }}
+      currentUser={userProps}
     />;
   }
 
@@ -343,13 +358,7 @@ const TravelPlannerApp = ({ user }) => {
         trip={currentTrip}
         onUpdateTrip={updateCurrentTrip}
         onBackToHome={() => setCurrentView('home')}
-        currentUser={{
-          uid: user.uid,
-          displayName: userProfile.displayName || user.displayName || 'Utente',
-          photoURL: userProfile.avatar || user.photoURL, // ⭐ USA 'avatar' da Firestore!
-          username: userProfile.username,
-          email: userProfile.email
-        }}
+        currentUser={userProps}
       />
     );
   }

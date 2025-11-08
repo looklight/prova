@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { CATEGORIES } from '../../constants';
-import { calculateDayCost, calculateTripCost } from '../../costsUtils';
+import { CATEGORIES } from '../../utils/constants';
+import { calculateDayCost, calculateTripCost } from '../../utils/costsUtils';
 import { useDayData } from '../../hooks/useDayData';
 import { useMediaHandlers } from '../../hooks/useMediaHandlers';
 import { useSuggestions } from '../../hooks/useSuggestions';
@@ -22,7 +22,7 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
   const currentDay = trip.days[dayIndex];
 
   // Custom Hooks
-  const { categoryData, otherExpenses, updateCategory, updateOtherExpense, removeOtherExpense } =
+  const { categoryData, otherExpenses, updateCategory, updateOtherExpense, removeOtherExpense, addOtherExpense } =
     useDayData(trip, currentDay, onUpdateTrip, user.uid);
 
   const mediaHandlers = useMediaHandlers(categoryData, updateCategory);
@@ -37,9 +37,14 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
   });
   const [showFullSummary, setShowFullSummary] = useState(false);
 
-  // ✅ Calcoli costi SENZA useMemo (più semplice e robusto)
-  const dayCost = calculateDayCost(currentDay, trip.data);
-  const tripCost = calculateTripCost(trip);
+  // ✅ Calcoli costi con useMemo per performance
+  const dayCost = useMemo(() => {
+    return calculateDayCost(currentDay, trip.data);
+  }, [currentDay.id, trip.data]);
+
+  const tripCost = useMemo(() => {
+    return calculateTripCost(trip);
+  }, [trip.data, trip.days]);
 
   // Prepara membri attivi del viaggio
   const activeMembers = useMemo(() => {
@@ -62,12 +67,18 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
     setCostBreakdownModal({ isOpen: true, categoryId: null, expenseId });
   };
 
-  // Handler conferma breakdown
-  const handleConfirmBreakdown = (breakdown) => {
+  // 🆕 Handler conferma breakdown - ora gestisce anche participants
+  const handleConfirmBreakdown = (breakdown, participants) => {
     if (costBreakdownModal.categoryId) {
+      // Aggiorna breakdown
       updateCategory(costBreakdownModal.categoryId, 'costBreakdown', breakdown);
+      // 🆕 Aggiorna participants
+      updateCategory(costBreakdownModal.categoryId, 'participants', participants);
     } else if (costBreakdownModal.expenseId !== null) {
+      // Aggiorna breakdown
       updateOtherExpense(costBreakdownModal.expenseId, 'costBreakdown', breakdown);
+      // 🆕 Aggiorna participants
+      updateOtherExpense(costBreakdownModal.expenseId, 'participants', participants);
     }
   };
 
@@ -130,7 +141,9 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
           expenses={otherExpenses}
           onUpdate={updateOtherExpense}
           onRemove={removeOtherExpense}
+          onAdd={addOtherExpense}
           onOpenCostBreakdown={handleOpenExpenseBreakdown}
+          currentUserId={user.uid}
         />
 
         <CostSummary
@@ -174,6 +187,11 @@ const DayDetailView = ({ trip, dayIndex, onUpdateTrip, onBack, onChangeDayIndex,
           costBreakdownModal.categoryId
             ? categoryData[costBreakdownModal.categoryId]?.costBreakdown || null
             : otherExpenses.find(e => e.id === costBreakdownModal.expenseId)?.costBreakdown || null
+        }
+        existingParticipants={
+          costBreakdownModal.categoryId
+            ? categoryData[costBreakdownModal.categoryId]?.participants || null
+            : otherExpenses.find(e => e.id === costBreakdownModal.expenseId)?.participants || null
         }
         onClose={() => setCostBreakdownModal({ isOpen: false, categoryId: null, expenseId: null })}
         onConfirm={handleConfirmBreakdown}

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Edit2, Check, Plus, ChevronLeft, ChevronRight, Trash2, Users } from 'lucide-react';
-import { CATEGORIES, TRANSPORT_OPTIONS } from '../constants.js';
-import { calculateDayCost } from '../costsUtils.js';
+import { CATEGORIES, TRANSPORT_OPTIONS } from '../utils/constants.js';
+import { calculateDayCost } from '../utils/costsUtils.js';
 import TripMetadataModal from './TripMetadataModal.js';
 import TripMembersModal from './TripMembersModal.js';
 import MembersAvatarStack from './MembersAvatarStack.js';

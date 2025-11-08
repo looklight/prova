@@ -7,7 +7,7 @@ import NotificationCenter from './NotificationCenter';
 import MembersAvatarStack from './MembersAvatarStack';
 import TripMembersModal from './TripMembersModal';
 import CostSummaryByUserView from './DayDetail/CostSummaryByUserView';
-import { calculateTripCost } from '../costsUtils';
+import { calculateTripCost } from "../utils/costsUtils";
 
 const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExportTrip, onImportTrip, onOpenProfile, currentUser }) => {
   const fileInputRef = useRef(null);

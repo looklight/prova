@@ -1,11 +1,14 @@
 import React from 'react';
-import { calculateCategoryGroupCost, CATEGORY_GROUPS, CATEGORY_ICONS, CATEGORY_LABELS } from '../../costsUtils';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import { calculateCategoryGroupCost, CATEGORY_GROUPS, CATEGORY_ICONS, CATEGORY_LABELS } from '../../utils/costsUtils';
 
 interface CategoryBreakdownViewProps {
   trip: any;
 }
 
 const CategoryBreakdownView: React.FC<CategoryBreakdownViewProps> = ({ trip }) => {
+  const [expandedCategories, setExpandedCategories] = React.useState<Set<string>>(new Set());
+
   const categoryGroups = Object.keys(CATEGORY_GROUPS);
 
   const totalTrip = categoryGroups.reduce((sum, groupKey) => {
@@ -13,55 +16,86 @@ const CategoryBreakdownView: React.FC<CategoryBreakdownViewProps> = ({ trip }) =
     return sum + total;
   }, 0);
 
+  const toggleCategoryExpansion = (groupKey: string) => {
+    setExpandedCategories(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(groupKey)) {
+        newSet.delete(groupKey);
+      } else {
+        newSet.add(groupKey);
+      }
+      return newSet;
+    });
+  };
+
   return (
     <div className="p-4 space-y-4">
       {categoryGroups.map(groupKey => {
         const { total, details } = calculateCategoryGroupCost(trip, groupKey);
-        
-        if (total === 0) return null; // Non mostrare categorie vuote
+        if (total === 0) return null;
 
         const percentage = totalTrip > 0 ? (total / totalTrip) * 100 : 0;
+        const isExpanded = expandedCategories.has(groupKey);
+
+        // Arricchisci details con info base del giorno
+        const enrichedDetails = details.map(detail => {
+          const day = trip.days.find(d => d.number === detail.dayNumber);
+          const baseKey = day ? `${day.id}-base` : null;
+          const baseTitle = baseKey ? trip.data[baseKey]?.title || `Giorno ${detail.dayNumber}` : `Giorno ${detail.dayNumber}`;
+          
+          return {
+            ...detail,
+            base: baseTitle
+          };
+        });
 
         return (
-          <div key={groupKey} className="bg-white rounded-xl shadow p-4">
-            {/* Header categoria */}
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">{CATEGORY_ICONS[groupKey]}</span>
-                <h3 className="font-semibold text-lg">{CATEGORY_LABELS[groupKey]}</h3>
+          <div key={groupKey} className="bg-white rounded-xl shadow overflow-hidden">
+            {/* Header categoria - cliccabile */}
+            <button
+              onClick={() => toggleCategoryExpansion(groupKey)}
+              className="w-full p-4 hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">{CATEGORY_ICONS[groupKey]}</span>
+                  <h3 className="font-semibold text-lg">{CATEGORY_LABELS[groupKey]}</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-blue-600">
+                      {Math.round(total)}€
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {percentage.toFixed(0)}% del totale
+                    </p>
+                  </div>
+                  {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-2xl font-bold text-blue-600">
-                  {Math.round(total)}€
-                </p>
-                <p className="text-xs text-gray-500">
-                  {percentage.toFixed(0)}% del totale
-                </p>
+
+              {/* Barra progresso */}
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div
+                  className="bg-blue-500 h-2 rounded-full transition-all"
+                  style={{ width: `${Math.min(percentage, 100)}%` }}
+                />
               </div>
-            </div>
+            </button>
 
-            {/* Barra progresso */}
-            <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
-              <div
-                className="bg-blue-500 h-2 rounded-full transition-all"
-                style={{ width: `${Math.min(percentage, 100)}%` }}
-              />
-            </div>
-
-            {/* Dettagli */}
-            {details.length > 0 && (
-              <div className="space-y-2 pt-3 border-t">
-                {details.map((detail, idx) => (
-                  <div key={idx} className="flex justify-between text-sm">
-                    <div className="flex-1">
-                      <span className="text-gray-600">
-                        📍 {detail.title || detail.categoryId}
-                      </span>
-                      <span className="text-gray-400 text-xs ml-2">
-                        Giorno {detail.dayNumber}
-                      </span>
-                    </div>
-                    <span className="font-medium">{Math.round(detail.cost)}€</span>
+            {/* Dettagli espandibili */}
+            {isExpanded && enrichedDetails.length > 0 && (
+              <div className="px-4 pb-4 space-y-1 border-t bg-gray-50">
+                {enrichedDetails.map((detail, idx) => (
+                  <div key={idx} className="flex justify-between text-sm py-2 border-b border-gray-100 last:border-0">
+                    <span className="text-gray-700">
+                      <span className="font-medium">G{detail.dayNumber}</span>
+                      <span className="text-gray-400 mx-1">•</span>
+                      <span className="text-gray-500">{detail.base}</span>
+                      <span className="text-gray-400 mx-1">•</span>
+                      <span>{detail.title || detail.categoryId}</span>
+                    </span>
+                    <span className="font-medium text-gray-900">{Math.round(detail.cost)}€</span>
                   </div>
                 ))}
               </div>

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { TRANSPORT_OPTIONS } from '../../../constants';
+import { TRANSPORT_OPTIONS } from '../../../utils/constants';
 
 interface TransportSelectorProps {
   categoryId: string;

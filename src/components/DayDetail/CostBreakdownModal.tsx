@@ -15,8 +15,9 @@ interface CostBreakdownModalProps {
   currentUserId: string;
   tripMembers: Array<{ uid: string; displayName: string; avatar?: string }>;
   existingBreakdown: Array<{ userId: string; amount: number }> | null;
+  existingParticipants?: string[] | null; // 🆕 Chi ha usufruito
   onClose: () => void;
-  onConfirm: (breakdown: Array<{ userId: string; amount: number }>) => void;
+  onConfirm: (breakdown: Array<{ userId: string; amount: number }>, participants: string[]) => void; // 🆕 Aggiungi participants
 }
 
 const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
@@ -26,15 +27,25 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
   currentUserId,
   tripMembers,
   existingBreakdown,
+  existingParticipants,
   onClose,
   onConfirm
 }) => {
   const [entries, setEntries] = useState<BreakdownEntry[]>([]);
   const [nextId, setNextId] = useState(2);
+  const [participants, setParticipants] = useState<Set<string>>(new Set()); // 🆕 Set di UIDs partecipanti
 
-  // Inizializza entries
+  // Inizializza entries e participants
   useEffect(() => {
     if (isOpen) {
+      // 🆕 Inizializza participants
+      if (existingParticipants && existingParticipants.length > 0) {
+        setParticipants(new Set(existingParticipants));
+      } else {
+        // Default: tutti i membri attivi
+        setParticipants(new Set(tripMembers.map(m => m.uid)));
+      }
+
       if (existingBreakdown && existingBreakdown.length > 0) {
         // Carica breakdown esistente
         setEntries(
@@ -51,7 +62,7 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
         setNextId(2);
       }
     }
-  }, [isOpen, existingBreakdown, currentUserId]);
+  }, [isOpen, existingBreakdown, existingParticipants, currentUserId, tripMembers]);
 
   const addEntry = () => {
     setEntries([...entries, { id: nextId, userId: currentUserId, amount: '' }]);
@@ -70,6 +81,31 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
     ));
   };
 
+  // 🆕 Toggle partecipante
+  const toggleParticipant = (userId: string) => {
+    setParticipants(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(userId)) {
+        // Non permettere di rimuovere l'ultimo partecipante
+        if (newSet.size === 1) {
+          alert('Almeno una persona deve usufruire di questa spesa');
+          return prev;
+        }
+        newSet.delete(userId);
+        
+        // Se rimuovi un partecipante, azzera il suo amount
+        setEntries(currentEntries => 
+          currentEntries.map(e => 
+            e.userId === userId ? { ...e, amount: '0' } : e
+          )
+        );
+      } else {
+        newSet.add(userId);
+      }
+      return newSet;
+    });
+  };
+
   const calculateTotal = () => {
     return entries.reduce((sum, entry) => {
       const amount = parseFloat(entry.amount) || 0;
@@ -78,7 +114,13 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
   };
 
   const handleConfirm = () => {
-    // Valida che ci siano almeno dei valori
+    // Valida che ci siano partecipanti
+    if (participants.size === 0) {
+      alert('Seleziona almeno una persona che ha usufruito di questa spesa');
+      return;
+    }
+
+    // Valida che ci siano dei valori
     const validEntries = entries.filter(e => 
       e.userId && e.amount && parseFloat(e.amount) > 0
     );
@@ -93,7 +135,8 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
       amount: parseFloat(e.amount)
     }));
 
-    onConfirm(breakdown);
+    // 🆕 Passa anche i participants
+    onConfirm(breakdown, Array.from(participants));
     onClose();
   };
 
@@ -104,6 +147,7 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
   if (!isOpen) return null;
 
   const total = calculateTotal();
+  const idealShare = participants.size > 0 ? total / participants.size : 0;
 
   return (
     <div 
@@ -130,9 +174,47 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
 
         {/* Body - Scrollable */}
         <div className="flex-1 overflow-y-auto p-6">
+          {/* 🆕 Chi ha usufruito */}
+          <div className="mb-6">
+            <h4 className="text-sm font-semibold text-gray-700 mb-3">👥 Chi ha usufruito?</h4>
+            <div className="flex flex-wrap gap-2">
+              {tripMembers.map(member => {
+                const isSelected = participants.has(member.uid);
+                return (
+                  <button
+                    key={member.uid}
+                    onClick={() => toggleParticipant(member.uid)}
+                    className={`
+                      flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium
+                      transition-all duration-200
+                      ${isSelected 
+                        ? 'bg-blue-500 text-white shadow-md' 
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }
+                    `}
+                  >
+                    <Avatar src={member.avatar} name={member.displayName} size="xs" />
+                    <span>{member.displayName}</span>
+                    {isSelected ? (
+                      <span className="text-xs">✓</span>
+                    ) : (
+                      <span className="text-xs opacity-50">✕</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Chi ha pagato quanto */}
+          <div className="mb-4">
+            <h4 className="text-sm font-semibold text-gray-700 mb-3">💰 Chi ha pagato quanto?</h4>
+          </div>
+
           <div className="space-y-3">
             {entries.map((entry) => {
               const member = getMember(entry.userId);
+              const isParticipant = participants.has(entry.userId);
               
               return (
                 <div key={entry.id} className="flex gap-2 items-center">
@@ -167,7 +249,10 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
                       value={entry.amount}
                       onChange={(e) => updateEntry(entry.id, 'amount', e.target.value)}
                       placeholder="0"
-                      className="w-full px-3 py-2.5 pr-7 border rounded-lg text-sm text-center"
+                      className={`w-full px-3 py-2.5 pr-7 border rounded-lg text-sm text-center ${
+                        !isParticipant ? 'bg-gray-50 text-gray-400' : ''
+                      }`}
+                      disabled={!isParticipant}
                       onWheel={(e) => e.currentTarget.blur()}
                     />
                     <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm pointer-events-none">
@@ -198,34 +283,49 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
             <span>Aggiungi Contributo</span>
           </button>
 
-          {/* Totale */}
+          {/* Totale e Bilancio */}
           <div className="mt-6 p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center mb-2">
               <span className="text-sm font-medium text-gray-700">Totale Spesa</span>
               <span className="text-xl font-bold text-blue-700">{total.toFixed(2)} €</span>
             </div>
             
-            {/* Dettaglio per membro */}
-            {entries.length > 1 && (
+            <div className="flex justify-between items-center text-xs text-gray-600 mb-3">
+              <span>Quota per persona</span>
+              <span className="font-medium">{idealShare.toFixed(2)} € ({participants.size} {participants.size === 1 ? 'partecipante' : 'partecipanti'})</span>
+            </div>
+
+            {/* Dettaglio bilancio per partecipante */}
+            {participants.size > 0 && (
               <div className="mt-3 pt-3 border-t border-blue-200 space-y-2">
-                {entries
-                  .filter(e => parseFloat(e.amount) > 0)
-                  .map((entry) => {
-                    const member = getMember(entry.userId);
-                    return (
-                      <div key={entry.id} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Avatar 
-                            src={member?.avatar} 
-                            name={member?.displayName || 'Utente'} 
-                            size="xs"
-                          />
-                          <span className="text-xs text-gray-600">{member?.displayName}</span>
-                        </div>
-                        <span className="text-xs font-medium">{parseFloat(entry.amount).toFixed(2)} €</span>
+                {Array.from(participants).map((userId) => {
+                  const member = getMember(userId);
+                  const paidAmount = entries
+                    .filter(e => e.userId === userId)
+                    .reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+                  const balance = paidAmount - idealShare;
+                  
+                  return (
+                    <div key={userId} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Avatar 
+                          src={member?.avatar} 
+                          name={member?.displayName || 'Utente'} 
+                          size="xs"
+                        />
+                        <span className="text-xs text-gray-600">{member?.displayName}</span>
                       </div>
-                    );
-                  })}
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-gray-500">
+                          {paidAmount.toFixed(2)}€ / {idealShare.toFixed(2)}€
+                        </span>
+                        <span className={`font-medium ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {balance >= 0 ? '+' : ''}{balance.toFixed(2)}€
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
