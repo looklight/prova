@@ -6,6 +6,7 @@ interface TotalRowProps {
   selectedDays: number[];
   isScrolled: boolean;
   justMounted: boolean;
+  isDesktop: boolean;
   onOpenCostSummary: () => void;
 }
 
@@ -14,10 +15,11 @@ const TotalRow: React.FC<TotalRowProps> = ({
   selectedDays,
   isScrolled,
   justMounted,
+  isDesktop,
   onOpenCostSummary
 }) => {
   return (
-    <tr className="border-t-2 bg-gray-50 font-bold" style={{ height: '48px' }}>
+    <tr className="border-t-2 bg-gray-50 font-bold" style={{ height: isDesktop ? '80px' : '60px' }}>
       <td 
         className={`p-0.5 sticky left-0 z-10 ${
           isScrolled ? 'bg-transparent' : 'bg-gray-50'
@@ -26,7 +28,7 @@ const TotalRow: React.FC<TotalRowProps> = ({
           width: isScrolled ? '60px' : '120px', 
           minWidth: isScrolled ? '60px' : '120px', 
           maxWidth: isScrolled ? '60px' : '120px', 
-          height: '48px',
+          height: isDesktop ? '80px' : '60px',
           transition: justMounted ? 'none' : 'all 0.3s'
         }}
       >
@@ -59,7 +61,7 @@ const TotalRow: React.FC<TotalRowProps> = ({
           className={`px-1 py-0.5 text-center border-l text-sm cursor-pointer hover:bg-blue-50 transition-colors ${
             selectedDays.includes(trip.days.indexOf(day)) ? 'bg-blue-50' : ''
           }`} 
-          style={{ height: '48px', width: '140px', minWidth: '140px', maxWidth: '140px' }}
+          style={{ height: isDesktop ? '80px' : '60px', width: '140px', minWidth: '140px', maxWidth: '140px' }}
           title="Clicca per vedere il riepilogo completo dei costi"
         >
           {calculateDayCost(day, trip.data).toFixed(2)}€
