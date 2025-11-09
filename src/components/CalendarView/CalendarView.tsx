@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import TripMetadataModal from '../TripMetadataModal';
 import CostSummaryByUserView from '../DayDetail/CostSummaryByUserView';
 import CalendarHeader from './CalendarHeader';
@@ -59,7 +59,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     removeSelectedDays,
     toggleDaySelection,
     moveDaysAfter,
-    updateDayDate
+    updateDayDate,
+    resetEditMode
   } = useDayOperations({ trip, onUpdateTrip });
 
   // Utility functions
@@ -74,26 +75,48 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     return trip.data[`${dayId}-${categoryId}`] || null;
   };
 
+  // 🎨 Mappa deterministica dei colori per base/pernottamento
+  const contentColorMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    const baseColors = ['bg-blue-50', 'bg-green-50', 'bg-purple-50', 'bg-indigo-50', 'bg-teal-50'];
+    const pernottamentoColors = ['bg-yellow-50', 'bg-pink-50', 'bg-orange-50', 'bg-cyan-50', 'bg-lime-50'];
+    
+    let baseIndex = 0;
+    let pernottamentoIndex = 0;
+    
+    // Per ogni giorno, raccogli i contenuti unici
+    trip.days.forEach((day: any) => {
+      ['base', 'pernottamento'].forEach(catId => {
+        const cellData = getCellData(day.id, catId);
+        const content = cellData?.title?.trim();
+        
+        if (content && !map[`${catId}-${content}`]) {
+          // Assegna colore in ordine di apparizione
+          const colors = catId === 'base' ? baseColors : pernottamentoColors;
+          const index = catId === 'base' ? baseIndex++ : pernottamentoIndex++;
+          map[`${catId}-${content}`] = colors[index % colors.length];
+        }
+      });
+    });
+    
+    return map;
+  }, [trip.days, trip.data]);
+
   const getColorForContent = (categoryId: string, content: string) => {
     if (categoryId !== 'base' && categoryId !== 'pernottamento') return null;
     if (!content) return null;
     
+    // Conta occorrenze
     const occurrences = trip.days.filter((day: any) => {
       const cellData = getCellData(day.id, categoryId);
       return cellData?.title === content;
     }).length;
     
+    // Solo se appare 2+ volte
     if (occurrences < 2) return null;
     
-    const baseColors = ['bg-blue-50', 'bg-green-50', 'bg-purple-50', 'bg-indigo-50', 'bg-teal-50'];
-    const pernottamentoColors = ['bg-yellow-50', 'bg-pink-50', 'bg-orange-50', 'bg-cyan-50', 'bg-lime-50'];
-    const colors = categoryId === 'base' ? baseColors : pernottamentoColors;
-    
-    let hash = 0;
-    for (let i = 0; i < content.length; i++) {
-      hash = content.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return colors[Math.abs(hash) % colors.length];
+    // Usa mappa pre-calcolata (deterministico, zero collisioni)
+    return contentColorMap[`${categoryId}-${content}`] || null;
   };
 
   const getCategoryBgColor = (color: string) => {
@@ -109,10 +132,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   };
 
   const handleCellClick = (dayIndex: number, categoryId: string) => {
-    if (!editMode) {
-      const currentScrollPosition = scrollContainerRef.current?.scrollLeft || 0;
-      onOpenDay(dayIndex, currentScrollPosition, categoryId);
+    // ✅ AUTO-EXIT: Se siamo in edit mode, esci prima di aprire il giorno
+    if (editMode) {
+      setEditMode(false);
+      resetEditMode();
     }
+    
+    // Poi apri normalmente il giorno
+    const currentScrollPosition = scrollContainerRef.current?.scrollLeft || 0;
+    onOpenDay(dayIndex, currentScrollPosition, categoryId);
   };
 
   const handleMetadataSave = async (metadata: any) => {
@@ -135,7 +163,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     setEditMode(!editMode);
     if (editMode) {
       // Reset selections when exiting edit mode
-      setMoveAfterIndex(null);
+      resetEditMode();
     }
   };
 

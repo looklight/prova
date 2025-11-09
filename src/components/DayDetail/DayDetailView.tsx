@@ -245,7 +245,7 @@ const DayDetailView = ({
   return (
     <div className={`bg-gray-50 ${isDesktop ? 'h-full overflow-y-auto' : 'min-h-screen'}`} style={{
       maxWidth: isDesktop ? '100%' : '430px',
-      margin: '0 auto'
+      margin: isDesktop ? '0' : '0 auto'
     }}>
       {/* Header */}
       <DayHeader

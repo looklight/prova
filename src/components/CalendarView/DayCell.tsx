@@ -103,7 +103,7 @@ const DayCell: React.FC<DayCellProps> = ({
           {category.id !== 'base' && category.id !== 'note' && 
            cellData.cost && parseFloat(cellData.cost) > 0 && (
             <div 
-              className={`absolute bottom-0.5 right-0.5 text-[9px] font-semibold leading-none transition-opacity duration-150 ${
+              className={`absolute bottom-[1px] right-0.5 text-[9px] font-semibold leading-none transition-opacity duration-150 ${
                 getCostColor(cellData, currentUserId)
               } ${costVisible ? 'opacity-100' : 'opacity-0'}`}
             >

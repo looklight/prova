@@ -30,18 +30,22 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
 }) => {
   return (
     <div className="bg-white px-2 py-4 shadow-sm sticky top-0 z-20">
+      {/* ========== HEADER PRINCIPALE ========== */}
       <div className="flex items-center justify-between mb-2">
+        
+        {/* Bottone BACK (solo mobile) */}
         {onBack && (
           <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full ml-2 mr-1">
             <ChevronLeft size={24} />
           </button>
         )}
         
-        {/* Header cliccabile per aprire modal metadata */}
+        {/* TITOLO VIAGGIO + AVATAR (cliccabile per metadata) */}
         <div 
           className="flex items-center gap-2 flex-1 min-w-0 ml-0 mr-2 cursor-pointer hover:bg-gray-50 rounded-xl p-2 -m-2 transition-colors"
           onClick={onMetadataClick}
         >
+          {/* Avatar/Logo */}
           <div className="flex-shrink-0">
             {trip.image || trip.metadata?.image ? (
               <img 
@@ -56,33 +60,39 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
             )}
           </div>
           
+          {/* Nome viaggio */}
           <h1 className="text-xl font-bold flex-1 min-w-0 truncate">
             {trip.metadata?.name || trip.name}
           </h1>
         </div>
         
+        {/* 🖊️ BOTTONE EDIT/FINE (ingrandito: p-3 + size 24) */}
         <button
           onClick={onEditModeToggle}
           className={`rounded-full flex items-center gap-1 font-semibold transition-all shadow-sm flex-shrink-0 ${
             editMode 
-              ? 'bg-green-100 text-green-600 hover:bg-green-200 px-2 py-2 mr-2' 
-              : 'bg-gray-200 hover:bg-green-200 text-gray-700 hover:text-green-900 p-2 mr-4'
+              ? 'bg-green-100 text-green-600 hover:bg-green-200 px-3 py-3 mr-2' 
+              : 'bg-gray-200 hover:bg-green-200 text-gray-700 hover:text-green-900 p-3 mr-4'
           }`}
         >
           {editMode ? (
             <>
-              <Check size={20} />
+              <Check size={24} />
               <span>Fine</span>
             </>
           ) : (
-            <Edit2 size={20} />
+            <Edit2 size={24} />
           )}
         </button>
       </div>
 
+      {/* ========== TOOLBAR EDIT MODE ========== */}
       {editMode && (
         <div className="space-y-2 mt-2">
+          
+          {/* Bottoni RIMUOVI e AGGIUNGI */}
           <div className="flex gap-2">
+            {/* Bottone RIMUOVI giorni selezionati */}
             <button 
               onClick={onRemoveSelectedDays} 
               disabled={selectedDays.length === 0}
@@ -94,6 +104,8 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
             >
               <Trash2 size={16} /> Rimuovi {selectedDays.length > 0 && `(${selectedDays.length})`}
             </button>
+            
+            {/* Bottone AGGIUNGI giorno */}
             <button 
               onClick={onAddDay} 
               className="flex-1 py-2 bg-green-500 text-white rounded-full text-sm font-medium flex items-center justify-center gap-1 hover:bg-green-600 active:bg-green-700 active:scale-95 transition-all"
@@ -102,9 +114,12 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
             </button>
           </div>
           
+          {/* Pannello SPOSTA giorni (visibile solo con selezione attiva) */}
           {selectedDays.length > 0 && (
             <div className="bg-blue-50 p-3 rounded-lg">
               <div className="text-sm font-medium mb-2">{selectedDays.length} giorni selezionati</div>
+              
+              {/* Dropdown selezione posizione */}
               <select
                 value={moveAfterIndex ?? ''}
                 onChange={(e) => onMoveAfterChange(e.target.value === '' ? null : parseInt(e.target.value))}
@@ -115,6 +130,8 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                   <option key={day.id} value={index}>Giorno {day.number}</option>
                 ))}
               </select>
+              
+              {/* Bottone conferma spostamento */}
               <button
                 onClick={onMoveDays}
                 disabled={moveAfterIndex === null}

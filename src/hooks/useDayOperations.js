@@ -110,6 +110,11 @@ export const useDayOperations = ({ trip, onUpdateTrip }) => {
     onUpdateTrip({ days: updatedDays });
   };
 
+  const resetEditMode = () => {
+    setSelectedDays([]);
+    setMoveAfterIndex(null);
+  };
+
   return {
     selectedDays,
     moveAfterIndex,
@@ -118,6 +123,7 @@ export const useDayOperations = ({ trip, onUpdateTrip }) => {
     removeSelectedDays,
     toggleDaySelection,
     moveDaysAfter,
-    updateDayDate
+    updateDayDate,
+    resetEditMode
   };
 };
