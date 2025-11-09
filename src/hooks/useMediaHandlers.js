@@ -1,3 +1,17 @@
+/**
+ * 🎬 useMediaHandlers
+ * 
+ * @description Hook per gestione media (link, immagini, video, note)
+ * @usage Usato da: DayDetailView
+ * 
+ * Funzionalità:
+ * - Gestione dialog per aggiunta media
+ * - Upload immagini su Firebase Storage
+ * - Validazione URL video (YouTube, Instagram, TikTok)
+ * - Edit/remove media con eliminazione da Storage
+ * - Gestione note testuali
+ */
+
 import { useState } from 'react';
 import { extractVideoId } from '../components/MediaCards';
 
@@ -11,16 +25,17 @@ export const useMediaHandlers = (categoryData, updateCategory) => {
 
   const addLink = (categoryId) => {
     if (!linkInput.trim()) return;
-  
+
     let url = linkInput.trim();
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       url = 'https://' + url;
     }
-  
+
     updateCategory(categoryId, 'links', [
       ...categoryData[categoryId].links,
       { url: url, title: linkTitle || linkInput, id: Date.now() }
     ]);
+
     setLinkInput('');
     setLinkTitle('');
     setMediaDialogOpen(null);
@@ -30,7 +45,7 @@ export const useMediaHandlers = (categoryData, updateCategory) => {
     try {
       const { uploadImage } = await import('../storageService');
       const imageData = await uploadImage(file, categoryData.tripId, categoryId);
-      
+
       updateCategory(categoryId, 'images', [
         ...categoryData[categoryId].images,
         imageData
@@ -43,7 +58,7 @@ export const useMediaHandlers = (categoryData, updateCategory) => {
 
   const addVideo = (categoryId) => {
     if (!videoInput.trim()) return;
-    
+
     const videoData = extractVideoId(videoInput);
     if (videoData) {
       updateCategory(categoryId, 'videos', [
@@ -59,7 +74,7 @@ export const useMediaHandlers = (categoryData, updateCategory) => {
 
   const addNote = (categoryId) => {
     if (!noteInput.trim()) return;
-    
+
     if (editingNote) {
       updateCategory(categoryId, 'mediaNotes', 
         categoryData[categoryId].mediaNotes.map(note =>
@@ -73,7 +88,7 @@ export const useMediaHandlers = (categoryData, updateCategory) => {
         { text: noteInput, id: Date.now() }
       ]);
     }
-    
+
     setNoteInput('');
     setMediaDialogOpen(null);
   };
@@ -81,7 +96,7 @@ export const useMediaHandlers = (categoryData, updateCategory) => {
   const removeMedia = async (categoryId, mediaType, itemId) => {
     const mediaArray = categoryData[categoryId][mediaType];
     const mediaItem = mediaArray.find(item => item.id === itemId);
-    
+
     if (mediaType === 'images' && mediaItem?.path) {
       try {
         const { deleteImage } = await import('../storageService');
@@ -90,7 +105,7 @@ export const useMediaHandlers = (categoryData, updateCategory) => {
         console.error('Errore eliminazione immagine da Storage:', error);
       }
     }
-    
+
     updateCategory(
       categoryId,
       mediaType,

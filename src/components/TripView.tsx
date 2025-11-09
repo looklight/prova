@@ -30,11 +30,11 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
   const [scrollToDayId, setScrollToDayId] = useState(null);
   const [view, setView] = useState('calendar');
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [highlightCategoryId, setHighlightCategoryId] = useState(null); // 🆕
   
   const isDesktop = useMediaQuery('(min-width: 1024px)');
 
   // 💰 Sincronizzazione automatica budget
-  // Gestisce inizializzazione e ricalcolo quando cambiano giorni/membri
   useBudgetSync(trip, onUpdateTrip);
 
   // 🆕 Valida selectedDayIndex quando cambiano i giorni
@@ -45,23 +45,22 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
     }
   }, [trip.days.length, selectedDayIndex]);
 
+  /**
+   * ✅ MODIFICATO: Riceve anche categoryId per highlight
+   */
   const handleOpenDay = (dayIndex, currentScrollPosition = null, categoryId = null) => {
     setSelectedDayIndex(dayIndex);
+    setHighlightCategoryId(categoryId); // 🆕 Salva categoryId da evidenziare
+    
     if (!isDesktop) {
       setScrollPosition(currentScrollPosition);
       setView('detail');
-    }
-    
-    if (isDesktop && categoryId) {
-      setTimeout(() => {
-        const element = document.getElementById(`category-${categoryId}`);
-        element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 100);
     }
   };
 
   const handleBackToCalendar = () => {
     setView('calendar');
+    setHighlightCategoryId(null); // 🆕 Reset highlight
     if (selectedDayIndex !== null) {
       setScrollToDayId(trip.days[selectedDayIndex].id);
     }
@@ -74,6 +73,7 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
 
   const handleChangeDayIndex = (newIndex) => {
     setSelectedDayIndex(newIndex);
+    setHighlightCategoryId(null); // 🆕 Reset highlight quando cambi giorno manualmente
     if (isDesktop) {
       setScrollToDayId(trip.days[newIndex].id);
     }
@@ -100,6 +100,7 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
             onChangeDayIndex={handleChangeDayIndex}
             isDesktop={false}
             user={currentUser}
+            highlightCategoryId={highlightCategoryId} // 🆕
           />
         </>
       );
@@ -153,6 +154,7 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
             onChangeDayIndex={handleChangeDayIndex}
             isDesktop={true}
             user={currentUser}
+            highlightCategoryId={highlightCategoryId} // 🆕
           />
         ) : (
           <div className="h-full flex items-center justify-center text-gray-400 bg-gray-50">

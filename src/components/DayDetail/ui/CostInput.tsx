@@ -19,12 +19,34 @@ const CostInput: React.FC<CostInputProps> = ({
   costBreakdown,
   onClearBreakdown
 }) => {
+  // 🎨 Determina il colore dello sfondo in base a chi ha pagato
+  const getBackgroundColor = () => {
+    // Se non c'è breakdown, usa grigio normale
+    if (!costBreakdown || costBreakdown.length === 0) {
+      return 'bg-gray-50';
+    }
+
+    // Spesa condivisa (2+ persone) → arancione
+    if (costBreakdown.length > 1) {
+      return 'bg-orange-50 ring-1 ring-orange-300';
+    }
+
+    // Spesa singola (1 persona)
+    const singlePayer = costBreakdown[0].userId;
+    
+    if (singlePayer === currentUserId) {
+      return 'bg-blue-50 ring-1 ring-blue-300'; // 🔵 Pagato interamente da ME
+    } else {
+      return 'bg-gray-50'; // ⚪ Pagato interamente da ALTRI
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     const currentAmount = parseFloat(value) || 0;
     const newAmount = parseFloat(newValue) || 0;
-    
-    // 🆕 DEBUG: Log per capire cosa succede
+
+    // DEBUG: Log per capire cosa succede
     console.log('🔍 [CostInput] handleChange:', {
       currentValue: value,
       newValue,
@@ -32,24 +54,24 @@ const CostInput: React.FC<CostInputProps> = ({
       currentUserId,
       hasSplitCost
     });
-    
+
     // Verifica breakdown
     const isMultiUser = costBreakdown && costBreakdown.length > 1;
     const isOtherUserCost = costBreakdown && 
       costBreakdown.length === 1 && 
       costBreakdown[0].userId !== currentUserId;
-    
-    // 🆕 CRITICAL FIX: Se il breakdown ha 1 utente (tu) E l'importo corrisponde al valore attuale,
+
+    // CRITICAL FIX: Se il breakdown ha 1 utente (tu) E l'importo corrisponde al valore attuale,
     // significa che stai CONTINUANDO a digitare nello stesso campo (non è un breakdown "protetto")
     const isYourSingleUserBreakdown = costBreakdown && 
       costBreakdown.length === 1 && 
       costBreakdown[0].userId === currentUserId;
-    
-    // 🆕 Verifica se l'importo nel breakdown corrisponde al valore attuale
+
+    // Verifica se l'importo nel breakdown corrisponde al valore attuale
     // Se sì, significa che è il breakdown auto-generato mentre digiti
     const isActivelyEditing = isYourSingleUserBreakdown && 
       costBreakdown[0].amount === currentAmount;
-    
+
     console.log('🔍 [CostInput] Checks:', {
       isMultiUser,
       isOtherUserCost,
@@ -58,13 +80,13 @@ const CostInput: React.FC<CostInputProps> = ({
       breakdownAmount: costBreakdown?.[0]?.amount,
       currentAmount
     });
-    
+
     // Mostra alert SOLO se:
     // 1. Breakdown multi-utente (2+ persone), O
     // 2. Breakdown di altro utente
     // MA NON se stai attivamente modificando il tuo breakdown singolo
     const shouldShowAlert = (isMultiUser || isOtherUserCost) && !isActivelyEditing;
-    
+
     if (shouldShowAlert && newValue !== value && onClearBreakdown) {
       console.log('⚠️ [CostInput] Showing alert');
       const confirmed = window.confirm(
@@ -72,7 +94,7 @@ const CostInput: React.FC<CostInputProps> = ({
         'Per aggiungere contributi, usa \'Gestisci spesa\'.\n\n' +
         'Vuoi continuare?'
       );
-      
+
       if (confirmed) {
         onClearBreakdown();
         onChange(e);
@@ -91,9 +113,7 @@ const CostInput: React.FC<CostInputProps> = ({
         value={value}
         onChange={handleChange}
         placeholder={placeholder}
-        className={`w-full px-3 py-2.5 pr-7 border rounded-full bg-gray-50 text-sm text-center ${
-          hasSplitCost ? 'ring-2 ring-orange-400 bg-orange-50' : ''
-        }`}
+        className={`w-full px-3 py-2.5 pr-7 border rounded-full text-sm text-center ${getBackgroundColor()}`}
         onWheel={(e) => e.currentTarget.blur()}
       />
       <style>{`

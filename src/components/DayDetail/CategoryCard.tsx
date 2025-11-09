@@ -22,6 +22,7 @@ interface CategoryCardProps {
   onEditNote: (note: any) => void;
   onOpenCostBreakdown?: () => void;
   currentUserId?: string;
+  isHighlighted?: boolean;
 }
 
 const CategoryCard: React.FC<CategoryCardProps> = ({
@@ -36,13 +37,19 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
   onRemoveMedia,
   onEditNote,
   onOpenCostBreakdown,
-  currentUserId
+  currentUserId,
+  isHighlighted = false
 }) => {
   const isBaseSuggestions = category.id === 'base' && Array.isArray(suggestion);
   const showSuggestion = suggestion && !categoryData.title;
 
   return (
-    <div className="bg-white rounded-lg shadow p-4"
+    <div 
+      className={`bg-white rounded-lg shadow p-4 transition-all duration-500 ${
+        isHighlighted 
+          ? 'ring-2 ring-blue-500' 
+          : 'ring-0 ring-transparent'
+      }`}
       id={`category-${category.id}`}
     >
       {/* Category Header */}
@@ -62,8 +69,9 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
           <span>{category.label}</span>
         </h2>
 
-        {/* 🆕 BOTTONE GESTISCI SPESA */}
-        {category.id !== 'note' && category.id !== 'base' && onOpenCostBreakdown && (
+        {/* ✅ GESTISCI SPESA in alto a destra - appare solo con contenuto */}
+        {category.id !== 'note' && category.id !== 'base' && onOpenCostBreakdown &&
+         (categoryData.title.trim() !== '' || categoryData.cost.trim() !== '') && (
           <button
             onClick={onOpenCostBreakdown}
             className="text-xs px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-full font-medium transition-colors flex-shrink-0"
@@ -114,10 +122,11 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
       <div className="flex gap-2 mb-3">
         {category.id !== 'note' && (
           <div className="flex-1 min-w-0 relative">
-            {category.id !== 'base' && category.id !== 'note' && (
+            {/* Pallino booking - appare solo con contenuto */}
+            {category.id !== 'base' && category.id !== 'note' && 
+             (categoryData.title.trim() !== '' || categoryData.cost.trim() !== '') && (
               <div
-                className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-3 h-3 rounded-full transition-colors ${BOOKING_COLORS[categoryData.bookingStatus]
-                  }`}
+                className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-3 h-3 rounded-full transition-colors ${BOOKING_COLORS[categoryData.bookingStatus]}`}
               />
             )}
             <input
@@ -125,13 +134,19 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
               value={categoryData.title}
               onChange={(e) => onUpdateCategory(category.id, 'title', e.target.value)}
               placeholder={`Nome ${category.label.toLowerCase()}`}
-              className={`w-full px-4 py-2.5 border rounded-full text-sm ${category.id !== 'base' && category.id !== 'note' ? 'pl-8' : ''
-                }`}
+              className={`w-full px-4 py-2.5 border rounded-full text-sm ${
+                category.id !== 'base' && category.id !== 'note' && 
+                (categoryData.title.trim() !== '' || categoryData.cost.trim() !== '') 
+                  ? 'pl-8' 
+                  : ''
+              }`}
             />
           </div>
         )}
 
-        {category.id !== 'note' && category.id !== 'base' && (
+        {/* Campo costo - appare solo con contenuto */}
+        {category.id !== 'note' && category.id !== 'base' && 
+         (categoryData.title.trim() !== '' || categoryData.cost.trim() !== '') && (
           <div className="flex-shrink-0">
             <CostInput
               value={categoryData.cost || ''}
@@ -148,8 +163,9 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
         )}
       </div>
 
-      {/* Booking Toggle + Media Buttons */}
-      {category.id !== 'base' && category.id !== 'note' && (
+      {/* Booking Toggle + Media Buttons + Gestisci Spesa - appaiono solo con contenuto */}
+      {category.id !== 'base' && category.id !== 'note' && 
+       (categoryData.title.trim() !== '' || categoryData.cost.trim() !== '') && (
         <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
           <div className="flex-shrink-0">
             <BookingToggle

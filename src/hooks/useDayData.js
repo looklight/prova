@@ -1,3 +1,17 @@
+/**
+ * 📦 useDayData
+ * 
+ * @description Hook per gestione stato locale dei dati di un singolo giorno
+ * @usage Usato da: DayDetailView
+ * 
+ * Funzionalità:
+ * - Gestisce categoryData (tutte le categorie del giorno)
+ * - Gestisce otherExpenses (spese aggiuntive)
+ * - Auto-assegnazione costi all'utente corrente
+ * - Sincronizzazione con Firebase in background
+ * - Aggiunta automatica nuova spesa vuota
+ */
+
 import { useState, useEffect } from 'react';
 import { CATEGORIES } from '../utils/constants';
 
@@ -13,7 +27,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
         title: cellData.title || '',
         cost: cellData.cost || '',
         costBreakdown: cellData.costBreakdown || null,
-        participants: cellData.participants || null, // 🆕
+        participants: cellData.participants || null,
         hasSplitCost: cellData.hasSplitCost || false,
         bookingStatus: cellData.bookingStatus || 'na',
         transportMode: cellData.transportMode || 'treno',
@@ -36,7 +50,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
       title: exp.title || '',
       cost: exp.cost || '',
       costBreakdown: exp.costBreakdown || null,
-      participants: exp.participants || null, // 🆕
+      participants: exp.participants || null,
       hasSplitCost: exp.hasSplitCost || false
     }));
   });
@@ -53,7 +67,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
         title: cellData.title || '',
         cost: cellData.cost || '',
         costBreakdown: cellData.costBreakdown || null,
-        participants: cellData.participants || null, // 🆕
+        participants: cellData.participants || null,
         hasSplitCost: cellData.hasSplitCost || false,
         bookingStatus: cellData.bookingStatus || 'na',
         transportMode: cellData.transportMode || 'treno',
@@ -77,14 +91,14 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
       title: exp.title || '',
       cost: exp.cost || '',
       costBreakdown: exp.costBreakdown || null,
-      participants: exp.participants || null, // 🆕
+      participants: exp.participants || null,
       hasSplitCost: exp.hasSplitCost || false
     }));
     
     setOtherExpenses(expensesWithBreakdown);
   }, [currentDay.id]);
 
-  // 🆕 Aggiungi automaticamente una nuova spesa vuota quando l'ultima viene compilata
+  // Aggiungi automaticamente una nuova spesa vuota quando l'ultima viene compilata
   useEffect(() => {
     const lastExpense = otherExpenses[otherExpenses.length - 1];
     
@@ -99,7 +113,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
     }
   }, [otherExpenses]);
 
-  // 🆕 Helper per ottenere partecipanti di default
+  // Helper per ottenere partecipanti di default
   const getDefaultParticipants = () => {
     return Object.keys(trip.sharing.members)
       .filter(uid => trip.sharing.members[uid].status === 'active');
@@ -115,7 +129,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
       [field]: value
     };
 
-    // 🆕 AUTO-ASSEGNAZIONE: Quando si modifica 'cost', crea/aggiorna breakdown
+    // AUTO-ASSEGNAZIONE: Quando si modifica 'cost', crea/aggiorna breakdown
     if (field === 'cost' && value !== undefined) {
       const amount = parseFloat(value) || 0;
       
@@ -123,13 +137,12 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
         updatedCellData.costBreakdown = [
           { userId: currentUserId, amount: amount }
         ];
-        // 🆕 Imposta participants di default (tutti i membri attivi)
         updatedCellData.participants = getDefaultParticipants();
         updatedCellData.hasSplitCost = false;
         console.log('✅ [updateCategory] Breakdown creato:', updatedCellData.costBreakdown);
       } else {
         updatedCellData.costBreakdown = null;
-        updatedCellData.participants = null; // 🆕
+        updatedCellData.participants = null;
         updatedCellData.hasSplitCost = false;
         updatedCellData.cost = '';
       }
@@ -141,18 +154,17 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
         updatedCellData.hasSplitCost = value.length > 1;
         const total = value.reduce((sum, entry) => sum + entry.amount, 0);
         updatedCellData.cost = total.toString();
-        // 🆕 Mantieni participants esistenti o usa default
         if (!updatedCellData.participants) {
           updatedCellData.participants = getDefaultParticipants();
         }
       } else {
         updatedCellData.costBreakdown = null;
-        updatedCellData.participants = null; // 🆕
+        updatedCellData.participants = null;
         updatedCellData.hasSplitCost = false;
       }
     }
 
-    // 🆕 CRITICAL FIX: Aggiorna stato locale CON TUTTI I CAMPI (incluso breakdown e participants)
+    // CRITICAL FIX: Aggiorna stato locale CON TUTTI I CAMPI
     setCategoryData(prev => ({
       ...prev,
       [catId]: {
@@ -183,7 +195,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
         [field]: value
       };
 
-      // 🆕 AUTO-ASSEGNAZIONE: Quando si modifica 'cost', crea/aggiorna breakdown
+      // AUTO-ASSEGNAZIONE: Quando si modifica 'cost', crea/aggiorna breakdown
       if (field === 'cost' && value !== undefined) {
         const amount = parseFloat(value) || 0;
         
@@ -191,13 +203,12 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
           updatedExpense.costBreakdown = [
             { userId: currentUserId, amount: amount }
           ];
-          // 🆕 Imposta participants di default
           updatedExpense.participants = getDefaultParticipants();
           updatedExpense.hasSplitCost = false;
           console.log('✅ [updateOtherExpense] Breakdown creato:', updatedExpense.costBreakdown);
         } else {
           updatedExpense.costBreakdown = null;
-          updatedExpense.participants = null; // 🆕
+          updatedExpense.participants = null;
           updatedExpense.hasSplitCost = false;
           updatedExpense.cost = '';
         }
@@ -209,13 +220,12 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
           updatedExpense.hasSplitCost = value.length > 1;
           const total = value.reduce((sum, entry) => sum + entry.amount, 0);
           updatedExpense.cost = total.toString();
-          // 🆕 Mantieni participants esistenti o usa default
           if (!updatedExpense.participants) {
             updatedExpense.participants = getDefaultParticipants();
           }
         } else {
           updatedExpense.costBreakdown = null;
-          updatedExpense.participants = null; // 🆕
+          updatedExpense.participants = null;
           updatedExpense.hasSplitCost = false;
         }
       }
@@ -223,7 +233,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
       return updatedExpense;
     });
     
-    // 🆕 IMPORTANTE: Aggiorna stato locale PRIMA
+    // IMPORTANTE: Aggiorna stato locale PRIMA
     setOtherExpenses(updated);
     
     console.log('💾 [updateOtherExpense] Stato locale aggiornato:', updated.find(e => e.id === expenseId));
@@ -264,7 +274,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
     });
   };
 
-  // 🆕 Aggiungi nuova spesa
+  // Aggiungi nuova spesa
   const addOtherExpense = () => {
     const key = `${currentDay.id}-otherExpenses`;
     
@@ -273,7 +283,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
       title: '',
       cost: '',
       costBreakdown: null,
-      participants: null, // 🆕
+      participants: null,
       hasSplitCost: false
     };
     
