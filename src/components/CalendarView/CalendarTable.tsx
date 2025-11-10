@@ -25,6 +25,7 @@ interface CalendarTableProps {
   onToggleDaySelection: (index: number) => void;
   onUpdateDayDate: (dayIndex: number, newDate: string) => void;
   onOpenCostSummary: () => void;
+  onToggleCosts: () => void; // 💰 Toggle visibilità costi
 }
 
 const CalendarTable: React.FC<CalendarTableProps> = ({
@@ -47,7 +48,9 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
   onCellHoverLeave,
   onToggleDaySelection,
   onUpdateDayDate,
-  onOpenCostSummary
+  onOpenCostSummary,
+  onToggleCosts // 💰
+
 }) => {
   return (
     <table className="w-full border-collapse bg-white rounded-lg shadow">
@@ -136,7 +139,9 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
           isScrolled={isScrolled}
           justMounted={justMounted}
           isDesktop={isDesktop}
+          showCosts={showCosts}
           onOpenCostSummary={onOpenCostSummary}
+          onToggleCosts={onToggleCosts}
         />
       </tbody>
     </table>

@@ -221,12 +221,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         ref={scrollContainerRef}
         className="overflow-x-auto px-2 mt-2" 
         onScroll={(e) => setIsScrolled((e.target as HTMLDivElement).scrollLeft > 10)}
-        onTouchStart={() => setShowCosts(true)}
-        onTouchEnd={() => setShowCosts(false)}
-        onTouchCancel={() => setShowCosts(false)}
-        onMouseDown={() => setShowCosts(true)}
-        onMouseUp={() => setShowCosts(false)}
-        onMouseLeave={() => setShowCosts(false)}
       >
         <CalendarTable
           trip={trip}
@@ -249,6 +243,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           onToggleDaySelection={toggleDaySelection}
           onUpdateDayDate={updateDayDate}
           onOpenCostSummary={() => setShowCostSummary(true)}
+          onToggleCosts={() => setShowCosts(!showCosts)}
         />
       </div>
     </div>

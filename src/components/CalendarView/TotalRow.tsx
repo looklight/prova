@@ -7,7 +7,9 @@ interface TotalRowProps {
   isScrolled: boolean;
   justMounted: boolean;
   isDesktop: boolean;
+  showCosts: boolean; // 💰 Stato toggle costi
   onOpenCostSummary: () => void;
+  onToggleCosts: () => void; // 💰 Handler toggle costi
 }
 
 const TotalRow: React.FC<TotalRowProps> = ({
@@ -16,12 +18,16 @@ const TotalRow: React.FC<TotalRowProps> = ({
   isScrolled,
   justMounted,
   isDesktop,
-  onOpenCostSummary
+  showCosts,
+  onOpenCostSummary,
+  onToggleCosts
+
 }) => {
   return (
     <tr className="border-t-2 bg-gray-50 font-bold" style={{ height: '48px' }}>
       <td 
-        className={`p-0.5 sticky left-0 z-10 ${
+        onClick={onToggleCosts}
+        className={`p-0.5 sticky left-0 z-10 cursor-pointer transition-all ${
           isScrolled ? 'bg-transparent' : 'bg-gray-50'
         }`}
         style={{ 
@@ -31,14 +37,17 @@ const TotalRow: React.FC<TotalRowProps> = ({
           height: '48px',
           transition: justMounted ? 'none' : 'all 0.3s'
         }}
+        title={showCosts ? "Nascondi costi nelle celle" : "Mostra costi nelle celle"}
       >
         <div 
-          className="flex items-center justify-center relative overflow-hidden transition-all duration-300"
+          className={`flex items-center justify-center relative overflow-hidden transition-all duration-300 ${
+            showCosts ? 'ring-2 ring-pink-400' : ''
+          }`}
           style={{ 
             height: '36px', 
             width: '100%',
             borderRadius: '9999px',
-            backgroundColor: '#fee2e2'
+            backgroundColor: showCosts ? '#fce7f3' : '#fee2e2' // bg-pink-100 quando attivo, bg-pink-50 normale
           }}
         >
           <span className={`transition-all duration-300 absolute ${
