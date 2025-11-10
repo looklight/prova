@@ -14,7 +14,7 @@ interface CostSummaryByUserViewProps {
   onUpdateTrip?: (updatedTrip: any) => void;
 }
 
-type TabType = 'users' | 'categories' | 'budget' | 'balances'; // 🆕 Aggiungi 'balances'
+type TabType = 'users' | 'categories' | 'budget' | 'balances';
 
 const CostSummaryByUserView: React.FC<CostSummaryByUserViewProps> = ({ 
   trip, 
@@ -30,7 +30,8 @@ const CostSummaryByUserView: React.FC<CostSummaryByUserViewProps> = ({
   const userBreakdown = useMemo(() => {
     const breakdown: Record<string, { 
       displayName: string; 
-      avatar?: string; 
+      avatar?: string;
+      status?: string;  // 🆕 Aggiungi status
       total: number; 
       byCategory: Record<string, { total: number; count: number; items: any[] }>;
     }> = {};
@@ -41,6 +42,7 @@ const CostSummaryByUserView: React.FC<CostSummaryByUserViewProps> = ({
         breakdown[uid] = {
           displayName: member.displayName,
           avatar: member.avatar,
+          status: member.status,  // 🆕
           total: 0,
           byCategory: {}
         };
@@ -191,43 +193,47 @@ const CostSummaryByUserView: React.FC<CostSummaryByUserViewProps> = ({
         <div className="grid grid-cols-4 gap-2">
           <button
             onClick={() => setActiveTab('users')}
-            className={`py-2.5 px-2 rounded-lg font-medium transition-colors text-sm ${
+            className={`py-2 px-1 rounded-lg font-medium transition-colors text-xs flex flex-col items-center justify-center gap-1 ${
               activeTab === 'users'
                 ? 'bg-blue-500 text-white shadow'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            👤 Utenti
+            <span className="text-lg">👤</span>
+            <span>Utenti</span>
           </button>
           <button
             onClick={() => setActiveTab('categories')}
-            className={`py-2.5 px-2 rounded-lg font-medium transition-colors text-sm ${
+            className={`py-2 px-1 rounded-lg font-medium transition-colors text-xs flex flex-col items-center justify-center gap-1 ${
               activeTab === 'categories'
                 ? 'bg-blue-500 text-white shadow'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            📊 Categorie
+            <span className="text-lg">📊</span>
+            <span>Categorie</span>
           </button>
           <button
             onClick={() => setActiveTab('budget')}
-            className={`py-2.5 px-2 rounded-lg font-medium transition-colors text-sm ${
+            className={`py-2 px-1 rounded-lg font-medium transition-colors text-xs flex flex-col items-center justify-center gap-1 ${
               activeTab === 'budget'
                 ? 'bg-blue-500 text-white shadow'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            💰 Budget
+            <span className="text-lg">💰</span>
+            <span>Budget</span>
           </button>
           <button
             onClick={() => setActiveTab('balances')}
-            className={`py-2.5 px-2 rounded-lg font-medium transition-colors text-sm ${
+            className={`py-2 px-1 rounded-lg font-medium transition-colors text-xs flex flex-col items-center justify-center gap-1 ${
               activeTab === 'balances'
                 ? 'bg-blue-500 text-white shadow'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            💸 Bilanci
+            <span className="text-lg">💸</span>
+            <span>Bilanci</span>
           </button>
         </div>
       </div>
@@ -240,9 +246,18 @@ const CostSummaryByUserView: React.FC<CostSummaryByUserViewProps> = ({
             const categories = Object.entries(data.byCategory);
             const totalItems = Object.values(data.byCategory).reduce((sum, cat) => sum + cat.count, 0);
             const userPercentage = tripTotal > 0 ? (data.total / tripTotal) * 100 : 0;
+            
+            // 🔧 Controlla se utente è inattivo
+            const memberStatus = trip.sharing.members[userId]?.status;
+            const isInactive = memberStatus === 'inactive';
 
             return (
-              <div key={userId} className="bg-white rounded-xl shadow overflow-hidden">
+              <div 
+                key={userId} 
+                className={`bg-white rounded-xl shadow overflow-hidden transition-all ${
+                  isInactive ? 'opacity-60 border-2 border-dashed border-gray-300' : ''
+                }`}
+              >
                 {/* Header - Sempre visibile */}
                 <button
                   onClick={() => toggleUserExpansion(userId)}
@@ -260,7 +275,14 @@ const CostSummaryByUserView: React.FC<CostSummaryByUserViewProps> = ({
                     </div>
                   )}
                   <div className="flex-1 text-left">
-                    <h3 className="font-semibold">{data.displayName}</h3>
+                    <h3 className="font-semibold flex items-center gap-2">
+                      {data.displayName}
+                      {isInactive && (
+                        <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">
+                          👋 Uscito
+                        </span>
+                      )}
+                    </h3>
                     <p className="text-sm text-gray-500">
                       {totalItems} {totalItems === 1 ? 'spesa' : 'spese'} • {categories.length} {categories.length === 1 ? 'categoria' : 'categorie'}
                     </p>
@@ -304,7 +326,7 @@ const CostSummaryByUserView: React.FC<CostSummaryByUserViewProps> = ({
                       <div key={catName} className="pt-3">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
-                            {/* Pallino colorato invece dell'emoji */}
+                            {/* Pallino colorato */}
                             <div className={`w-3 h-3 rounded-full ${categoryColors[idx % categoryColors.length]}`} />
                             <span className="font-medium text-sm">{catName}</span>
                             <span className="text-xs text-gray-500">({catData.count})</span>
@@ -314,7 +336,7 @@ const CostSummaryByUserView: React.FC<CostSummaryByUserViewProps> = ({
                           </span>
                         </div>
                         
-                        {/* Lista item categoria con formato G1 • Milano • Colazione */}
+                        {/* Lista item categoria */}
                         <div className="space-y-1 ml-5">
                           {catData.items.map((item, itemIdx) => (
                             <div key={itemIdx} className="flex justify-between text-xs text-gray-600">
@@ -341,7 +363,6 @@ const CostSummaryByUserView: React.FC<CostSummaryByUserViewProps> = ({
         <BudgetView trip={trip} onUpdateTrip={onUpdateTrip} />
       )}
 
-      {/* 🆕 Tab Bilanci */}
       {activeTab === 'balances' && (
         <BalanceView trip={trip} />
       )}

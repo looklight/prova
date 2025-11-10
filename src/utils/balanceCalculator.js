@@ -11,17 +11,16 @@
 export const calculateTripBalances = (trip) => {
   const balances = {};
   
-  // Inizializza tutti i membri attivi
+  // 🔧 FIX: Inizializza TUTTI i membri (attivi E inattivi)
   Object.entries(trip.sharing.members).forEach(([uid, member]) => {
-    if (member.status === 'active') {
-      balances[uid] = {
-        displayName: member.displayName,
-        avatar: member.avatar,
-        paid: 0,        // Quanto ha pagato fisicamente
-        owes: 0,        // Quanto dovrebbe pagare in totale
-        balance: 0      // Differenza (paid - owes)
-      };
-    }
+    balances[uid] = {
+      displayName: member.displayName || 'Utente rimosso',  // Fallback
+      avatar: member.avatar || null,                         // Fallback
+      status: member.status || 'active',                     // 🆕 Aggiungi status
+      paid: 0,        // Quanto ha pagato fisicamente
+      owes: 0,        // Quanto dovrebbe pagare in totale
+      balance: 0      // Differenza (paid - owes)
+    };
   });
 
   // Itera su tutti i giorni e tutte le spese
@@ -102,7 +101,7 @@ const processExpense = (expense, balances, trip) => {
  * Algoritmo greedy: abbina il maggior debitore con il maggior creditore
  * 
  * @param {Object} balances - Bilanci calcolati
- * @returns {Array} - Lista di transazioni { from, to, amount, fromName, toName }
+ * @returns {Array} - Lista di transazioni { from, to, amount, fromName, toName, fromStatus, toStatus }
  */
 const optimizeTransactions = (balances) => {
   const transactions = [];
@@ -113,9 +112,21 @@ const optimizeTransactions = (balances) => {
   
   Object.entries(balances).forEach(([uid, data]) => {
     if (data.balance < -0.01) { // Tolleranza per errori di arrotondamento
-      debtors.push({ uid, amount: -data.balance, name: data.displayName, avatar: data.avatar });
+      debtors.push({ 
+        uid, 
+        amount: -data.balance, 
+        name: data.displayName, 
+        avatar: data.avatar,
+        status: data.status  // 🆕 Includi status
+      });
     } else if (data.balance > 0.01) {
-      creditors.push({ uid, amount: data.balance, name: data.displayName, avatar: data.avatar });
+      creditors.push({ 
+        uid, 
+        amount: data.balance, 
+        name: data.displayName, 
+        avatar: data.avatar,
+        status: data.status  // 🆕 Includi status
+      });
     }
   });
 
@@ -140,7 +151,9 @@ const optimizeTransactions = (balances) => {
       fromName: debtor.name,
       toName: creditor.name,
       fromAvatar: debtor.avatar,
-      toAvatar: creditor.avatar
+      toAvatar: creditor.avatar,
+      fromStatus: debtor.status,    // 🆕 Status per segnalare inattivi
+      toStatus: creditor.status      // 🆕 Status per segnalare inattivi
     });
     
     // Aggiorna gli importi rimanenti
@@ -166,9 +179,11 @@ export const formatCurrency = (amount) => {
  * Calcola statistiche generali del viaggio
  */
 export const getTripStats = (trip, balances) => {
+  // 🔧 FIX: Conta solo membri ATTIVI per statistiche
   const activeMembers = Object.values(trip.sharing.members)
     .filter(m => m.status === 'active').length;
   
+  // Totale speso da TUTTI (inclusi inattivi)
   const totalSpent = Object.values(balances)
     .reduce((sum, b) => sum + b.paid, 0);
   

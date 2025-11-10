@@ -268,19 +268,23 @@ export const calculateCategoryGroupCost = (trip, groupKey) => {
   if (groupKey === 'altri') {
     trip.days.forEach(day => {
       const key = `${day.id}-otherExpenses`;
-      const expenses = trip.data[key] || [];
-      expenses.forEach(exp => {
-        const cost = parseFloat(exp.cost) || 0;
-        if (cost > 0) {
-          total += cost;
-          details.push({
-            dayNumber: day.number,
-            categoryId: 'other',
-            title: exp.title || 'Altra spesa',
-            cost: cost
-          });
-        }
-      });
+      const expenses = trip.data[key];
+      
+      // 🔧 FIX: Controlla che sia un array prima di iterare
+      if (expenses && Array.isArray(expenses)) {
+        expenses.forEach(exp => {
+          const cost = parseFloat(exp.cost) || 0;
+          if (cost > 0) {
+            total += cost;
+            details.push({
+              dayNumber: day.number,
+              categoryId: 'other',
+              title: exp.title || 'Altra spesa',
+              cost: cost
+            });
+          }
+        });
+      }
     });
   } else {
     // Categorie normali

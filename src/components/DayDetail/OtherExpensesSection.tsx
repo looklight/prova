@@ -23,12 +23,20 @@ const OtherExpensesSection: React.FC<OtherExpensesSectionProps> = ({
   onOpenCostBreakdown,
   currentUserId
 }) => {
+  // ✅ Handler con conferma per rimozione spesa
+  const handleRemove = (expenseId: number) => {
+    const confirmed = window.confirm('Eliminare questa spesa?');
+    if (confirmed) {
+      onRemove(expenseId);
+    }
+  };
+
   return (
     <div id="category-otherExpenses" className="bg-white rounded-lg shadow p-4">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-base font-semibold">💸 Altre Spese</h2>
       </div>
-      
+
       <div className="space-y-2">
         {expenses.map((expense) => (
           <div key={expense.id} className="flex gap-2 items-center">
@@ -40,7 +48,7 @@ const OtherExpensesSection: React.FC<OtherExpensesSectionProps> = ({
               placeholder="Descrizione"
               className="flex-1 min-w-0 px-4 py-2.5 border rounded-full text-sm"
             />
-            
+
             {/* Costo - Riusa CostInput */}
             <CostInput
               value={expense.cost}
@@ -53,7 +61,7 @@ const OtherExpensesSection: React.FC<OtherExpensesSectionProps> = ({
                 // Il breakdown viene già pulito in useDayData quando cost = ''
               }}
             />
-            
+
             {/* Bottone Gestisci */}
             {onOpenCostBreakdown && (
               <button
@@ -64,13 +72,14 @@ const OtherExpensesSection: React.FC<OtherExpensesSectionProps> = ({
                 💰
               </button>
             )}
-            
-            {/* Bottone Rimuovi */}
+
+            {/* Bottone Rimuovi con conferma */}
             {(expenses.length > 1 || expense.title.trim() !== '' || expense.cost.trim() !== '') && (
               <button
                 type="button"
-                onClick={() => onRemove(expense.id)}
+                onClick={() => handleRemove(expense.id)}
                 className="w-8 h-8 bg-red-50 hover:bg-red-100 text-red-600 rounded-full flex items-center justify-center flex-shrink-0 transition-colors"
+                title="Elimina spesa"
               >
                 <X size={16} />
               </button>
