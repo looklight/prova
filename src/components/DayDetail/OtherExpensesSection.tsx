@@ -1,6 +1,6 @@
 import React from 'react';
 import { X } from 'lucide-react';
-import CostInput from './ui/CostInput'; // ← Importa CostInput
+import CostInput from './ui/CostInput';
 
 interface OtherExpensesSectionProps {
   expenses: Array<{
@@ -24,7 +24,7 @@ const OtherExpensesSection: React.FC<OtherExpensesSectionProps> = ({
   currentUserId
 }) => {
   return (
-    <div className="bg-white rounded-lg shadow p-4">
+    <div id="category-otherExpenses" className="bg-white rounded-lg shadow p-4">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-base font-semibold">💸 Altre Spese</h2>
       </div>

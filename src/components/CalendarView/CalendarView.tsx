@@ -39,6 +39,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [showMetadataModal, setShowMetadataModal] = useState(false);
   const [showCostSummary, setShowCostSummary] = useState(false);
   const [showCosts, setShowCosts] = useState(false);
+  const [expandedNotes, setExpandedNotes] = useState(false); // 📝 Toggle altezza Note
+  const [expandedOtherExpenses, setExpandedOtherExpenses] = useState(false); // 💸 Toggle lista Altre Spese
   const [hoveredCell, setHoveredCell] = useState<string | null>(null);
 
   // Custom hooks
@@ -126,7 +128,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       'bg-green-100': '#dcfce7',
       'bg-yellow-100': '#fef9c3',
       'bg-orange-100': '#ffedd5',
-      'bg-purple-100': '#f3e8ff'
+      'bg-purple-100': '#f3e8ff',
+      'bg-teal-100': '#ccfbf1' // 🆕 Turchese per Altre Spese
     };
     return colorMap[color] || '#f3f4f6';
   };
@@ -231,6 +234,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           isScrolled={isScrolled}
           justMounted={justMounted}
           showCosts={showCosts}
+          expandedNotes={expandedNotes}
+          expandedOtherExpenses={expandedOtherExpenses}
           hoveredCell={hoveredCell}
           currentUserId={currentUser.uid}
           getCellData={getCellData}
@@ -244,6 +249,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           onUpdateDayDate={updateDayDate}
           onOpenCostSummary={() => setShowCostSummary(true)}
           onToggleCosts={() => setShowCosts(!showCosts)}
+          onToggleNotes={() => setExpandedNotes(!expandedNotes)}
+          onToggleOtherExpenses={() => setExpandedOtherExpenses(!expandedOtherExpenses)}
         />
       </div>
     </div>

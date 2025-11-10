@@ -2,22 +2,26 @@ import React from 'react';
 import { TRANSPORT_OPTIONS } from '../../utils/constants';
 
 /**
- * Helper per determinare il colore del costo in base a chi ha pagato
- * 🔵 BLU    → Pagato interamente da ME (100% currentUser)
- * 🟠 ARANCIO → Spesa condivisa (2+ persone)
- * ⚪ GRIGIO  → Pagato interamente da ALTRI (1 persona, non me)
+ * 🔧 FIX: Helper per determinare il colore del costo basato su UTENTI UNICI
+ * 🔵 BLU    → Pagato interamente da ME (1 utente = io, anche più contributi)
+ * 🟠 ARANCIO → Spesa condivisa (2+ utenti diversi)
+ * ⚪ GRIGIO  → Pagato interamente da ALTRI (1 utente ≠ io)
  */
 const getCostColor = (cellData, currentUserId) => {
   if (!cellData.costBreakdown || cellData.costBreakdown.length === 0) {
     return 'text-gray-400'; // Default
   }
 
-  // Condivisa (2+ persone)
-  if (cellData.costBreakdown.length > 1) {
+  // 🔧 FIX: Conta utenti UNICI che hanno pagato
+  const uniquePayers = new Set(cellData.costBreakdown.map(e => e.userId));
+  const uniquePayersCount = uniquePayers.size;
+
+  // Condivisa (2+ utenti diversi)
+  if (uniquePayersCount > 1) {
     return 'text-orange-400';
   }
 
-  // Singola (1 persona)
+  // Singola (1 utente solo, anche con più contributi)
   const singlePayer = cellData.costBreakdown[0].userId;
   
   if (singlePayer === currentUserId) {
@@ -38,7 +42,10 @@ interface DayCellProps {
   isDesktop: boolean;
   selectedDayIndex: number | null;
   costVisible: boolean;
+  expandedNotes: boolean; // 📝 Stato espansione Note
+  expandedOtherExpenses: boolean; // 💸 Stato espansione Altre Spese
   currentUserId: string;
+  trip: any;
   onCellClick: (dayIndex: number, categoryId: string) => void;
   onCellHoverEnter: (cellKey: string) => void;
   onCellHoverLeave: () => void;
@@ -55,12 +62,40 @@ const DayCell: React.FC<DayCellProps> = ({
   isDesktop,
   selectedDayIndex,
   costVisible,
+  expandedNotes, // 📝
+  expandedOtherExpenses, // 💸
   currentUserId,
+  trip,
   onCellClick,
   onCellHoverEnter,
   onCellHoverLeave
 }) => {
-  const hasContent = cellData && (cellData.title || cellData.cost || cellData.notes);
+  // 💸 Se è la riga "Altre Spese", calcola il totale
+  let otherExpensesData = null;
+  if (category.id === 'otherExpenses') {
+    const key = `${day.id}-otherExpenses`;
+    const expensesRaw = trip.data[key];
+    
+    // Assicurati che sia un array
+    const expenses = Array.isArray(expensesRaw) ? expensesRaw : [];
+    
+    // Conta solo spese con contenuto (titolo o costo)
+    const realExpenses = expenses.filter((exp: any) => 
+      (exp.title && exp.title.trim() !== '') || (exp.cost && exp.cost.trim() !== '')
+    );
+    
+    const count = realExpenses.length;
+    const total = realExpenses
+      .filter((exp: any) => exp.cost && exp.cost.trim() !== '')
+      .reduce((sum: number, exp: any) => sum + parseFloat(exp.cost || '0'), 0);
+    
+    otherExpensesData = { count, total };
+  }
+
+  const hasContent = category.id === 'otherExpenses' 
+    ? otherExpensesData && otherExpensesData.count > 0
+    : cellData && (cellData.title || cellData.cost || cellData.notes);
+  
   const cellKey = `${dayIndex}-${category.id}`;
 
   return (
@@ -75,7 +110,9 @@ const DayCell: React.FC<DayCellProps> = ({
         isDesktop && selectedDayIndex === dayIndex ? 'bg-blue-50' : ''}
       `}
       style={{ 
-        height: category.id === 'note' ? '80px' : '48px', 
+        height: category.id === 'note' ? (expandedNotes ? '80px' : '48px') : 
+                category.id === 'otherExpenses' ? (expandedOtherExpenses ? '80px' : '48px') : 
+                '48px', 
         width: '140px', 
         minWidth: '140px', 
         maxWidth: '140px' 
@@ -100,7 +137,7 @@ const DayCell: React.FC<DayCellProps> = ({
           )}
           
           {/* 💰 COSTO in BASSO a DESTRA - visibile solo durante scroll/hover */}
-          {category.id !== 'base' && category.id !== 'note' && 
+          {category.id !== 'base' && category.id !== 'note' && category.id !== 'otherExpenses' &&
            cellData.cost && parseFloat(cellData.cost) > 0 && (
             <div 
               className={`absolute bottom-[1px] right-0.5 text-[9px] font-semibold leading-none transition-opacity duration-150 ${
@@ -111,19 +148,80 @@ const DayCell: React.FC<DayCellProps> = ({
             </div>
           )}
           
-          {category.id === 'note' ? (
-            <div className="text-xs text-gray-700 px-2 py-1 overflow-hidden" style={{ 
+          {/* 💸 COSTO ALTRE SPESE in BASSO a DESTRA (grigio, solo con toggle) */}
+          {category.id === 'otherExpenses' && otherExpensesData.total > 0 && (
+            <div 
+              className={`absolute bottom-[1px] right-0.5 text-[9px] font-semibold leading-none transition-opacity duration-150 text-gray-500 ${
+                costVisible ? 'opacity-100' : 'opacity-0'
+              }`}
+            >
+              {otherExpensesData.total.toFixed(0)}€
+            </div>
+          )}
+          
+          {/* 💸 ALTRE SPESE: numero compresso, lista espansa */}
+          {category.id === 'otherExpenses' ? (
+            expandedOtherExpenses ? (
+              // Vista ESPANSA: Lista titolo + costo
+              <div className="flex flex-col gap-0.5 px-2 py-1 h-full justify-center overflow-hidden">
+                {otherExpensesData.count > 0 ? (
+                  (() => {
+                    const key = `${day.id}-otherExpenses`;
+                    const expensesRaw = trip.data[key];
+                    const expenses = Array.isArray(expensesRaw) ? expensesRaw : [];
+                    const realExpenses = expenses.filter((exp: any) => 
+                      (exp.title && exp.title.trim() !== '') || (exp.cost && exp.cost.trim() !== '')
+                    );
+                    
+                    const maxVisible = 3;
+                    const visibleExpenses = realExpenses.slice(0, maxVisible);
+                    const remainingCount = realExpenses.length - maxVisible;
+                    
+                    return (
+                      <>
+                        {visibleExpenses.map((exp: any, idx: number) => (
+                          <div key={idx} className="flex justify-between items-center text-[10px] leading-tight">
+                            <span className="truncate flex-1 text-left text-gray-700">
+                              {exp.title || 'Spesa'}
+                            </span>
+                            {exp.cost && exp.cost.trim() !== '' && (
+                              <span className="text-gray-600 font-medium ml-1 flex-shrink-0">
+                                {parseFloat(exp.cost).toFixed(0)}€
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                        {remainingCount > 0 && (
+                          <div className="text-[9px] text-gray-400 text-center mt-0.5">
+                            ...+{remainingCount} altre
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()
+                ) : (
+                  <div className="text-gray-300 text-xl">+</div>
+                )}
+              </div>
+            ) : (
+              // Vista COMPRESSA: Solo numero
+              <div className="text-xs font-medium text-gray-700">
+                {otherExpensesData.count}
+              </div>
+            )
+          ) : category.id === 'note' ? (
+            <div className="text-[11px] text-gray-700 px-1 overflow-hidden" style={{ 
               display: '-webkit-box',
-              WebkitLineClamp: '4',
+              WebkitLineClamp: expandedNotes ? '4' : '2', // 📝 Dinamico: 2 righe compresso, 4 espanso
               WebkitBoxOrient: 'vertical',
               textOverflow: 'ellipsis',
-              lineHeight: '1.3'
+              lineHeight: '1.2'
             }}>
               {cellData.notes}
             </div>
           ) : (
             <div 
-              className="font-medium px-1" 
+              className="text-[11px] font-medium px-1" 
               style={{ 
                 display: '-webkit-box',
                 WebkitLineClamp: '2',

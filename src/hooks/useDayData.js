@@ -15,6 +15,21 @@
 import { useState, useEffect } from 'react';
 import { CATEGORIES } from '../utils/constants';
 
+// 🔧 Helper per normalizzare otherExpenses (oggetto o array → array)
+const normalizeExpenses = (expenses) => {
+  if (!expenses) return [{ id: 1, title: '', cost: '' }];
+  
+  // Se è già un array, usalo
+  if (Array.isArray(expenses)) return expenses;
+  
+  // Se è un oggetto, converti in array (rimuovi chiavi non-numeriche)
+  const entries = Object.entries(expenses)
+    .filter(([key]) => !isNaN(parseInt(key))) // Solo chiavi numeriche
+    .map(([_, value]) => value);
+  
+  return entries.length > 0 ? entries : [{ id: 1, title: '', cost: '' }];
+};
+
 export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
   // ✅ Inizializza con dati validi
   const [categoryData, setCategoryData] = useState(() => {
@@ -43,7 +58,8 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
 
   const [otherExpenses, setOtherExpenses] = useState(() => {
     const key = `${currentDay.id}-otherExpenses`;
-    const expenses = trip.data[key] || [{ id: 1, title: '', cost: '' }];
+    const expensesRaw = trip.data[key];
+    const expenses = normalizeExpenses(expensesRaw); // 🔧 Normalizza
     
     return expenses.map(exp => ({
       id: exp.id,
@@ -84,7 +100,8 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
 
   useEffect(() => {
     const key = `${currentDay.id}-otherExpenses`;
-    const expenses = trip.data[key] || [{ id: 1, title: '', cost: '' }];
+    const expensesRaw = trip.data[key];
+    const expenses = normalizeExpenses(expensesRaw); // 🔧 Normalizza
     
     const expensesWithBreakdown = expenses.map(exp => ({
       id: exp.id,
@@ -129,38 +146,70 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
       [field]: value
     };
 
-    // AUTO-ASSEGNAZIONE: Quando si modifica 'cost', crea/aggiorna breakdown
-    if (field === 'cost' && value !== undefined) {
-      const amount = parseFloat(value) || 0;
-      
-      if (amount > 0) {
-        updatedCellData.costBreakdown = [
-          { userId: currentUserId, amount: amount }
-        ];
-        updatedCellData.participants = getDefaultParticipants();
-        updatedCellData.hasSplitCost = false;
-        console.log('✅ [updateCategory] Breakdown creato:', updatedCellData.costBreakdown);
-      } else {
-        updatedCellData.costBreakdown = null;
-        updatedCellData.participants = null;
-        updatedCellData.hasSplitCost = false;
-        updatedCellData.cost = '';
-      }
-    }
-
-    // Ricalcola hasSplitCost e totale quando si aggiorna costBreakdown
+    // 🔧 FIX: Gestisci costBreakdown PRIMA (ha priorità massima)
     if (field === 'costBreakdown') {
       if (Array.isArray(value) && value.length > 0) {
         updatedCellData.hasSplitCost = value.length > 1;
         const total = value.reduce((sum, entry) => sum + entry.amount, 0);
         updatedCellData.cost = total.toString();
+        updatedCellData.costBreakdown = value;
         if (!updatedCellData.participants) {
           updatedCellData.participants = getDefaultParticipants();
         }
+        console.log('✅ [updateCategory] Breakdown aggiornato manualmente:', value);
       } else {
         updatedCellData.costBreakdown = null;
         updatedCellData.participants = null;
         updatedCellData.hasSplitCost = false;
+      }
+    }
+    // 🔧 FIX: Se modifichi 'participants', NON toccare il breakdown
+    else if (field === 'participants') {
+      // Salva solo participants, lascia breakdown intatto
+      console.log('✅ [updateCategory] Participants aggiornati:', value);
+    }
+    // AUTO-ASSEGNAZIONE: SOLO se modifichi 'cost' E non esiste già breakdown VALIDO
+    else if (field === 'cost' && value !== undefined) {
+      const amount = parseFloat(value) || 0;
+      
+      if (amount > 0) {
+        // 🔧 FIX: Verifica se esiste breakdown VALIDO (con dati)
+        const hasValidBreakdown = currentData.costBreakdown && 
+                                   Array.isArray(currentData.costBreakdown) &&
+                                   currentData.costBreakdown.length > 0 &&
+                                   currentData.costBreakdown.some(e => e.amount > 0);
+        
+        if (!hasValidBreakdown) {
+          // SOLO prima assegnazione (breakdown vuoto/null)
+          updatedCellData.costBreakdown = [
+            { userId: currentUserId, amount: amount }
+          ];
+          updatedCellData.participants = getDefaultParticipants();
+          updatedCellData.hasSplitCost = false;
+          console.log('✅ [updateCategory] Breakdown creato (prima volta)');
+        } else {
+          // 🔧 Breakdown valido esiste → aggiorna SOLO totali proporzionalmente
+          const oldTotal = currentData.costBreakdown.reduce((sum, e) => sum + e.amount, 0);
+          
+          // Se il totale è identico, NON fare nulla (evita loop infiniti)
+          if (Math.abs(amount - oldTotal) > 0.01) {
+            const ratio = amount / oldTotal;
+            updatedCellData.costBreakdown = currentData.costBreakdown.map(entry => ({
+              ...entry,
+              amount: Math.round(entry.amount * ratio * 100) / 100
+            }));
+            console.log('✅ [updateCategory] Breakdown aggiornato proporzionalmente');
+          } else {
+            // Totale identico → mantieni breakdown esistente
+            updatedCellData.costBreakdown = currentData.costBreakdown;
+          }
+        }
+      } else {
+        // Cost = 0 → reset tutto
+        updatedCellData.costBreakdown = null;
+        updatedCellData.participants = null;
+        updatedCellData.hasSplitCost = false;
+        updatedCellData.cost = '';
       }
     }
 
@@ -195,38 +244,62 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
         [field]: value
       };
 
-      // AUTO-ASSEGNAZIONE: Quando si modifica 'cost', crea/aggiorna breakdown
-      if (field === 'cost' && value !== undefined) {
-        const amount = parseFloat(value) || 0;
-        
-        if (amount > 0) {
-          updatedExpense.costBreakdown = [
-            { userId: currentUserId, amount: amount }
-          ];
-          updatedExpense.participants = getDefaultParticipants();
-          updatedExpense.hasSplitCost = false;
-          console.log('✅ [updateOtherExpense] Breakdown creato:', updatedExpense.costBreakdown);
-        } else {
-          updatedExpense.costBreakdown = null;
-          updatedExpense.participants = null;
-          updatedExpense.hasSplitCost = false;
-          updatedExpense.cost = '';
-        }
-      }
-
-      // Ricalcola quando si aggiorna costBreakdown
+      // 🔧 FIX: Stessa logica delle categorie
       if (field === 'costBreakdown') {
         if (Array.isArray(value) && value.length > 0) {
           updatedExpense.hasSplitCost = value.length > 1;
           const total = value.reduce((sum, entry) => sum + entry.amount, 0);
           updatedExpense.cost = total.toString();
+          updatedExpense.costBreakdown = value;
           if (!updatedExpense.participants) {
             updatedExpense.participants = getDefaultParticipants();
+          }
+          console.log('✅ [updateOtherExpense] Breakdown aggiornato manualmente:', value);
+        } else {
+          updatedExpense.costBreakdown = null;
+          updatedExpense.participants = null;
+          updatedExpense.hasSplitCost = false;
+        }
+      }
+      else if (field === 'participants') {
+        // Salva solo participants, lascia breakdown intatto
+        console.log('✅ [updateOtherExpense] Participants aggiornati:', value);
+      }
+      else if (field === 'cost' && value !== undefined) {
+        const amount = parseFloat(value) || 0;
+        
+        if (amount > 0) {
+          const hasValidBreakdown = exp.costBreakdown && 
+                                     Array.isArray(exp.costBreakdown) &&
+                                     exp.costBreakdown.length > 0 &&
+                                     exp.costBreakdown.some(e => e.amount > 0);
+          
+          if (!hasValidBreakdown) {
+            updatedExpense.costBreakdown = [
+              { userId: currentUserId, amount: amount }
+            ];
+            updatedExpense.participants = getDefaultParticipants();
+            updatedExpense.hasSplitCost = false;
+            console.log('✅ [updateOtherExpense] Breakdown creato (prima volta)');
+          } else {
+            const oldTotal = exp.costBreakdown.reduce((sum, e) => sum + e.amount, 0);
+            
+            if (Math.abs(amount - oldTotal) > 0.01) {
+              const ratio = amount / oldTotal;
+              updatedExpense.costBreakdown = exp.costBreakdown.map(entry => ({
+                ...entry,
+                amount: Math.round(entry.amount * ratio * 100) / 100
+              }));
+              console.log('✅ [updateOtherExpense] Breakdown aggiornato proporzionalmente');
+            } else {
+              updatedExpense.costBreakdown = exp.costBreakdown;
+            }
           }
         } else {
           updatedExpense.costBreakdown = null;
           updatedExpense.participants = null;
           updatedExpense.hasSplitCost = false;
+          updatedExpense.cost = '';
         }
       }
       

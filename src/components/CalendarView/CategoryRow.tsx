@@ -11,6 +11,8 @@ interface CategoryRowProps {
   isScrolled: boolean;
   justMounted: boolean;
   showCosts: boolean;
+  expandedNotes: boolean; // 📝 Stato espansione Note
+  expandedOtherExpenses: boolean; // 💸 Stato espansione Altre Spese
   hoveredCell: string | null;
   currentUserId: string;
   getCellData: (dayId: number, categoryId: string) => any;
@@ -19,6 +21,8 @@ interface CategoryRowProps {
   onCellClick: (dayIndex: number, categoryId: string) => void;
   onCellHoverEnter: (cellKey: string) => void;
   onCellHoverLeave: () => void;
+  onToggleNotes: () => void; // 📝 Handler toggle Note
+  onToggleOtherExpenses: () => void; // 💸 Handler toggle Altre Spese
 }
 
 const CategoryRow: React.FC<CategoryRowProps> = ({
@@ -31,6 +35,8 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
   isScrolled,
   justMounted,
   showCosts,
+  expandedNotes, // 📝
+  expandedOtherExpenses, // 💸
   hoveredCell,
   currentUserId,
   getCellData,
@@ -38,29 +44,60 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
   getCategoryBgColor,
   onCellClick,
   onCellHoverEnter,
-  onCellHoverLeave
+  onCellHoverLeave,
+  onToggleNotes, // 📝
+  onToggleOtherExpenses // 💸
 }) => {
+  // 📝 Calcola altezza dinamica per Note e Altre Spese
+  const getRowHeight = () => {
+    if (category.id === 'note') return expandedNotes ? '80px' : '48px';
+    if (category.id === 'otherExpenses') return expandedOtherExpenses ? '80px' : '48px';
+    return '48px';
+  };
+  
+  const rowHeight = getRowHeight();
+  
   return (
-    <tr className="border-t" style={{ height: category.id === 'note' ? '80px' : '48px' }}>
+    <tr className="border-t" style={{ height: rowHeight }}>
       <td 
+        onClick={
+          category.id === 'note' ? onToggleNotes : 
+          category.id === 'otherExpenses' ? onToggleOtherExpenses : 
+          undefined
+        }
         className={`p-0.5 font-medium sticky left-0 z-10 ${
           isScrolled ? 'bg-transparent' : 'bg-white'
-        }`}
+        } ${(category.id === 'note' || category.id === 'otherExpenses') ? 'cursor-pointer' : ''}`}
         style={{ 
           width: isScrolled ? '60px' : '120px', 
           minWidth: isScrolled ? '60px' : '120px', 
           maxWidth: isScrolled ? '60px' : '120px', 
-          height: category.id === 'note' ? '80px' : '48px',
+          height: rowHeight,
           transition: justMounted ? 'none' : 'all 0.3s'
         }}
+        title={
+          category.id === 'note' ? (expandedNotes ? "Comprimi celle Note" : "Espandi celle Note") :
+          category.id === 'otherExpenses' ? (expandedOtherExpenses ? "Comprimi Altre Spese" : "Espandi Altre Spese") :
+          undefined
+        }
       >
         <div 
-          className="flex items-center justify-center relative overflow-hidden transition-all duration-300"
+          className={`flex items-center justify-center relative overflow-hidden transition-all duration-300 ${
+            (category.id === 'note' && expandedNotes) || (category.id === 'otherExpenses' && expandedOtherExpenses) 
+              ? 'ring-2' : ''
+          } ${
+            category.id === 'note' && expandedNotes ? 'ring-purple-400' : ''
+          } ${
+            category.id === 'otherExpenses' && expandedOtherExpenses ? 'ring-teal-400' : ''
+          }`}
           style={{ 
             height: '36px', 
             width: '100%',
             borderRadius: '9999px',
-            backgroundColor: getCategoryBgColor(category.color)
+            backgroundColor: 
+              category.id === 'note' && expandedNotes ? '#e9d5ff' :  // bg-purple-200 quando espanso
+              category.id === 'otherExpenses' && expandedOtherExpenses ? '#99f6e4' : // bg-teal-200 quando espanso
+              getCategoryBgColor(category.color)
           }}
         >
           <span className={`transition-all duration-300ms ease-in-out absolute ${
@@ -95,7 +132,10 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
             isDesktop={isDesktop}
             selectedDayIndex={selectedDayIndex}
             costVisible={costVisible}
+            expandedNotes={expandedNotes}
+            expandedOtherExpenses={expandedOtherExpenses}
             currentUserId={currentUserId}
+            trip={trip}
             onCellClick={onCellClick}
             onCellHoverEnter={onCellHoverEnter}
             onCellHoverLeave={onCellHoverLeave}

@@ -80,12 +80,16 @@ const DayDetailView = ({
     const frozenData = trip.data;
     
     const snapshot = {
-      categoriesWithData: CATEGORIES.filter(cat => 
-        alwaysVisible.includes(cat.id) || calculateHasData(cat.id, frozenData)
-      ),
-      categoriesWithoutData: CATEGORIES.filter(cat => 
-        !alwaysVisible.includes(cat.id) && !calculateHasData(cat.id, frozenData)
-      )
+      categoriesWithData: CATEGORIES
+        .filter(cat => cat.id !== 'otherExpenses') // 🚫 Escludi otherExpenses (ha sezione dedicata)
+        .filter(cat => 
+          alwaysVisible.includes(cat.id) || calculateHasData(cat.id, frozenData)
+        ),
+      categoriesWithoutData: CATEGORIES
+        .filter(cat => cat.id !== 'otherExpenses') // 🚫 Escludi otherExpenses (ha sezione dedicata)
+        .filter(cat => 
+          !alwaysVisible.includes(cat.id) && !calculateHasData(cat.id, frozenData)
+        )
     };
     
     setLayoutSnapshot(snapshot);
@@ -218,14 +222,20 @@ const DayDetailView = ({
     setCostBreakdownModal({ isOpen: true, categoryId: null, expenseId });
   };
 
-  // Handler conferma breakdown - gestisce anche participants
+  // 🔧 FIX: Handler conferma breakdown - salva solo costBreakdown, participants gestito automaticamente
   const handleConfirmBreakdown = (breakdown, participants) => {
+    console.log('🔧 [handleConfirmBreakdown] Salvataggio breakdown:', { breakdown, participants });
+    
     if (costBreakdownModal.categoryId) {
+      // 🔧 FIX CRITICO: Salva SOLO costBreakdown in una chiamata
+      // participants viene gestito automaticamente dentro updateCategory
       updateCategory(costBreakdownModal.categoryId, 'costBreakdown', breakdown);
-      updateCategory(costBreakdownModal.categoryId, 'participants', participants);
+      
+      // 🔧 NON chiamare updateCategory per participants!
+      // Questo causava il bug perché leggeva dati vecchi da trip.data
     } else if (costBreakdownModal.expenseId !== null) {
+      // Stessa logica per otherExpenses
       updateOtherExpense(costBreakdownModal.expenseId, 'costBreakdown', breakdown);
-      updateOtherExpense(costBreakdownModal.expenseId, 'participants', participants);
     }
   };
 

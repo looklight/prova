@@ -8,7 +8,8 @@ export const CATEGORIES = [
   { id: 'spostamenti2', label: 'Spostamenti', emoji: '🚡', color: 'bg-yellow-100' },
   { id: 'ristori1', label: 'Ristori', emoji: '🍽️', color: 'bg-orange-100' },
   { id: 'ristori2', label: 'Ristori', emoji: '🍽️', color: 'bg-orange-100' },
-  { id: 'note', label: 'Note', emoji: '📝', color: 'bg-purple-100' }
+  { id: 'note', label: 'Note', emoji: '📝', color: 'bg-purple-100' },
+  { id: 'otherExpenses', label: 'Altre Spese', emoji: '💸', color: 'bg-teal-100' }
 ];
 
 export const TRANSPORT_OPTIONS = [
@@ -16,7 +17,7 @@ export const TRANSPORT_OPTIONS = [
   { value: 'taxi', emoji: '🚕', label: 'Taxi' },
   { value: 'plane', emoji: '✈️', label: 'Aereo' },
   { value: 'train', emoji: '🚂', label: 'Treno' },
-  { value: 'default', emoji: '❌', label: 'Nessuno' }, // ← Torna al Default
+  { value: 'default', emoji: '❌', label: 'Nessuno' },
   { value: 'bus', emoji: '🚌', label: 'Bus' },
   { value: 'ship', emoji: '⛴️', label: 'Nave' },
   { value: 'bike', emoji: '🚲', label: 'Bici' },

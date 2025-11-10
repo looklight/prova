@@ -13,6 +13,8 @@ interface CalendarTableProps {
   isScrolled: boolean;
   justMounted: boolean;
   showCosts: boolean;
+  expandedNotes: boolean; // 📝 Stato espansione Note
+  expandedOtherExpenses: boolean; // 💸 Stato espansione Altre Spese
   hoveredCell: string | null;
   currentUserId: string;
   getCellData: (dayId: number, categoryId: string) => any;
@@ -26,6 +28,8 @@ interface CalendarTableProps {
   onUpdateDayDate: (dayIndex: number, newDate: string) => void;
   onOpenCostSummary: () => void;
   onToggleCosts: () => void; // 💰 Toggle visibilità costi
+  onToggleNotes: () => void; // 📝 Toggle espansione Note
+  onToggleOtherExpenses: () => void; // 💸 Toggle espansione Altre Spese
 }
 
 const CalendarTable: React.FC<CalendarTableProps> = ({
@@ -37,6 +41,8 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
   isScrolled,
   justMounted,
   showCosts,
+  expandedNotes, // 📝
+  expandedOtherExpenses, // 💸
   hoveredCell,
   currentUserId,
   getCellData,
@@ -49,7 +55,9 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
   onToggleDaySelection,
   onUpdateDayDate,
   onOpenCostSummary,
-  onToggleCosts // 💰
+  onToggleCosts, // 💰
+  onToggleNotes, // 📝
+  onToggleOtherExpenses // 💸
 
 }) => {
   return (
@@ -123,6 +131,8 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
             isScrolled={isScrolled}
             justMounted={justMounted}
             showCosts={showCosts}
+            expandedNotes={expandedNotes}
+            expandedOtherExpenses={expandedOtherExpenses}
             hoveredCell={hoveredCell}
             currentUserId={currentUserId}
             getCellData={getCellData}
@@ -131,6 +141,8 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
             onCellClick={onCellClick}
             onCellHoverEnter={onCellHoverEnter}
             onCellHoverLeave={onCellHoverLeave}
+            onToggleNotes={onToggleNotes}
+            onToggleOtherExpenses={onToggleOtherExpenses}
           />
         ))}
         <TotalRow
