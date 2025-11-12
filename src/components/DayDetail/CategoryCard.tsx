@@ -69,9 +69,8 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
           <span>{category.label}</span>
         </h2>
 
-        {/* ✅ GESTISCI SPESA in alto a destra - appare solo con contenuto */}
-        {category.id !== 'note' && category.id !== 'base' && onOpenCostBreakdown &&
-         (categoryData.title.trim() !== '' || categoryData.cost.trim() !== '') && (
+        {/* ✅ GESTISCI SPESA in alto a destra - sempre visibile */}
+        {category.id !== 'note' && category.id !== 'base' && onOpenCostBreakdown && (
           <button
             onClick={onOpenCostBreakdown}
             className="text-xs px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-full font-medium transition-colors flex-shrink-0"
@@ -122,9 +121,8 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
       <div className="flex gap-2 mb-3">
         {category.id !== 'note' && (
           <div className="flex-1 min-w-0 relative">
-            {/* Pallino booking - appare solo con contenuto */}
-            {category.id !== 'base' && category.id !== 'note' && 
-             (categoryData.title.trim() !== '' || categoryData.cost.trim() !== '') && (
+            {/* Pallino booking - sempre visibile */}
+            {category.id !== 'base' && category.id !== 'note' && (
               <div
                 className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-3 h-3 rounded-full transition-colors ${BOOKING_COLORS[categoryData.bookingStatus]}`}
               />
@@ -134,19 +132,17 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
               value={categoryData.title}
               onChange={(e) => onUpdateCategory(category.id, 'title', e.target.value)}
               placeholder={`Nome ${category.label.toLowerCase()}`}
-              className={`w-full px-4 py-2.5 border rounded-full text-sm ${
-                category.id !== 'base' && category.id !== 'note' && 
-                (categoryData.title.trim() !== '' || categoryData.cost.trim() !== '') 
-                  ? 'pl-8' 
-                  : ''
+              className={`w-full py-2.5 border rounded-full text-sm ${
+                category.id !== 'base' && category.id !== 'note' 
+                  ? 'pl-8 pr-4' 
+                  : 'px-4'
               }`}
             />
           </div>
         )}
 
-        {/* Campo costo - appare solo con contenuto */}
-        {category.id !== 'note' && category.id !== 'base' && 
-         (categoryData.title.trim() !== '' || categoryData.cost.trim() !== '') && (
+        {/* Campo costo - sempre visibile */}
+        {category.id !== 'note' && category.id !== 'base' && (
           <div className="flex-shrink-0">
             <CostInput
               value={categoryData.cost || ''}
@@ -163,9 +159,8 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
         )}
       </div>
 
-      {/* Booking Toggle + Media Buttons + Gestisci Spesa - appaiono solo con contenuto */}
-      {category.id !== 'base' && category.id !== 'note' && 
-       (categoryData.title.trim() !== '' || categoryData.cost.trim() !== '') && (
+      {/* Booking Toggle + Media Buttons - sempre visibili */}
+      {category.id !== 'base' && category.id !== 'note' && (
         <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
           <div className="flex-shrink-0">
             <BookingToggle
