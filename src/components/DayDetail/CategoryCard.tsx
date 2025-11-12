@@ -121,8 +121,9 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
       <div className="flex gap-2 mb-3">
         {category.id !== 'note' && (
           <div className="flex-1 min-w-0 relative">
-            {/* Pallino booking - sempre visibile */}
-            {category.id !== 'base' && category.id !== 'note' && (
+            {/* Pallino booking - appare solo con contenuto */}
+            {category.id !== 'base' && category.id !== 'note' && 
+             (categoryData.title.trim() !== '' || categoryData.cost.trim() !== '') && (
               <div
                 className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-3 h-3 rounded-full transition-colors ${BOOKING_COLORS[categoryData.bookingStatus]}`}
               />
@@ -132,10 +133,11 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
               value={categoryData.title}
               onChange={(e) => onUpdateCategory(category.id, 'title', e.target.value)}
               placeholder={`Nome ${category.label.toLowerCase()}`}
-              className={`w-full py-2.5 border rounded-full text-sm ${
-                category.id !== 'base' && category.id !== 'note' 
-                  ? 'pl-8 pr-4' 
-                  : 'px-4'
+              className={`w-full px-4 py-2.5 border rounded-full text-sm ${
+                category.id !== 'base' && category.id !== 'note' && 
+                (categoryData.title.trim() !== '' || categoryData.cost.trim() !== '') 
+                  ? 'pl-8' 
+                  : ''
               }`}
             />
           </div>
@@ -159,8 +161,9 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
         )}
       </div>
 
-      {/* Booking Toggle + Media Buttons - sempre visibili */}
-      {category.id !== 'base' && category.id !== 'note' && (
+      {/* Booking Toggle + Media Buttons - appaiono solo con contenuto */}
+      {category.id !== 'base' && category.id !== 'note' && 
+       (categoryData.title.trim() !== '' || categoryData.cost.trim() !== '') && (
         <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
           <div className="flex-shrink-0">
             <BookingToggle
