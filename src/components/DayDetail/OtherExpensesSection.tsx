@@ -15,6 +15,7 @@ interface OtherExpensesSectionProps {
   onOpenCostBreakdown?: (expenseId: number) => void;
   currentUserId?: string;
   tripMembers?: Record<string, { status: string; displayName: string; avatar?: string }>;
+  isHighlighted?: boolean; // 🆕 Prop per highlight
 }
 
 const OtherExpensesSection: React.FC<OtherExpensesSectionProps> = ({
@@ -23,7 +24,8 @@ const OtherExpensesSection: React.FC<OtherExpensesSectionProps> = ({
   onRemove,
   onOpenCostBreakdown,
   currentUserId,
-  tripMembers
+  tripMembers,
+  isHighlighted = false // 🆕 Default false
 }) => {
   // ✅ Handler con conferma per rimozione spesa
   const handleRemove = (expenseId: number) => {
@@ -34,7 +36,14 @@ const OtherExpensesSection: React.FC<OtherExpensesSectionProps> = ({
   };
 
   return (
-    <div id="category-otherExpenses" className="bg-white rounded-lg shadow p-4">
+    <div 
+      id="category-otherExpenses" 
+      className={`bg-white rounded-lg shadow p-4 transition-all duration-1000 ${
+        isHighlighted 
+          ? 'ring-2 ring-blue-500 bg-blue-50' 
+          : 'ring-0 ring-transparent bg-white'
+      }`}
+    >
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-base font-semibold">💸 Altre Spese</h2>
       </div>

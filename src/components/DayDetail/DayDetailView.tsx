@@ -316,6 +316,7 @@ const DayDetailView = ({
           onOpenCostBreakdown={handleOpenExpenseBreakdown}
           currentUserId={user.uid}
           tripMembers={trip.sharing?.members}
+          isHighlighted={highlightedCategory === 'otherExpenses'} 
         />
 
         {categoriesWithoutData.length > 0 && (
