@@ -28,6 +28,14 @@ export const FileTextIcon = ({ size = 24 }) => (
   </svg>
 );
 
+export const ExternalLinkIcon = ({ size = 24 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+    <polyline points="15 3 21 3 21 9" />
+    <line x1="10" y1="14" x2="21" y2="3" />
+  </svg>
+);
+
 // ============= VIDEO FUNCTIONS =============
 export const extractVideoId = (url) => {
   const patterns = [
@@ -233,19 +241,22 @@ export const VideoEmbed = ({ video, onRemove }) => {
       bg: 'bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400',
       icon: '📷',
       name: 'Instagram',
-      textColor: 'text-white'
+      textColor: 'text-white',
+      iconColor: 'rgba(255, 255, 255, 0.6)' // 🆕 Colore icona link
     },
     tiktok: {
       bg: 'bg-black',
       icon: '🎵',
       name: 'TikTok',
-      textColor: 'text-white'
+      textColor: 'text-white',
+      iconColor: 'rgba(255, 255, 255, 0.6)' // 🆕 Colore icona link
     },
     youtube: {
       bg: 'bg-red-600',
       icon: '▶️',
       name: 'YouTube',
-      textColor: 'text-white'
+      textColor: 'text-white',
+      iconColor: 'rgba(255, 255, 255, 0.6)' // 🆕 Colore icona link
     }
   };
 
@@ -270,7 +281,7 @@ export const VideoEmbed = ({ video, onRemove }) => {
         </a>
       </div>
 
-      {/* Sezione nota - 50% in basso se presente, max 3 righe con ... - RIDOTTO PADDING */}
+      {/* Sezione nota - 50% in basso se presente, max 3 righe con ... */}
       {hasNote && (
         <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-white bg-opacity-95 px-2 py-1 flex items-start overflow-hidden">
           <p 
@@ -289,6 +300,11 @@ export const VideoEmbed = ({ video, onRemove }) => {
           </p>
         </div>
       )}
+
+      {/* 🆕 Iconcina external link in basso a destra (come LinkCard e NoteCard) */}
+      <div className="absolute bottom-2 right-2" style={{ opacity: 0.6 }}>
+        <ExternalLinkIcon size={12} style={{ stroke: platform.iconColor }} />
+      </div>
 
       {/* Pulsante rimozione - X senza sfondo, sempre visibile mobile, hover desktop */}
       <button 
