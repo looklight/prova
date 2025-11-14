@@ -20,16 +20,14 @@ const escapeCSV = (value) => {
  */
 const generateTransactionsCSV = (transactions) => {
   if (transactions.length === 0) {
-    return 'Da;Status Da;A;Status A;Importo\n(Nessuna transazione necessaria)';
+    return 'Da;A;Importo\n(Nessuna transazione necessaria)';
   }
 
-  const header = 'Da;Status Da;A;Status A;Importo';
+  const header = 'Da;A;Importo';
   const rows = transactions.map(t => 
     [
       escapeCSV(t.fromName),
-      t.fromStatus === 'active' ? 'Attivo' : 'Uscito',
       escapeCSV(t.toName),
-      t.toStatus === 'active' ? 'Attivo' : 'Uscito',
       t.amount.toFixed(2)
     ].join(';')
   );
@@ -41,19 +39,13 @@ const generateTransactionsCSV = (transactions) => {
  * Genera CSV con i bilanci personali
  */
 const generateBalancesCSV = (balances) => {
-  const header = 'Nome;Status;Ha Pagato;Doveva Pagare;Bilancio';
+  const header = 'Nome;Ha Pagato;Doveva Pagare;Bilancio';
   
   const rows = Object.values(balances)
-    .sort((a, b) => {
-      // 🔧 FIX: Attivi prima, poi per bilancio
-      if (a.status === 'active' && b.status !== 'active') return -1;
-      if (a.status !== 'active' && b.status === 'active') return 1;
-      return b.balance - a.balance;
-    })
+    .sort((a, b) => b.balance - a.balance)
     .map(b => 
       [
         escapeCSV(b.displayName),
-        b.status === 'active' ? 'Attivo' : 'Uscito',  // 🆕 Colonna Status
         b.paid.toFixed(2),
         b.owes.toFixed(2),
         b.balance.toFixed(2)
@@ -67,7 +59,6 @@ const generateBalancesCSV = (balances) => {
   
   rows.push([
     'TOTALE',
-    '',  // 🆕 Colonna status vuota per totale
     totalPaid.toFixed(2),
     totalOwes.toFixed(2),
     totalBalance.toFixed(2)
@@ -80,7 +71,7 @@ const generateBalancesCSV = (balances) => {
  * Genera CSV con il dettaglio di tutte le spese
  */
 const generateDetailedExpensesCSV = (trip) => {
-  const header = 'Giorno;Data;Luogo;Categoria;Descrizione;Chi ha pagato;Status;Importo;Partecipanti';
+  const header = 'Giorno;Data;Luogo;Categoria;Descrizione;Chi ha pagato;Importo;Partecipanti';
   const rows = [];
 
   trip.days.forEach(day => {
@@ -139,15 +130,21 @@ const generateDetailedExpensesCSV = (trip) => {
 
 /**
  * Helper per generare righe CSV per una spesa
+ * 🔧 AGGIORNATO: Esporta SOLO membri ATTIVI
  */
 const generateExpenseRows = (day, baseTitle, categoryName, description, expense, trip) => {
   const rows = [];
   
-  // Determina partecipanti
+  // Determina partecipanti (solo attivi)
   let participants = expense.participants || [];
   if (participants.length === 0) {
     participants = Object.keys(trip.sharing.members)
       .filter(uid => trip.sharing.members[uid].status === 'active');
+  } else {
+    // 🔧 Filtra participants per includere solo membri attivi
+    participants = participants.filter(uid => 
+      trip.sharing.members[uid] && trip.sharing.members[uid].status === 'active'
+    );
   }
 
   // Converti UIDs in nomi
@@ -155,12 +152,17 @@ const generateExpenseRows = (day, baseTitle, categoryName, description, expense,
     .map(uid => trip.sharing.members[uid]?.displayName || 'Sconosciuto')
     .join(', ');
 
-  // Crea una riga per ogni persona che ha pagato
+  // 🔧 Crea una riga per ogni persona ATTIVA che ha pagato
   expense.costBreakdown.forEach(entry => {
     if (entry.amount > 0) {
       const member = trip.sharing.members[entry.userId];
-      const paidByName = member?.displayName || 'Sconosciuto';
-      const paidByStatus = member?.status === 'active' ? 'Attivo' : 'Uscito';  // 🆕 Status
+      
+      // 🔧 FILTRO: Esporta SOLO se membro è attivo
+      if (!member || member.status !== 'active') {
+        return; // Salta membri non attivi
+      }
+      
+      const paidByName = member.displayName || 'Sconosciuto';
       
       rows.push([
         day.number,
@@ -169,7 +171,6 @@ const generateExpenseRows = (day, baseTitle, categoryName, description, expense,
         escapeCSV(categoryName),
         escapeCSV(description),
         escapeCSV(paidByName),
-        paidByStatus,  // 🆕 Colonna Status
         entry.amount.toFixed(2),
         escapeCSV(participantNames)
       ].join(';'));
@@ -275,16 +276,21 @@ export const exportUserBreakdownToCSV = (trip, userBreakdown) => {
   csvContent += `Esportato il: ${dateString}\n\n`;
   
   // Header
-  csvContent += 'Nome;Status;Totale Speso;Numero Spese;Categorie\n';
+  csvContent += 'Nome;Totale Speso;Numero Spese;Categorie\n';
   
-  // Dati utenti
+  // Dati utenti (solo attivi)
   Object.entries(userBreakdown).forEach(([uid, data]) => {
     const memberStatus = trip.sharing.members[uid]?.status || 'active';
-    const status = memberStatus === 'active' ? 'Attivo' : 'Uscito';
+    
+    // 🔧 FILTRO: Esporta SOLO membri attivi
+    if (memberStatus !== 'active') {
+      return;
+    }
+    
     const totalItems = Object.values(data.byCategory).reduce((sum, cat) => sum + cat.count, 0);
     const categories = Object.keys(data.byCategory).join('; ');
     
-    csvContent += `${escapeCSV(data.displayName)};${status};${data.total.toFixed(2)};${totalItems};${escapeCSV(categories)}\n`;
+    csvContent += `${escapeCSV(data.displayName)};${data.total.toFixed(2)};${totalItems};${escapeCSV(categories)}\n`;
   });
   
   // Crea blob e download

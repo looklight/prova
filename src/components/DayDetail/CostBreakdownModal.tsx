@@ -15,9 +15,9 @@ interface CostBreakdownModalProps {
   currentUserId: string;
   tripMembers: Array<{ uid: string; displayName: string; avatar?: string }>;
   existingBreakdown: Array<{ userId: string; amount: number }> | null;
-  existingParticipants?: string[] | null; // 🆕 Chi ha usufruito
+  existingParticipants?: string[] | null;
   onClose: () => void;
-  onConfirm: (breakdown: Array<{ userId: string; amount: number }>, participants: string[]) => void; // 🆕 Aggiungi participants
+  onConfirm: (breakdown: Array<{ userId: string; amount: number }>, participants: string[]) => void;
 }
 
 const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
@@ -33,29 +33,55 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
 }) => {
   const [entries, setEntries] = useState<BreakdownEntry[]>([]);
   const [nextId, setNextId] = useState(2);
-  const [participants, setParticipants] = useState<Set<string>>(new Set()); // 🆕 Set di UIDs partecipanti
+  const [participants, setParticipants] = useState<Set<string>>(new Set());
 
-  // Inizializza entries e participants
+  // 🆕 Inizializza entries e participants con AUTO-INCLUDE membri mancanti
   useEffect(() => {
     if (isOpen) {
-      // 🆕 Inizializza participants
+      // 🆕 SOLUZIONE 2: Auto-include membri mancanti
       if (existingParticipants && existingParticipants.length > 0) {
-        setParticipants(new Set(existingParticipants));
+        // Filtra solo participants che sono ancora membri attivi
+        const activeParticipants = existingParticipants.filter(uid =>
+          tripMembers.some(m => m.uid === uid)
+        );
+        
+        // 🆕 Aggiungi membri mancanti automaticamente
+        const allActiveMemberIds = tripMembers.map(m => m.uid);
+        const missingMembers = allActiveMemberIds.filter(uid => 
+          !activeParticipants.includes(uid)
+        );
+        
+        if (missingMembers.length > 0) {
+          console.log(`🆕 Auto-inclusi ${missingMembers.length} nuovi membri nei participants`);
+          setParticipants(new Set([...activeParticipants, ...missingMembers]));
+        } else {
+          setParticipants(new Set(activeParticipants));
+        }
       } else {
         // Default: tutti i membri attivi
         setParticipants(new Set(tripMembers.map(m => m.uid)));
       }
 
       if (existingBreakdown && existingBreakdown.length > 0) {
-        // Carica breakdown esistente
-        setEntries(
-          existingBreakdown.map((item, idx) => ({
-            id: idx + 1,
-            userId: item.userId,
-            amount: item.amount.toString()
-          }))
+        // Carica breakdown esistente, ma FILTRA solo membri attivi
+        const activeBreakdown = existingBreakdown.filter(item =>
+          tripMembers.some(m => m.uid === item.userId)
         );
-        setNextId(existingBreakdown.length + 1);
+        
+        if (activeBreakdown.length > 0) {
+          setEntries(
+            activeBreakdown.map((item, idx) => ({
+              id: idx + 1,
+              userId: item.userId,
+              amount: item.amount.toString()
+            }))
+          );
+          setNextId(activeBreakdown.length + 1);
+        } else {
+          // Nessun membro attivo nel breakdown, crea entry vuota
+          setEntries([{ id: 1, userId: currentUserId, amount: '' }]);
+          setNextId(2);
+        }
       } else {
         // Nuova entry con utente corrente di default
         setEntries([{ id: 1, userId: currentUserId, amount: '' }]);
@@ -81,7 +107,7 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
     ));
   };
 
-  // 🆕 Toggle partecipante
+  // Toggle partecipante
   const toggleParticipant = (userId: string) => {
     setParticipants(prev => {
       const newSet = new Set(prev);
@@ -135,7 +161,7 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
       amount: parseFloat(e.amount)
     }));
 
-    // 🆕 Passa anche i participants
+    // Passa anche i participants
     onConfirm(breakdown, Array.from(participants));
     onClose();
   };
@@ -174,7 +200,7 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
 
         {/* Body - Scrollable */}
         <div className="flex-1 overflow-y-auto p-6">
-          {/* 🆕 Chi ha usufruito */}
+          {/* Chi ha usufruito */}
           <div className="mb-6">
             <h4 className="text-sm font-semibold text-gray-700 mb-3">👥 Chi ha usufruito?</h4>
             <div className="flex flex-wrap gap-2">

@@ -14,6 +14,7 @@ interface OtherExpensesSectionProps {
   onRemove: (id: number) => void;
   onOpenCostBreakdown?: (expenseId: number) => void;
   currentUserId?: string;
+  tripMembers?: Record<string, { status: string; displayName: string; avatar?: string }>;
 }
 
 const OtherExpensesSection: React.FC<OtherExpensesSectionProps> = ({
@@ -21,7 +22,8 @@ const OtherExpensesSection: React.FC<OtherExpensesSectionProps> = ({
   onUpdate,
   onRemove,
   onOpenCostBreakdown,
-  currentUserId
+  currentUserId,
+  tripMembers
 }) => {
   // ✅ Handler con conferma per rimozione spesa
   const handleRemove = (expenseId: number) => {
@@ -56,6 +58,7 @@ const OtherExpensesSection: React.FC<OtherExpensesSectionProps> = ({
               hasSplitCost={expense.hasSplitCost || false}
               currentUserId={currentUserId}
               costBreakdown={expense.costBreakdown || null}
+              tripMembers={tripMembers}
               onClearBreakdown={() => {
                 onUpdate(expense.id, 'cost', '');
                 // Il breakdown viene già pulito in useDayData quando cost = ''

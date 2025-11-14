@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronDown, ChevronUp } from 'lucide-react';
-import { calculateTripCost, CATEGORY_ICONS, CATEGORY_LABELS } from '../../utils/costsUtils';
+import { calculateTripCost } from '../../utils/costsUtils';
 import { CATEGORIES } from '../../utils/constants';
 import CategoryBreakdownView from './CategoryBreakdownView';
 import BudgetView from './BudgetView';
 import BalanceView from './BalanceView';
+import Avatar from '../Avatar';
 
 interface CostSummaryByUserViewProps {
   trip: any;
@@ -26,32 +27,31 @@ const CostSummaryByUserView: React.FC<CostSummaryByUserViewProps> = ({
   const [activeTab, setActiveTab] = useState<TabType>('users');
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
 
-  // Calcola breakdown per utente con raggruppamento per categoria
+  // Calcola breakdown per utente includendo SOLO membri ATTIVI
   const userBreakdown = useMemo(() => {
     const breakdown: Record<string, { 
       displayName: string; 
       avatar?: string;
-      status?: string;  // 🆕 Aggiungi status
+      status: string;
       total: number; 
       byCategory: Record<string, { total: number; count: number; items: any[] }>;
     }> = {};
     
-    // Inizializza tutti i membri attivi
+    // Inizializza SOLO membri ATTIVI
     Object.entries(trip.sharing.members).forEach(([uid, member]: [string, any]) => {
       if (member.status === 'active') {
         breakdown[uid] = {
           displayName: member.displayName,
           avatar: member.avatar,
-          status: member.status,  // 🆕
+          status: 'active',
           total: 0,
           byCategory: {}
         };
       }
     });
 
-    // Aggrega costi per utente
+    // Aggrega costi per utente (solo membri attivi)
     trip.days.forEach(day => {
-      // Trova la base del giorno per il contesto
       const baseKey = `${day.id}-base`;
       const baseTitle = trip.data[baseKey]?.title || `Giorno ${day.number}`;
 
@@ -64,6 +64,7 @@ const CostSummaryByUserView: React.FC<CostSummaryByUserViewProps> = ({
         
         if (cellData?.costBreakdown && Array.isArray(cellData.costBreakdown)) {
           cellData.costBreakdown.forEach(entry => {
+            // Considera solo membri attivi
             if (breakdown[entry.userId]) {
               breakdown[entry.userId].total += entry.amount;
               
@@ -97,6 +98,7 @@ const CostSummaryByUserView: React.FC<CostSummaryByUserViewProps> = ({
         otherExpenses.forEach(expense => {
           if (expense.costBreakdown && Array.isArray(expense.costBreakdown)) {
             expense.costBreakdown.forEach(entry => {
+              // Considera solo membri attivi
               if (breakdown[entry.userId]) {
                 breakdown[entry.userId].total += entry.amount;
                 
@@ -124,8 +126,45 @@ const CostSummaryByUserView: React.FC<CostSummaryByUserViewProps> = ({
       }
     });
 
-    return breakdown;
+    // Filtra solo utenti che hanno effettivamente speso qualcosa
+    const filteredBreakdown: typeof breakdown = {};
+    Object.entries(breakdown).forEach(([uid, data]) => {
+      if (data.total > 0) {
+        filteredBreakdown[uid] = data;
+      }
+    });
+
+    return filteredBreakdown;
   }, [trip]);
+
+  // 🆕 FIX: Ottieni membri usciti da costHistory (SOLO ultimo snapshot per utente)
+  const historicalUsers = useMemo(() => {
+    if (!trip.costHistory || trip.costHistory.length === 0) {
+      return [];
+    }
+
+    // 🆕 Crea una mappa: userId -> ultimo snapshot
+    const userSnapshotMap = new Map();
+    
+    trip.costHistory.forEach((entry: any) => {
+      const existing = userSnapshotMap.get(entry.userId);
+      
+      // Mantieni solo lo snapshot più recente per ogni userId
+      if (!existing || new Date(entry.leftAt) > new Date(existing.leftAt)) {
+        userSnapshotMap.set(entry.userId, {
+          userId: entry.userId,
+          displayName: entry.displayName,
+          avatar: entry.avatar,
+          leftAt: entry.leftAt,
+          snapshot: entry.snapshot
+        });
+      }
+    });
+
+    // Converti Map in Array, ordinato per data (più recente prima)
+    return Array.from(userSnapshotMap.values())
+      .sort((a, b) => new Date(b.leftAt).getTime() - new Date(a.leftAt).getTime());
+  }, [trip.costHistory]);
 
   // Ordina utenti per spesa totale (dal più alto al più basso)
   const sortedUserBreakdown = useMemo(() => {
@@ -162,126 +201,110 @@ const CostSummaryByUserView: React.FC<CostSummaryByUserViewProps> = ({
 
   return (
     <div 
-      className={`bg-gray-50 ${isDesktop ? 'h-full overflow-y-auto' : 'min-h-screen'}`}
+      className="min-h-screen bg-gray-50 flex flex-col"
       style={{ 
         maxWidth: isDesktop ? '100%' : '430px',
         margin: '0 auto'
       }}
     >
       {/* Header */}
-      <div className="bg-white px-4 py-4 shadow-sm sticky top-0 z-10">
-        <div className="flex items-center gap-3">
+      <div className="bg-white border-b sticky top-0 z-10">
+        <div className="flex items-center justify-between p-4">
           <button
             onClick={onBack}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors -ml-2"
           >
             <ChevronLeft size={24} />
           </button>
-          <div className="flex-1">
-            <h1 className="text-xl font-bold">
-              {origin === 'home' ? 'Riepilogo Viaggio' : 'Riepilogo Costi'}
-            </h1>
-            <p className="text-sm text-gray-500">
-              Totale: {Math.round(tripTotal)}€
-            </p>
-          </div>
+          <h1 className="text-lg font-bold">Riepilogo Spese</h1>
+          <div className="w-10"></div>
         </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="bg-white px-4 pt-3 pb-2 shadow-sm sticky top-[72px] z-10">
-        <div className="grid grid-cols-4 gap-2">
+        {/* 🆕 TABS MIGLIORATI - Grid layout con emoji sopra */}
+        <div className="grid grid-cols-4 border-t">
           <button
             onClick={() => setActiveTab('users')}
-            className={`py-2 px-1 rounded-lg font-medium transition-colors text-xs flex flex-col items-center justify-center gap-1 ${
+            className={`py-2.5 px-1 text-xs font-medium transition-colors flex flex-col items-center justify-center gap-1 ${
               activeTab === 'users'
-                ? 'bg-blue-500 text-white shadow'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
             }`}
           >
-            <span className="text-lg">👤</span>
-            <span>Utenti</span>
+            <span className="text-base">👥</span>
+            <span className="leading-tight">Per Utente</span>
           </button>
           <button
             onClick={() => setActiveTab('categories')}
-            className={`py-2 px-1 rounded-lg font-medium transition-colors text-xs flex flex-col items-center justify-center gap-1 ${
+            className={`py-2.5 px-1 text-xs font-medium transition-colors flex flex-col items-center justify-center gap-1 ${
               activeTab === 'categories'
-                ? 'bg-blue-500 text-white shadow'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
             }`}
           >
-            <span className="text-lg">📊</span>
-            <span>Categorie</span>
+            <span className="text-base">📊</span>
+            <span className="leading-tight">Categoria</span>
           </button>
           <button
             onClick={() => setActiveTab('budget')}
-            className={`py-2 px-1 rounded-lg font-medium transition-colors text-xs flex flex-col items-center justify-center gap-1 ${
+            className={`py-2.5 px-1 text-xs font-medium transition-colors flex flex-col items-center justify-center gap-1 ${
               activeTab === 'budget'
-                ? 'bg-blue-500 text-white shadow'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
             }`}
           >
-            <span className="text-lg">💰</span>
-            <span>Budget</span>
+            <span className="text-base">💰</span>
+            <span className="leading-tight">Budget</span>
           </button>
           <button
             onClick={() => setActiveTab('balances')}
-            className={`py-2 px-1 rounded-lg font-medium transition-colors text-xs flex flex-col items-center justify-center gap-1 ${
+            className={`py-2.5 px-1 text-xs font-medium transition-colors flex flex-col items-center justify-center gap-1 ${
               activeTab === 'balances'
-                ? 'bg-blue-500 text-white shadow'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
             }`}
           >
-            <span className="text-lg">💸</span>
-            <span>Bilanci</span>
+            <span className="text-base">🔄</span>
+            <span className="leading-tight">Bilanci</span>
           </button>
         </div>
       </div>
 
       {/* Content */}
       {activeTab === 'users' && (
-        <div className="p-4 space-y-3">
+        <div className="p-4 space-y-4">
+          {/* Totale complessivo */}
+          <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
+            <p className="text-sm opacity-90 mb-1">Totale Viaggio</p>
+            <p className="text-4xl font-bold">{Math.round(tripTotal)}€</p>
+            <p className="text-xs opacity-75 mt-2">
+              {sortedUserBreakdown.length} {sortedUserBreakdown.length === 1 ? 'persona' : 'persone'} • {trip.days.length} {trip.days.length === 1 ? 'giorno' : 'giorni'}
+            </p>
+          </div>
+
+          {/* Lista utenti ATTIVI */}
           {sortedUserBreakdown.map(([userId, data]) => {
+            const categories = Object.entries(data.byCategory).sort(([, a], [, b]) => b.total - a.total);
+            const totalItems = categories.reduce((sum, [, cat]) => sum + cat.count, 0);
             const isExpanded = expandedUsers.has(userId);
-            const categories = Object.entries(data.byCategory);
-            const totalItems = Object.values(data.byCategory).reduce((sum, cat) => sum + cat.count, 0);
             const userPercentage = tripTotal > 0 ? (data.total / tripTotal) * 100 : 0;
-            
-            // 🔧 Controlla se utente è inattivo
-            const memberStatus = trip.sharing.members[userId]?.status;
-            const isInactive = memberStatus === 'inactive';
 
             return (
               <div 
-                key={userId} 
-                className={`bg-white rounded-xl shadow overflow-hidden transition-all ${
-                  isInactive ? 'opacity-60 border-2 border-dashed border-gray-300' : ''
-                }`}
+                key={userId}
+                className="bg-white rounded-xl shadow overflow-hidden"
               >
-                {/* Header - Sempre visibile */}
                 <button
                   onClick={() => toggleUserExpansion(userId)}
                   className="w-full p-4 flex items-center gap-3 hover:bg-gray-50 transition-colors"
                 >
-                  {data.avatar ? (
-                    <img
-                      src={data.avatar}
-                      alt={data.displayName}
-                      className="w-12 h-12 rounded-full object-cover flex-shrink-0"
-                    />
-                  ) : (
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold flex-shrink-0">
-                      {data.displayName.charAt(0).toUpperCase()}
-                    </div>
-                  )}
+                  <Avatar 
+                    src={data.avatar} 
+                    name={data.displayName} 
+                    size="lg"
+                  />
                   <div className="flex-1 text-left">
-                    <h3 className="font-semibold flex items-center gap-2">
+                    <h3 className="font-semibold">
                       {data.displayName}
-                      {isInactive && (
-                        <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">
-                          👋 Uscito
-                        </span>
-                      )}
                     </h3>
                     <p className="text-sm text-gray-500">
                       {totalItems} {totalItems === 1 ? 'spesa' : 'spese'} • {categories.length} {categories.length === 1 ? 'categoria' : 'categorie'}
@@ -300,7 +323,6 @@ const CostSummaryByUserView: React.FC<CostSummaryByUserViewProps> = ({
                   </div>
                 </button>
 
-                {/* Barra distribuzione categorie - Sempre visibile */}
                 {categories.length > 0 && (
                   <div className="px-4 pb-3">
                     <div className="flex h-2 rounded-full overflow-hidden bg-gray-100">
@@ -319,14 +341,12 @@ const CostSummaryByUserView: React.FC<CostSummaryByUserViewProps> = ({
                   </div>
                 )}
 
-                {/* Dettagli espandibili */}
                 {isExpanded && (
                   <div className="px-4 pb-4 space-y-3 border-t">
                     {categories.map(([catName, catData], idx) => (
                       <div key={catName} className="pt-3">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
-                            {/* Pallino colorato */}
                             <div className={`w-3 h-3 rounded-full ${categoryColors[idx % categoryColors.length]}`} />
                             <span className="font-medium text-sm">{catName}</span>
                             <span className="text-xs text-gray-500">({catData.count})</span>
@@ -336,7 +356,6 @@ const CostSummaryByUserView: React.FC<CostSummaryByUserViewProps> = ({
                           </span>
                         </div>
                         
-                        {/* Lista item categoria */}
                         <div className="space-y-1 ml-5">
                           {catData.items.map((item, itemIdx) => (
                             <div key={itemIdx} className="flex justify-between text-xs text-gray-600">
@@ -352,6 +371,117 @@ const CostSummaryByUserView: React.FC<CostSummaryByUserViewProps> = ({
               </div>
             );
           })}
+
+          {/* 🆕 MEMBRI USCITI (da costHistory) - MOSTRATI IN FONDO */}
+          {historicalUsers.map((histUser: any) => {
+            const snapshot = histUser.snapshot;
+            const categories = Object.entries(snapshot.byCategory).sort(([, a]: [string, any], [, b]: [string, any]) => b.total - a.total);
+            const totalItems = categories.reduce((sum, [, cat]: [string, any]) => sum + cat.count, 0);
+            const isExpanded = expandedUsers.has(`historical-${histUser.userId}`);
+
+            return (
+              <div 
+                key={`historical-${histUser.userId}`}
+                className="bg-white rounded-xl shadow border-2 border-dashed border-gray-300 opacity-75 overflow-hidden"
+              >
+                <button
+                  onClick={() => toggleUserExpansion(`historical-${histUser.userId}`)}
+                  className="w-full p-4 flex items-center gap-3 hover:bg-gray-50 transition-colors"
+                >
+                  <Avatar 
+                    src={histUser.avatar} 
+                    name={histUser.displayName} 
+                    size="lg"
+                    className="grayscale opacity-60"
+                  />
+                  <div className="flex-1 text-left">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-semibold text-gray-600">
+                        {histUser.displayName}
+                      </h3>
+                      <span className="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full font-medium uppercase">
+                        Uscito
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-500">
+                      {totalItems} {totalItems === 1 ? 'spesa' : 'spese'} • {categories.length} {categories.length === 1 ? 'categoria' : 'categorie'}
+                    </p>
+                    {/* 🆕 DATA DI USCITA */}
+                    <p className="text-xs text-gray-400 mt-1">
+                      Uscito il {new Date(histUser.leftAt).toLocaleDateString('it-IT', { 
+                        day: 'numeric', 
+                        month: 'short', 
+                        year: 'numeric' 
+                      })}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-right">
+                      <p className="text-xl font-bold text-gray-600">
+                        {Math.round(snapshot.total)}€
+                      </p>
+                      <p className="text-xs text-gray-500">storico</p>
+                    </div>
+                    {isExpanded ? <ChevronUp size={20} className="text-gray-400" /> : <ChevronDown size={20} className="text-gray-400" />}
+                  </div>
+                </button>
+
+                {categories.length > 0 && (
+                  <div className="px-4 pb-3">
+                    <div className="flex h-2 rounded-full overflow-hidden bg-gray-100">
+                      {categories.map(([catName, catData]: [string, any], idx) => {
+                        const percentage = (catData.total / snapshot.total) * 100;
+                        return (
+                          <div
+                            key={catName}
+                            className={`${categoryColors[idx % categoryColors.length]} opacity-50 transition-all`}
+                            style={{ width: `${percentage}%` }}
+                            title={`${catName}: ${Math.round(catData.total)}€`}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {isExpanded && (
+                  <div className="px-4 pb-4 space-y-3 border-t bg-gray-50">
+                    {categories.map(([catName, catData]: [string, any], idx) => (
+                      <div key={catName} className="pt-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-3 h-3 rounded-full ${categoryColors[idx % categoryColors.length]} opacity-50`} />
+                            <span className="font-medium text-sm text-gray-700">{catName}</span>
+                            <span className="text-xs text-gray-500">({catData.count})</span>
+                          </div>
+                          <span className="font-semibold text-gray-600">
+                            {Math.round(catData.total)}€
+                          </span>
+                        </div>
+                        
+                        <div className="space-y-1 ml-5">
+                          {catData.items.map((item: any, itemIdx: number) => (
+                            <div key={itemIdx} className="flex justify-between text-xs text-gray-600">
+                              <span>G{item.day} • {item.base} • {item.title}</span>
+                              <span>{Math.round(item.amount)}€</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Messaggio se nessuna spesa */}
+          {sortedUserBreakdown.length === 0 && historicalUsers.length === 0 && (
+            <div className="text-center py-12 text-gray-400">
+              <p className="text-lg mb-2">💸</p>
+              <p>Nessuna spesa registrata ancora.</p>
+            </div>
+          )}
         </div>
       )}
 

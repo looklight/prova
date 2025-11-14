@@ -22,6 +22,7 @@ interface CategoryCardProps {
   onEditNote: (note: any) => void;
   onOpenCostBreakdown?: () => void;
   currentUserId?: string;
+  tripMembers?: Record<string, { status: string; displayName: string; avatar?: string }>;
   isHighlighted?: boolean;
 }
 
@@ -38,6 +39,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
   onEditNote,
   onOpenCostBreakdown,
   currentUserId,
+  tripMembers,
   isHighlighted = false
 }) => {
   const isBaseSuggestions = category.id === 'base' && Array.isArray(suggestion);
@@ -152,6 +154,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
               hasSplitCost={categoryData.hasSplitCost || false}
               currentUserId={currentUserId}
               costBreakdown={categoryData.costBreakdown || null}
+              tripMembers={tripMembers}
               onClearBreakdown={() => {
                 onUpdateCategory(category.id, 'costBreakdown', null);
                 onUpdateCategory(category.id, 'hasSplitCost', false);

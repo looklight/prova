@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { MapPin, User, Plus, Upload, Download, Trash2 } from 'lucide-react';
+import { MapPin, Plus, Upload, Download, Trash2 } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import TripMetadataModal from './TripMetadataModal';
@@ -7,6 +7,7 @@ import NotificationCenter from './NotificationCenter';
 import MembersAvatarStack from './MembersAvatarStack';
 import TripMembersModal from './TripMembersModal';
 import CostSummaryByUserView from './DayDetail/CostSummaryByUserView';
+import Avatar from './Avatar';
 import { calculateTripCost } from "../utils/costsUtils";
 
 const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExportTrip, onImportTrip, onOpenProfile, currentUser }) => {
@@ -160,12 +161,18 @@ const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExp
               }}
             />
             
+            {/* 🆕 AVATAR INVECE DI ICONA USER */}
             <button
               onClick={onOpenProfile}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              className="hover:opacity-80 transition-opacity"
               aria-label="Profilo"
             >
-              <User size={28} className="text-gray-700" />
+              <Avatar 
+                src={currentUser.photoURL} 
+                name={currentUser.displayName || 'User'} 
+                size="sm"
+                className="!w-8 !h-8 !text-sm"
+              />
             </button>
           </div>
         </div>

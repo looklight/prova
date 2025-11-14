@@ -7,12 +7,14 @@ interface MediaDialogProps {
   linkInput: string;
   linkTitle: string;
   videoInput: string;
+  videoNote: string; // 🆕 Nuovo campo per nota video
   noteInput: string;
   editingNote: any;
   onClose: () => void;
   onLinkInputChange: (value: string) => void;
   onLinkTitleChange: (value: string) => void;
   onVideoInputChange: (value: string) => void;
+  onVideoNoteChange: (value: string) => void; // 🆕 Handler nota video
   onNoteInputChange: (value: string) => void;
   onSubmit: () => void;
 }
@@ -24,12 +26,14 @@ const MediaDialog: React.FC<MediaDialogProps> = ({
   linkInput,
   linkTitle,
   videoInput,
+  videoNote, // 🆕
   noteInput,
   editingNote,
   onClose,
   onLinkInputChange,
   onLinkTitleChange,
   onVideoInputChange,
+  onVideoNoteChange, // 🆕
   onNoteInputChange,
   onSubmit
 }) => {
@@ -55,12 +59,12 @@ const MediaDialog: React.FC<MediaDialogProps> = ({
               className="w-full px-4 py-3 border rounded-lg mb-3"
               autoFocus
             />
-            <input
-              type="text"
+            <textarea
               value={linkTitle}
               onChange={(e) => onLinkTitleChange(e.target.value)}
               placeholder="Titolo (opzionale)"
-              className="w-full px-4 py-3 border rounded-lg mb-4"
+              className="w-full px-4 py-3 border rounded-lg mb-4 h-24 resize-none"
+              rows={3}
             />
             <div className="flex gap-2">
               <button
@@ -88,8 +92,16 @@ const MediaDialog: React.FC<MediaDialogProps> = ({
               value={videoInput}
               onChange={(e) => onVideoInputChange(e.target.value)}
               placeholder="https://instagram.com/p/..."
-              className="w-full px-4 py-3 border rounded-lg mb-4"
+              className="w-full px-4 py-3 border rounded-lg mb-3"
               autoFocus
+            />
+            {/* 🆕 Campo nota per video */}
+            <textarea
+              value={videoNote}
+              onChange={(e) => onVideoNoteChange(e.target.value)}
+              placeholder="Nota (opzionale)"
+              className="w-full px-4 py-3 border rounded-lg mb-4 h-24 resize-none"
+              rows={3}
             />
             <div className="flex gap-2">
               <button

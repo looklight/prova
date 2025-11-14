@@ -4,6 +4,7 @@ import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
 import { loadUserProfile, updateUserProfile, resizeAndUploadImage, checkUsernameExists, isValidUsername, updateUserProfileInTrips } from "../services";
 import { IMAGE_COMPRESSION } from '../config/imageConfig';
+import Avatar from './Avatar';
 
 const ProfileView = ({ onBack, user, trips = [] }) => {
   // Stati
@@ -63,6 +64,20 @@ const ProfileView = ({ onBack, user, trips = [] }) => {
       alert('Errore nel caricamento dell\'immagine');
     } finally {
       setUploadingAvatar(false);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!profile.avatar) return;
+
+    try {
+      setProfile({ ...profile, avatar: null });
+      await updateUserProfile(user.uid, { avatar: null });
+      await updateUserProfileInTrips(user.uid, { avatar: null });
+      console.log('✅ Avatar rimosso ovunque');
+    } catch (error) {
+      console.error('Errore rimozione avatar:', error);
+      alert('Errore nella rimozione dell\'avatar');
     }
   };
 
@@ -134,22 +149,17 @@ const ProfileView = ({ onBack, user, trips = [] }) => {
               htmlFor="avatar-upload"
               className={`cursor-pointer block relative group ${uploadingAvatar ? 'opacity-50' : ''}`}
             >
-              {profile.avatar ? (
-                <img
-                  src={profile.avatar}
-                  alt="Avatar"
-                  className="w-24 h-24 rounded-full object-cover border-2 border-gray-200"
-                />
-              ) : (
-                <div className="w-24 h-24 rounded-full flex items-center justify-center border-2 border-gray-200 bg-gradient-to-br from-blue-500 to-purple-500">
-                  {uploadingAvatar ? (
-                    <Loader size={32} className="text-white animate-spin" />
-                  ) : (
-                    <span className="text-white text-3xl font-bold">
-                      {profile.displayName?.[0]?.toUpperCase() || '?'}
-                    </span>
-                  )}
+              {uploadingAvatar ? (
+                <div className="w-24 h-24 rounded-full flex items-center justify-center border-2 border-gray-200 bg-gray-300">
+                  <Loader size={32} className="text-white animate-spin" />
                 </div>
+              ) : (
+                <Avatar 
+                  src={profile.avatar} 
+                  name={profile.displayName || 'User'} 
+                  size="xl"
+                  className="border-2 border-gray-200"
+                />
               )}
 
               {/* Hint cambio foto */}
@@ -251,6 +261,7 @@ const ProfileView = ({ onBack, user, trips = [] }) => {
               alert('Errore nel salvataggio');
             }
           }}
+          onRemoveAvatar={handleRemoveAvatar} // 👈 Passiamo la funzione
         />
       )}
     </div>
@@ -258,7 +269,7 @@ const ProfileView = ({ onBack, user, trips = [] }) => {
 };
 
 // Componente Modal per Editing
-const ProfileEditModal = ({ profile, onClose, onSave, userId }) => {
+const ProfileEditModal = ({ profile, onClose, onSave, userId, onRemoveAvatar }) => {
   const [displayName, setDisplayName] = useState(profile.displayName);
   const [username, setUsername] = useState(profile.username);
   const [saving, setSaving] = useState(false);
@@ -368,8 +379,18 @@ const ProfileEditModal = ({ profile, onClose, onSave, userId }) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
           <h2 className="text-xl font-bold text-gray-800">Modifica Profilo</h2>
+          {/* Pulsante rimuovi avatar discreto */}
+          {profile.avatar && (
+            <button
+              onClick={onRemoveAvatar}
+              className="text-xs text-gray-500 hover:text-red-500 transition-colors"
+              title="Rimuovi foto profilo"
+            >
+              Rimuovi foto
+            </button>
+          )}
         </div>
 
         {/* Content */}

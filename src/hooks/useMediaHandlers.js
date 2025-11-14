@@ -7,7 +7,7 @@
  * Funzionalità:
  * - Gestione dialog per aggiunta media
  * - Upload immagini su Firebase Storage
- * - Validazione URL video (YouTube, Instagram, TikTok)
+ * - Validazione URL video (YouTube, Instagram, TikTok) con note
  * - Edit/remove media con eliminazione da Storage
  * - Gestione note testuali
  */
@@ -20,6 +20,7 @@ export const useMediaHandlers = (categoryData, updateCategory) => {
   const [linkInput, setLinkInput] = useState('');
   const [linkTitle, setLinkTitle] = useState('');
   const [videoInput, setVideoInput] = useState('');
+  const [videoNote, setVideoNote] = useState(''); // 🆕 Stato per nota video
   const [noteInput, setNoteInput] = useState('');
   const [editingNote, setEditingNote] = useState(null);
 
@@ -63,9 +64,15 @@ export const useMediaHandlers = (categoryData, updateCategory) => {
     if (videoData) {
       updateCategory(categoryId, 'videos', [
         ...categoryData[categoryId].videos,
-        { ...videoData, url: videoInput, id: Date.now() }
+        { 
+          ...videoData, 
+          url: videoInput, 
+          note: videoNote.trim() || null, // 🆕 Salva nota se presente
+          id: Date.now() 
+        }
       ]);
       setVideoInput('');
+      setVideoNote(''); // 🆕 Reset nota
       setMediaDialogOpen(null);
     } else {
       alert('URL non valido. Supportati: Instagram, TikTok, YouTube');
@@ -127,6 +134,7 @@ export const useMediaHandlers = (categoryData, updateCategory) => {
     setMediaDialogOpen(null);
     setEditingNote(null);
     setNoteInput('');
+    setVideoNote(''); // 🆕 Reset nota video quando chiude
   };
 
   return {
@@ -134,12 +142,14 @@ export const useMediaHandlers = (categoryData, updateCategory) => {
     linkInput,
     linkTitle,
     videoInput,
+    videoNote, // 🆕 Esponi stato
     noteInput,
     editingNote,
     setMediaDialogOpen,
     setLinkInput,
     setLinkTitle,
     setVideoInput,
+    setVideoNote, // 🆕 Esponi setter
     setNoteInput,
     setEditingNote,
     addLink,

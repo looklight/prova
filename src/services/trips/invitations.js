@@ -78,7 +78,7 @@ export const inviteMemberByUsername = async (tripId, invitedUserId, invitedUserP
 };
 
 /**
- * Accetta un invito (aggiunge membro come 'member')
+ * 🆕 AGGIORNATO: Accetta un invito (aggiunge membro come 'member' + auto-include in participants)
  */
 export const acceptInvitation = async (invitationId, tripId, userId, userProfile) => {
   try {
@@ -95,9 +95,9 @@ export const acceptInvitation = async (invitationId, tripId, userId, userProfile
       throw new Error('Questo invito è scaduto');
     }
 
-    // Aggiungi l'utente direttamente al viaggio
     const tripRef = doc(db, 'trips', String(tripId));
     
+    // ⭐ STEP 1: Aggiungi l'utente come membro
     await updateDoc(tripRef, {
       'sharing.memberIds': arrayUnion(userId),
       [`sharing.members.${userId}`]: {
@@ -112,13 +112,65 @@ export const acceptInvitation = async (invitationId, tripId, userId, userProfile
       'updatedAt': new Date()
     });
 
-    // Aggiorna lo stato dell'invito
+    console.log(`✅ Membro aggiunto: ${userProfile.username || userProfile.displayName}`);
+
+    // 🆕 STEP 2: Aggiorna participants di TUTTE le spese esistenti
+    const tripSnap = await getDoc(tripRef);
+    const trip = tripSnap.data();
+    
+    const updatedData = { ...trip.data };
+    let hasUpdates = false;
+    let updatedCount = 0;
+
+    // Itera su tutte le celle del viaggio
+    Object.keys(updatedData).forEach(key => {
+      const cellData = updatedData[key];
+      
+      // 🔧 CASO 1: Categorie normali con participants
+      if (cellData && typeof cellData === 'object' && !Array.isArray(cellData)) {
+        if (cellData.participants && Array.isArray(cellData.participants)) {
+          if (!cellData.participants.includes(userId)) {
+            cellData.participants = [...cellData.participants, userId];
+            hasUpdates = true;
+            updatedCount++;
+            console.log(`  ✅ Aggiunto a participants di ${key}`);
+          }
+        }
+      }
+      
+      // 🔧 CASO 2: OtherExpenses (array di spese)
+      if (key.endsWith('-otherExpenses') && Array.isArray(cellData)) {
+        cellData.forEach((expense, idx) => {
+          if (expense?.participants && Array.isArray(expense.participants)) {
+            if (!expense.participants.includes(userId)) {
+              expense.participants = [...expense.participants, userId];
+              hasUpdates = true;
+              updatedCount++;
+              console.log(`  ✅ Aggiunto a participants di ${key}[${idx}]`);
+            }
+          }
+        });
+      }
+    });
+
+    // Salva le modifiche se necessario
+    if (hasUpdates) {
+      await updateDoc(tripRef, { 
+        data: updatedData,
+        updatedAt: new Date()
+      });
+      console.log(`🎉 Nuovo membro aggiunto a ${updatedCount} spese esistenti`);
+    } else {
+      console.log(`ℹ️ Nessuna spesa con participants da aggiornare`);
+    }
+
+    // ⭐ STEP 3: Aggiorna lo stato dell'invito
     await updateDoc(inviteRef, {
       status: 'accepted',
       acceptedAt: new Date()
     });
 
-    // ⭐ NUOVO: Crea notifica per owner
+    // ⭐ STEP 4: Crea notifica per owner
     await createUsernameInviteAcceptedNotification(
       invite.invitedBy,      // Owner che ha invitato
       tripId,
@@ -126,7 +178,7 @@ export const acceptInvitation = async (invitationId, tripId, userId, userProfile
       userProfile            // Chi ha accettato
     );
 
-    console.log(`✅ Invito accettato: ${userProfile.username || userProfile.displayName} come member`);
+    console.log(`✅ Invito accettato completamente: ${userProfile.username || userProfile.displayName} come member`);
   } catch (error) {
     console.error('❌ Errore accettazione invito (raw):', error);
     throw error;

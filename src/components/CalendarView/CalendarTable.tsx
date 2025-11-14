@@ -83,7 +83,7 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
               data-day-id={day.id}
               className={`px-2 py-3 text-center font-medium relative text-xs ${
                 selectedDays.includes(index) ? 'bg-blue-100' : ''
-              } ${isToday(day.date) ? 'ring-2 ring-blue-400 ring-inset' : ''} ${
+              } ${isToday(day.date) ? 'ring-2 ring-blue-400 ring-inset bg-blue-50' : ''} ${
                 isDesktop && selectedDayIndex === index ? 'bg-blue-200 ring-2 ring-blue-500' : ''}
               `}
               style={{ width: '140px', minWidth: '140px', maxWidth: '140px' }}

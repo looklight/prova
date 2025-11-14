@@ -15,6 +15,7 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import { getUserRole, canEdit } from './permissions';
+import { calculateUserSnapshot, removeUserFromBreakdowns } from '../../utils/costsUtils';
 
 // ============= FUNZIONI PER I VIAGGI =============
 
@@ -113,6 +114,7 @@ export const createTrip = async (trip, userProfile) => {
       ...trip,
       metadata,
       sharing,
+      costHistory: [], // 🆕 Inizializza costHistory vuoto
       // Retrocompatibilità
       name: metadata.name,
       image: metadata.image,
@@ -203,6 +205,7 @@ export const updateTripMetadata = async (userId, tripId, metadata) => {
 
 /**
  * ⭐ Abbandona un viaggio (logica WhatsApp)
+ * 🆕 AGGIORNATO: Salva snapshot completo costi quando un membro esce
  */
 export const leaveTrip = async (tripId, userId) => {
   try {
@@ -232,6 +235,28 @@ export const leaveTrip = async (tripId, userId) => {
       return { action: 'deleted' };
     }
     
+    // 🆕 NUOVO: Crea snapshot completo delle spese dell'utente
+    const userSnapshot = calculateUserSnapshot(trip, userId);
+    
+    console.log(`💰 Snapshot spese ${members[userId].displayName}:`, userSnapshot.total, '€');
+    console.log(`📊 Categorie: ${Object.keys(userSnapshot.byCategory).length}`);
+    
+    // Prepara entry per costHistory con snapshot completo
+    const historyEntry = {
+      userId: userId,
+      displayName: members[userId].displayName || 'Utente',
+      avatar: members[userId].avatar || null,
+      leftAt: new Date(),
+      snapshot: userSnapshot // 🆕 Salva snapshot completo
+    };
+    
+    // Ottieni costHistory esistente (o array vuoto)
+    const existingHistory = trip.costHistory || [];
+    const updatedHistory = [...existingHistory, historyEntry];
+    
+    // 🆕 Pulisci i costBreakdown rimuovendo l'utente
+    const cleanedData = removeUserFromBreakdowns(trip.data, userId);
+    
     // ⭐ CASO 2: Owner che abbandona → Promuovi primo member a owner
     if (members[userId].role === 'owner') {
       const otherMembers = activeMembers.filter(
@@ -246,10 +271,13 @@ export const leaveTrip = async (tripId, userId) => {
           [`sharing.members.${newOwnerId}.role`]: 'owner',
           [`sharing.members.${userId}.status`]: 'left',
           'sharing.memberIds': arrayRemove(userId),
+          'costHistory': updatedHistory, // 🆕 Salva snapshot
+          'data': cleanedData, // 🆕 Salva dati puliti
           'updatedAt': new Date()
         });
         
         console.log('✅ Member promosso a owner, hai abbandonato il viaggio');
+        console.log(`📸 Snapshot salvato: ${userSnapshot.total}€`);
         return { action: 'left', newOwner: newOwnerId };
       } else {
         // Non ci sono altri member, elimina il viaggio
@@ -264,10 +292,13 @@ export const leaveTrip = async (tripId, userId) => {
     await updateDoc(tripRef, {
       [`sharing.members.${userId}.status`]: 'left',
       'sharing.memberIds': arrayRemove(userId),
+      'costHistory': updatedHistory, // 🆕 Salva snapshot
+      'data': cleanedData, // 🆕 Salva dati puliti
       'updatedAt': new Date()
     });
     
     console.log('✅ Hai abbandonato il viaggio');
+    console.log(`📸 Snapshot salvato: ${userSnapshot.total}€`);
     return { action: 'left' };
     
   } catch (error) {

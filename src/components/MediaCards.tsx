@@ -33,7 +33,7 @@ export const extractVideoId = (url) => {
   const patterns = [
     { regex: /instagram\.com\/(p|reel|tv)\/([A-Za-z0-9_-]+)/, platform: 'instagram', idIndex: 2 },
     { regex: /tiktok\.com\/.*\/video\/(\d+)/, platform: 'tiktok', idIndex: 1 },
-    { regex: /(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]+)/, platform: 'youtube', idIndex: 1 }
+    { regex: /(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]+)/, platform: 'youtube', idIndex: 1 }
   ];
 
   for (const pattern of patterns) {
@@ -107,39 +107,45 @@ export const LinkCard = ({ link, onRemove }) => {
       rel="noopener noreferrer"
       className="relative flex flex-col bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-3 w-full aspect-square overflow-hidden border border-blue-100 hover:shadow-md transition-all group cursor-pointer"
     >
-      <div className="flex items-start gap-2 flex-1 overflow-hidden">
-        <div className="flex-shrink-0 mt-0.5">
-          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-            <LinkIcon size={16} className="text-white" />
-          </div>
-        </div>
-        <div className="flex-1 min-w-0 overflow-hidden">
-          <div className="text-[10px] text-blue-600 font-medium mb-1 opacity-75">
-            {getDomain(link.url)}
-          </div>
-          <div 
-            className="text-xs text-gray-800 font-medium group-hover:text-blue-600 group-hover:underline"
-            style={{
-              display: '-webkit-box',
-              WebkitLineClamp: 4,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-              wordBreak: 'break-word'
-            }}
-          >
-            {link.title || link.url}
-          </div>
+      {/* Header compatto con solo dominio */}
+      <div className="mb-1.5">
+        <div className="text-[9px] text-blue-500 font-medium truncate opacity-75">
+          {getDomain(link.url)}
         </div>
       </div>
+
+      {/* Titolo usa quasi tutto lo spazio */}
+      <div className="flex-1 overflow-hidden pb-4">
+        <div 
+          className="text-xs text-gray-800 font-medium group-hover:text-blue-600 group-hover:underline"
+          style={{
+            display: '-webkit-box',
+            WebkitLineClamp: 7,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            wordBreak: 'break-word',
+            lineHeight: '1.2'
+          }}
+        >
+          {link.title || link.url}
+        </div>
+      </div>
+
+      {/* Iconcina piccola in basso a destra */}
+      <div className="absolute bottom-2 right-2">
+        <LinkIcon size={12} className="text-blue-400 opacity-60" />
+      </div>
+
+      {/* Pulsante rimozione - X senza sfondo, sempre visibile mobile, hover desktop */}
       <button 
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
           onRemove();
         }}
-        className="absolute top-1 right-1 p-1 hover:bg-blue-200 rounded-full transition-colors opacity-0 group-hover:opacity-100"
+        className="absolute top-1 right-1 text-blue-700 hover:text-blue-900 transition-colors md:opacity-0 md:group-hover:opacity-100"
       >
-        <X size={12} className="text-blue-700" />
+        <X size={14} />
       </button>
     </a>
   );
@@ -151,18 +157,23 @@ export const ImageCard = ({ image, onRemove }) => {
   return (
     <>
       <div 
-        className="relative w-full aspect-square rounded-lg overflow-hidden bg-gray-100 cursor-pointer hover:opacity-90 transition-opacity"
+        className="relative w-full aspect-square rounded-lg overflow-hidden bg-gray-100 cursor-pointer hover:opacity-90 transition-opacity group"
         onClick={() => setShowModal(true)}
       >
         <img src={image.url} alt={image.name} className="w-full h-full object-cover" />
+        
+        {/* Pulsante rimozione - X senza sfondo, sempre visibile mobile, hover desktop */}
         <button 
           onClick={(e) => {
             e.stopPropagation();
             onRemove();
           }}
-          className="absolute top-1 right-1 p-1 bg-black bg-opacity-50 hover:bg-opacity-70 rounded-full text-white z-10"
+          className="absolute top-1 right-1 text-white hover:text-gray-200 transition-colors md:opacity-0 md:group-hover:opacity-100"
+          style={{ 
+            textShadow: '0 0 4px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.6)' // Shadow forte per visibilità
+          }}
         >
-          <X size={12} />
+          <X size={14} />
         </button>
       </div>
       
@@ -179,33 +190,39 @@ export const ImageCard = ({ image, onRemove }) => {
 export const NoteCard = ({ note, onRemove, onClick }) => (
   <div 
     onClick={onClick}
-    className="relative flex flex-col bg-amber-50 rounded-lg p-3 cursor-pointer hover:bg-amber-100 transition-colors w-full aspect-square overflow-hidden"
+    className="relative flex flex-col bg-amber-50 rounded-lg p-3 cursor-pointer hover:bg-amber-100 transition-colors w-full aspect-square overflow-hidden group"
   >
-    <div className="flex items-start gap-2 flex-1 overflow-hidden">
-      <FileTextIcon size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
-      <div className="flex-1 min-w-0 overflow-hidden">
-        <p 
-          className="text-xs text-gray-700 whitespace-pre-wrap"
-          style={{
-            display: '-webkit-box',
-            WebkitLineClamp: 5,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-            wordBreak: 'break-word'
-          }}
-        >
-          {note.text}
-        </p>
-      </div>
+    {/* Contenuto nota */}
+    <div className="flex-1 overflow-hidden pb-4">
+      <p 
+        className="text-xs text-gray-700 whitespace-pre-wrap"
+        style={{
+          display: '-webkit-box',
+          WebkitLineClamp: 6,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+          wordBreak: 'break-word',
+          lineHeight: '1.2'
+        }}
+      >
+        {note.text}
+      </p>
     </div>
+
+    {/* Iconcina piccola in basso a destra */}
+    <div className="absolute bottom-2 right-2">
+      <FileTextIcon size={12} className="text-amber-400 opacity-60" />
+    </div>
+
+    {/* Pulsante rimozione - X senza sfondo, sempre visibile mobile, hover desktop */}
     <button 
       onClick={(e) => {
         e.stopPropagation();
         onRemove();
       }}
-      className="absolute top-1 right-1 p-1 hover:bg-amber-200 rounded"
+      className="absolute top-1 right-1 text-amber-700 hover:text-amber-900 transition-colors md:opacity-0 md:group-hover:opacity-100"
     >
-      <X size={12} />
+      <X size={14} />
     </button>
   </div>
 );
@@ -215,41 +232,70 @@ export const VideoEmbed = ({ video, onRemove }) => {
     instagram: {
       bg: 'bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400',
       icon: '📷',
-      name: 'Instagram'
+      name: 'Instagram',
+      textColor: 'text-white'
     },
     tiktok: {
       bg: 'bg-black',
       icon: '🎵',
-      name: 'TikTok'
+      name: 'TikTok',
+      textColor: 'text-white'
     },
     youtube: {
       bg: 'bg-red-600',
       icon: '▶️',
-      name: 'YouTube'
+      name: 'YouTube',
+      textColor: 'text-white'
     }
   };
 
   const platform = platforms[video.platform];
+  const hasNote = video.note && video.note.trim() !== '';
   
   return (
-    <div className={`relative w-full aspect-square rounded-lg overflow-hidden ${platform.bg}`}>
-      <div className="w-full h-full flex items-center justify-center">
+    <div className={`relative w-full aspect-square rounded-lg overflow-hidden ${platform.bg} hover:shadow-md transition-all group cursor-pointer`}>
+      {/* Sezione video - 50% se c'è nota, altrimenti 100% */}
+      <div className={`w-full ${hasNote ? 'h-1/2' : 'h-full'} flex items-center justify-center`}>
         <a 
           href={video.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-white text-center p-4 w-full h-full flex flex-col items-center justify-center"
+          className={`${platform.textColor} text-center w-full h-full flex items-center justify-center`}
         >
-          <div className="text-2xl mb-1">{platform.icon}</div>
-          <div className="text-xs font-semibold">{platform.name}</div>
-          <div className="text-xs opacity-75 mt-1">Tap per aprire</div>
+          {/* Emoji più piccola + nome su stessa riga compatta */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-lg leading-none">{platform.icon}</span>
+            <span className="text-xs font-semibold leading-tight">{platform.name}</span>
+          </div>
         </a>
       </div>
+
+      {/* Sezione nota - 50% in basso se presente, max 3 righe con ... - RIDOTTO PADDING */}
+      {hasNote && (
+        <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-white bg-opacity-95 px-2 py-1 flex items-start overflow-hidden">
+          <p 
+            className="text-xs text-gray-800 w-full"
+            style={{
+              display: '-webkit-box',
+              WebkitLineClamp: 3,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              wordBreak: 'break-word',
+              lineHeight: '1.2',
+              textOverflow: 'ellipsis'
+            }}
+          >
+            {video.note}
+          </p>
+        </div>
+      )}
+
+      {/* Pulsante rimozione - X senza sfondo, sempre visibile mobile, hover desktop */}
       <button 
         onClick={onRemove}
-        className="absolute top-1 right-1 p-1 bg-black bg-opacity-50 hover:bg-opacity-70 rounded-full text-white z-10"
+        className={`absolute top-1 right-1 ${platform.textColor} hover:opacity-80 transition-opacity md:opacity-0 md:group-hover:opacity-100`}
       >
-        <X size={12} />
+        <X size={14} />
       </button>
     </div>
   );

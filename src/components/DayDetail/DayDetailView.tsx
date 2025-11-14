@@ -48,13 +48,9 @@ const DayDetailView = ({
   const [showEmptyCategories, setShowEmptyCategories] = useState(false);
   const [highlightedCategory, setHighlightedCategory] = useState(null);
   
-  // ✅ FIX: Flag per disabilitare auto-scroll dopo il primo trigger
   const hasScrolledRef = useRef(false);
-  
-  // Snapshot del layout al cambio giorno
   const [layoutSnapshot, setLayoutSnapshot] = useState(null);
 
-  // Calcola hasData per uno snapshot specifico (non reattivo a trip.data)
   const calculateHasData = useCallback((catId, dataSource) => {
     const key = `${currentDay.id}-${catId}`;
     const data = dataSource[key];
@@ -72,21 +68,18 @@ const DayDetailView = ({
     );
   }, [currentDay.id]);
 
-  // Aggiorna snapshot SOLO quando cambia dayIndex (giorno)
   useEffect(() => {
     const alwaysVisible = ['base', 'note'];
-    
-    // Cattura trip.data al momento del cambio giorno
     const frozenData = trip.data;
     
     const snapshot = {
       categoriesWithData: CATEGORIES
-        .filter(cat => cat.id !== 'otherExpenses') // 🚫 Escludi otherExpenses (ha sezione dedicata)
+        .filter(cat => cat.id !== 'otherExpenses')
         .filter(cat => 
           alwaysVisible.includes(cat.id) || calculateHasData(cat.id, frozenData)
         ),
       categoriesWithoutData: CATEGORIES
-        .filter(cat => cat.id !== 'otherExpenses') // 🚫 Escludi otherExpenses (ha sezione dedicata)
+        .filter(cat => cat.id !== 'otherExpenses')
         .filter(cat => 
           !alwaysVisible.includes(cat.id) && !calculateHasData(cat.id, frozenData)
         )
@@ -96,13 +89,10 @@ const DayDetailView = ({
     console.log('📸 Snapshot layout aggiornato per giorno', dayIndex);
   }, [dayIndex, calculateHasData]);
 
-  // Usa snapshot (o calcolo iniziale se non esiste)
   const alwaysVisible = ['base', 'note'];
-  
   const categoriesWithData = layoutSnapshot?.categoriesWithData || [];
   const categoriesWithoutData = layoutSnapshot?.categoriesWithoutData || [];
 
-  // Auto-espandi quando cambia giorno
   useEffect(() => {
     const hasRealData = categoriesWithData.length > alwaysVisible.length;
     
@@ -113,17 +103,13 @@ const DayDetailView = ({
     }
   }, [dayIndex, categoriesWithData.length]);
 
-  // ✅ FIX: Reset flag quando cambiano giorno o highlightCategoryId
   useEffect(() => {
     hasScrolledRef.current = false;
   }, [dayIndex, highlightCategoryId]);
 
-  // ✅ FIX: SISTEMA HIGHLIGHT - Gestisce scroll SOLO UNA VOLTA
   useEffect(() => {
-    // ✅ Se abbiamo già fatto lo scroll, esci subito
     if (!highlightCategoryId || hasScrolledRef.current) return;
 
-    // Controlla se la categoria ha dati ADESSO (non usa snapshot)
     const key = `${currentDay.id}-${highlightCategoryId}`;
     const data = trip.data[key];
     
@@ -139,8 +125,6 @@ const DayDetailView = ({
     
     const alwaysVisible = ['base', 'note'];
     const isAlwaysVisible = alwaysVisible.includes(highlightCategoryId);
-    
-    // Se categoria è vuota E non è always visible → espandi dropdown
     const needsDropdown = !categoryHasData && !isAlwaysVisible;
     
     if (needsDropdown && !showEmptyCategories) {
@@ -149,59 +133,53 @@ const DayDetailView = ({
       
       setTimeout(() => {
         scrollToAndHighlight(highlightCategoryId);
-        hasScrolledRef.current = true; // ✅ Marca come completato
+        hasScrolledRef.current = true;
       }, 350);
     } else {
       setTimeout(() => {
         scrollToAndHighlight(highlightCategoryId);
-        hasScrolledRef.current = true; // ✅ Marca come completato
+        hasScrolledRef.current = true;
       }, 100);
     }
-  }, [highlightCategoryId, currentDay.id, showEmptyCategories]); // ✅ Rimosso trip.data
+  }, [highlightCategoryId, currentDay.id, showEmptyCategories]);
 
-  // Funzione helper per scroll + highlight con retry
   const scrollToAndHighlight = (categoryId, retryCount = 0) => {
     const element = document.getElementById(`category-${categoryId}`);
     
     if (element) {
       console.log('✅ Scrolling a categoria:', categoryId);
-      // Scrolla al centro del viewport
       element.scrollIntoView({ 
         behavior: 'smooth', 
         block: 'center' 
       });
       
-      // Attiva highlight
       setHighlightedCategory(categoryId);
       
-      // Rimuovi highlight dopo 800ms
       setTimeout(() => {
         setHighlightedCategory(null);
       }, 800);
     } else {
       console.warn(`⚠️ Elemento #category-${categoryId} non trovato (tentativo ${retryCount + 1}/3)`);
       
-      // Retry fino a 3 volte con delay crescente
       if (retryCount < 3) {
         setTimeout(() => {
           scrollToAndHighlight(categoryId, retryCount + 1);
-        }, 200 * (retryCount + 1)); // 200ms, 400ms, 600ms
+        }, 200 * (retryCount + 1));
       } else {
         console.error(`❌ Impossibile trovare elemento #category-${categoryId} dopo 3 tentativi`);
       }
     }
   };
 
-  // Calcoli costi con useMemo per performance
+  // 🔧 Calcola costi considerando SOLO membri ATTIVI
   const dayCost = useMemo(() => {
-    return calculateDayCost(currentDay, trip.data);
-  }, [currentDay.id, trip.data]);
+    return calculateDayCost(currentDay, trip.data, trip.sharing?.members);
+  }, [currentDay.id, trip.data, trip.sharing?.members]);
 
   const tripCost = useMemo(() => {
     return calculateTripCost(trip);
-  }, [trip.data, trip.days]);
+  }, [trip.data, trip.days, trip.sharing?.members]);
 
-  // Prepara membri attivi del viaggio
   const activeMembers = useMemo(() => {
     return Object.entries(trip.sharing.members)
       .filter(([_, member]) => member.status === 'active')
@@ -212,34 +190,71 @@ const DayDetailView = ({
       }));
   }, [trip.sharing.members]);
 
-  // Handler apertura modal breakdown per categoria
   const handleOpenCategoryBreakdown = (categoryId) => {
     setCostBreakdownModal({ isOpen: true, categoryId, expenseId: null });
   };
 
-  // Handler apertura modal breakdown per altre spese
   const handleOpenExpenseBreakdown = (expenseId) => {
     setCostBreakdownModal({ isOpen: true, categoryId: null, expenseId });
   };
 
-  // 🔧 FIX: Handler conferma breakdown - salva solo costBreakdown, participants gestito automaticamente
+  // ✅ FIX COMPLETO: Salva breakdown + participants + cost + hasSplitCost
   const handleConfirmBreakdown = (breakdown, participants) => {
-    console.log('🔧 [handleConfirmBreakdown] Salvataggio breakdown:', { breakdown, participants });
+    console.log('✅ [handleConfirmBreakdown] Salvataggio:', { breakdown, participants });
     
     if (costBreakdownModal.categoryId) {
-      // 🔧 FIX CRITICO: Salva SOLO costBreakdown in una chiamata
-      // participants viene gestito automaticamente dentro updateCategory
-      updateCategory(costBreakdownModal.categoryId, 'costBreakdown', breakdown);
+      const categoryId = costBreakdownModal.categoryId;
+      const key = `${currentDay.id}-${categoryId}`;
+      const currentData = trip.data[key] || {};
       
-      // 🔧 NON chiamare updateCategory per participants!
-      // Questo causava il bug perché leggeva dati vecchi da trip.data
+      // Calcola totale
+      const total = breakdown.reduce((sum, entry) => sum + entry.amount, 0);
+      
+      // Aggiorna TUTTO insieme
+      const updatedData = {
+        ...currentData,
+        costBreakdown: breakdown,
+        participants: participants,
+        cost: total.toString(),
+        hasSplitCost: breakdown.length > 0
+      };
+      
+      onUpdateTrip({
+        ...trip,
+        data: {
+          ...trip.data,
+          [key]: updatedData
+        }
+      });
+      
     } else if (costBreakdownModal.expenseId !== null) {
-      // Stessa logica per otherExpenses
-      updateOtherExpense(costBreakdownModal.expenseId, 'costBreakdown', breakdown);
+      const key = `${currentDay.id}-otherExpenses`;
+      const expensesArray = trip.data[key] || [];
+      
+      const expenseIndex = expensesArray.findIndex(e => e.id === costBreakdownModal.expenseId);
+      if (expenseIndex === -1) return;
+      
+      const total = breakdown.reduce((sum, entry) => sum + entry.amount, 0);
+      
+      const updatedExpenses = [...expensesArray];
+      updatedExpenses[expenseIndex] = {
+        ...updatedExpenses[expenseIndex],
+        costBreakdown: breakdown,
+        participants: participants,
+        cost: total.toString(),
+        hasSplitCost: breakdown.length > 0
+      };
+      
+      onUpdateTrip({
+        ...trip,
+        data: {
+          ...trip.data,
+          [key]: updatedExpenses
+        }
+      });
     }
   };
 
-  // Se mostra riepilogo completo, renderizza quella vista
   if (showFullSummary) {
     return (
       <CostSummaryByUserView
@@ -257,7 +272,6 @@ const DayDetailView = ({
       maxWidth: isDesktop ? '100%' : '430px',
       margin: isDesktop ? '0' : '0 auto'
     }}>
-      {/* Header */}
       <DayHeader
         trip={trip}
         currentDay={currentDay}
@@ -267,9 +281,7 @@ const DayDetailView = ({
         isDesktop={isDesktop}
       />
 
-      {/* Main Content */}
       <div className="p-4 space-y-3">
-        {/* Categorie con dati - sempre visibili */}
         {categoriesWithData.map((category) => (
           <CategoryCard
             key={category.id}
@@ -292,21 +304,20 @@ const DayDetailView = ({
             }}
             onOpenCostBreakdown={() => handleOpenCategoryBreakdown(category.id)}
             currentUserId={user.uid}
+            tripMembers={trip.sharing?.members}
             isHighlighted={highlightedCategory === category.id}
           />
         ))}
 
-        {/* Altre Spese - sempre visibile */}
         <OtherExpensesSection
           expenses={otherExpenses}
           onUpdate={updateOtherExpense}
           onRemove={removeOtherExpense}
-          onAdd={addOtherExpense}
           onOpenCostBreakdown={handleOpenExpenseBreakdown}
           currentUserId={user.uid}
+          tripMembers={trip.sharing?.members}
         />
 
-        {/* Sezione collassabile per categorie vuote */}
         {categoriesWithoutData.length > 0 && (
           <div className="pt-2">
             <button
@@ -354,6 +365,7 @@ const DayDetailView = ({
                       }}
                       onOpenCostBreakdown={() => handleOpenCategoryBreakdown(category.id)}
                       currentUserId={user.uid}
+                      tripMembers={trip.sharing?.members}
                       isHighlighted={highlightedCategory === category.id}
                     />
                   );
@@ -363,7 +375,6 @@ const DayDetailView = ({
           </div>
         )}
 
-        {/* Riepilogo Costi */}
         <CostSummary
           dayCost={dayCost}
           tripCost={tripCost}
@@ -372,7 +383,6 @@ const DayDetailView = ({
         />
       </div>
 
-      {/* Media Dialog */}
       <MediaDialog
         isOpen={!!mediaHandlers.mediaDialogOpen}
         type={mediaHandlers.mediaDialogOpen?.type || null}
@@ -380,17 +390,18 @@ const DayDetailView = ({
         linkInput={mediaHandlers.linkInput}
         linkTitle={mediaHandlers.linkTitle}
         videoInput={mediaHandlers.videoInput}
+        videoNote={mediaHandlers.videoNote}
         noteInput={mediaHandlers.noteInput}
         editingNote={mediaHandlers.editingNote}
         onClose={mediaHandlers.handleMediaDialogClose}
         onLinkInputChange={mediaHandlers.setLinkInput}
         onLinkTitleChange={mediaHandlers.setLinkTitle}
         onVideoInputChange={mediaHandlers.setVideoInput}
+        onVideoNoteChange={mediaHandlers.setVideoNote}
         onNoteInputChange={mediaHandlers.setNoteInput}
         onSubmit={() => mediaHandlers.handleMediaDialogSubmit(mediaHandlers.mediaDialogOpen?.categoryId)}
       />
 
-      {/* Cost Breakdown Modal */}
       <CostBreakdownModal
         isOpen={costBreakdownModal.isOpen}
         isDesktop={isDesktop}

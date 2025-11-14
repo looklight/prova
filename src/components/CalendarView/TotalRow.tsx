@@ -21,7 +21,6 @@ const TotalRow: React.FC<TotalRowProps> = ({
   showCosts,
   onOpenCostSummary,
   onToggleCosts
-
 }) => {
   return (
     <tr className="border-t-2 bg-gray-50 font-bold" style={{ height: '48px' }}>
@@ -62,10 +61,9 @@ const TotalRow: React.FC<TotalRowProps> = ({
           </span>
         </div>
       </td>
-      
       {trip.days.map((day: any) => (
         <td 
-          key={`cost-${day.id}`} 
+          key={`cost-${day.id}`}
           onClick={onOpenCostSummary}
           className={`px-1 py-0.5 text-center border-l text-sm cursor-pointer hover:bg-blue-50 transition-colors ${
             selectedDays.includes(trip.days.indexOf(day)) ? 'bg-blue-50' : ''
@@ -73,7 +71,7 @@ const TotalRow: React.FC<TotalRowProps> = ({
           style={{ height: '48px', width: '140px', minWidth: '140px', maxWidth: '140px' }}
           title="Clicca per vedere il riepilogo completo dei costi"
         >
-          {calculateDayCost(day, trip.data).toFixed(2)}€
+          {calculateDayCost(day, trip.data, trip.sharing?.members).toFixed(2)}€
         </td>
       ))}
     </tr>

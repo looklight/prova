@@ -1,5 +1,6 @@
 /**
  * Calcola i bilanci finali e le transazioni ottimizzate per un viaggio
+ * 🔧 AGGIORNATO: Filtra solo membri ATTIVI nei calcoli
  */
 
 /**
@@ -11,16 +12,18 @@
 export const calculateTripBalances = (trip) => {
   const balances = {};
   
-  // 🔧 FIX: Inizializza TUTTI i membri (attivi E inattivi)
+  // 🔧 Inizializza SOLO membri ATTIVI
   Object.entries(trip.sharing.members).forEach(([uid, member]) => {
-    balances[uid] = {
-      displayName: member.displayName || 'Utente rimosso',  // Fallback
-      avatar: member.avatar || null,                         // Fallback
-      status: member.status || 'active',                     // 🆕 Aggiungi status
-      paid: 0,        // Quanto ha pagato fisicamente
-      owes: 0,        // Quanto dovrebbe pagare in totale
-      balance: 0      // Differenza (paid - owes)
-    };
+    if (member.status === 'active') {  // ⭐ FILTRO ATTIVI
+      balances[uid] = {
+        displayName: member.displayName || 'Utente',
+        avatar: member.avatar || null,
+        status: 'active',
+        paid: 0,        // Quanto ha pagato fisicamente
+        owes: 0,        // Quanto dovrebbe pagare in totale
+        balance: 0      // Differenza (paid - owes)
+      };
+    }
   });
 
   // Itera su tutti i giorni e tutte le spese
@@ -58,6 +61,7 @@ export const calculateTripBalances = (trip) => {
 
 /**
  * Processa una singola spesa e aggiorna i bilanci
+ * 🔧 AGGIORNATO: Considera solo membri attivi
  */
 const processExpense = (expense, balances, trip) => {
   if (!expense || !expense.costBreakdown || !Array.isArray(expense.costBreakdown)) {
@@ -66,29 +70,39 @@ const processExpense = (expense, balances, trip) => {
 
   const breakdown = expense.costBreakdown;
   
-  // Determina chi ha usufruito
+  // Determina chi ha usufruito (solo membri attivi)
   let participants = expense.participants;
   
   // Fallback: se participants non è specificato, assumi tutti i membri attivi
   if (!participants || participants.length === 0) {
     participants = Object.keys(trip.sharing.members)
       .filter(uid => trip.sharing.members[uid].status === 'active');
+  } else {
+    // ⭐ Filtra participants per includere solo membri attivi
+    participants = participants.filter(uid => 
+      trip.sharing.members[uid] && trip.sharing.members[uid].status === 'active'
+    );
   }
 
-  // Calcola totale pagato
-  const totalPaid = breakdown.reduce((sum, entry) => sum + entry.amount, 0);
+  // Se non ci sono partecipanti attivi, salta
+  if (participants.length === 0) return;
+
+  // Calcola totale pagato (solo da membri attivi)
+  const totalPaid = breakdown
+    .filter(entry => balances[entry.userId]) // Solo membri attivi
+    .reduce((sum, entry) => sum + entry.amount, 0);
   
   // Calcola quota per partecipante
   const sharePerPerson = totalPaid / participants.length;
 
-  // Aggiorna "quanto ha pagato" per ogni persona nel breakdown
+  // Aggiorna "quanto ha pagato" per ogni persona nel breakdown (solo attivi)
   breakdown.forEach(entry => {
     if (balances[entry.userId]) {
       balances[entry.userId].paid += entry.amount;
     }
   });
 
-  // Aggiorna "quanto deve pagare" per ogni partecipante
+  // Aggiorna "quanto deve pagare" per ogni partecipante (solo attivi)
   participants.forEach(uid => {
     if (balances[uid]) {
       balances[uid].owes += sharePerPerson;
@@ -101,7 +115,7 @@ const processExpense = (expense, balances, trip) => {
  * Algoritmo greedy: abbina il maggior debitore con il maggior creditore
  * 
  * @param {Object} balances - Bilanci calcolati
- * @returns {Array} - Lista di transazioni { from, to, amount, fromName, toName, fromStatus, toStatus }
+ * @returns {Array} - Lista di transazioni { from, to, amount, fromName, toName, fromAvatar, toAvatar }
  */
 const optimizeTransactions = (balances) => {
   const transactions = [];
@@ -116,16 +130,14 @@ const optimizeTransactions = (balances) => {
         uid, 
         amount: -data.balance, 
         name: data.displayName, 
-        avatar: data.avatar,
-        status: data.status  // 🆕 Includi status
+        avatar: data.avatar
       });
     } else if (data.balance > 0.01) {
       creditors.push({ 
         uid, 
         amount: data.balance, 
         name: data.displayName, 
-        avatar: data.avatar,
-        status: data.status  // 🆕 Includi status
+        avatar: data.avatar
       });
     }
   });
@@ -151,9 +163,7 @@ const optimizeTransactions = (balances) => {
       fromName: debtor.name,
       toName: creditor.name,
       fromAvatar: debtor.avatar,
-      toAvatar: creditor.avatar,
-      fromStatus: debtor.status,    // 🆕 Status per segnalare inattivi
-      toStatus: creditor.status      // 🆕 Status per segnalare inattivi
+      toAvatar: creditor.avatar
     });
     
     // Aggiorna gli importi rimanenti
@@ -177,17 +187,18 @@ export const formatCurrency = (amount) => {
 
 /**
  * Calcola statistiche generali del viaggio
+ * 🔧 AGGIORNATO: Conta solo membri ATTIVI
  */
 export const getTripStats = (trip, balances) => {
-  // 🔧 FIX: Conta solo membri ATTIVI per statistiche
+  // 🔧 Conta solo membri ATTIVI
   const activeMembers = Object.values(trip.sharing.members)
     .filter(m => m.status === 'active').length;
   
-  // Totale speso da TUTTI (inclusi inattivi)
+  // Totale speso (solo da membri attivi)
   const totalSpent = Object.values(balances)
     .reduce((sum, b) => sum + b.paid, 0);
   
-  // Calcola quota media considerando le partecipazioni effettive
+  // Calcola quota media considerando solo membri attivi
   const totalOwed = Object.values(balances)
     .reduce((sum, b) => sum + b.owes, 0);
   

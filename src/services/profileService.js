@@ -84,7 +84,9 @@ export const generateUniqueUsername = async (email) => {
 };
 
 /**
- * ✅ Valida formato username
+ * ✅ Valida formato username (stile Instagram)
+ * Permette: lettere, numeri, underscore e punto
+ * Lunghezza: 3-30 caratteri
  * @param {string} username - Username da validare
  * @returns {boolean} true se valido
  */
@@ -93,18 +95,12 @@ export const isValidUsername = (username) => {
   
   const clean = username.trim().toLowerCase();
   
-  // Lunghezza 3-20 caratteri
-  if (clean.length < 3 || clean.length > 20) return false;
+  // Lunghezza 3-30 caratteri (come Instagram)
+  if (clean.length < 3 || clean.length > 30) return false;
   
-  // Solo a-z, 0-9, underscore
-  const validPattern = /^[a-z0-9_]+$/;
+  // Solo a-z, 0-9, underscore e punto (come Instagram)
+  const validPattern = /^[a-z0-9_.]+$/;
   if (!validPattern.test(clean)) return false;
-  
-  // Non può iniziare/finire con underscore
-  if (clean.startsWith('_') || clean.endsWith('_')) return false;
-  
-  // Non può avere __ consecutivi
-  if (clean.includes('__')) return false;
   
   return true;
 };
