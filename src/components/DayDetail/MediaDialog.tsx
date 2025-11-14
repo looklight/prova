@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 
 interface MediaDialogProps {
   isOpen: boolean;
@@ -7,14 +7,14 @@ interface MediaDialogProps {
   linkInput: string;
   linkTitle: string;
   videoInput: string;
-  videoNote: string; // 🆕 Nuovo campo per nota video
+  videoNote: string;
   noteInput: string;
   editingNote: any;
   onClose: () => void;
   onLinkInputChange: (value: string) => void;
   onLinkTitleChange: (value: string) => void;
   onVideoInputChange: (value: string) => void;
-  onVideoNoteChange: (value: string) => void; // 🆕 Handler nota video
+  onVideoNoteChange: (value: string) => void;
   onNoteInputChange: (value: string) => void;
   onSubmit: () => void;
 }
@@ -26,17 +26,42 @@ const MediaDialog: React.FC<MediaDialogProps> = ({
   linkInput,
   linkTitle,
   videoInput,
-  videoNote, // 🆕
+  videoNote,
   noteInput,
   editingNote,
   onClose,
   onLinkInputChange,
   onLinkTitleChange,
   onVideoInputChange,
-  onVideoNoteChange, // 🆕
+  onVideoNoteChange,
   onNoteInputChange,
   onSubmit
 }) => {
+  // 🔒 Blocca scroll quando il modal è aperto
+  useEffect(() => {
+    if (isOpen) {
+      // Salva posizione scroll corrente
+      const scrollY = window.scrollY;
+      
+      // Blocca scroll del body
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+      document.body.style.overflow = 'hidden';
+      
+      // Cleanup: ripristina scroll quando si chiude
+      return () => {
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.width = '';
+        document.body.style.overflow = '';
+        
+        // Ripristina posizione scroll
+        window.scrollTo(0, scrollY);
+      };
+    }
+  }, [isOpen]);
+
   if (!isOpen || !type) return null;
 
   return (
@@ -95,7 +120,6 @@ const MediaDialog: React.FC<MediaDialogProps> = ({
               className="w-full px-4 py-3 border rounded-lg mb-3"
               autoFocus
             />
-            {/* 🆕 Campo nota per video */}
             <textarea
               value={videoNote}
               onChange={(e) => onVideoNoteChange(e.target.value)}

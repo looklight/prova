@@ -30,9 +30,11 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
   const [scrollToDayId, setScrollToDayId] = useState(null);
   const [view, setView] = useState('calendar');
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [highlightCategoryId, setHighlightCategoryId] = useState(null); // 🆕
+  const [highlightCategoryId, setHighlightCategoryId] = useState(null);
   
   const isDesktop = useMediaQuery('(min-width: 1024px)');
+  const isLandscape = useMediaQuery('(orientation: landscape)'); // 🆕 Detect orientamento
+  const isMobileLandscape = !isDesktop && isLandscape; // 🆕 Mobile in orizzontale
 
   // 💰 Sincronizzazione automatica budget
   useBudgetSync(trip, onUpdateTrip);
@@ -50,9 +52,10 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
    */
   const handleOpenDay = (dayIndex, currentScrollPosition = null, categoryId = null) => {
     setSelectedDayIndex(dayIndex);
-    setHighlightCategoryId(categoryId); // 🆕 Salva categoryId da evidenziare
+    setHighlightCategoryId(categoryId);
     
-    if (!isDesktop) {
+    // 🆕 In mobile landscape, non cambiare view (rimane split-screen)
+    if (!isDesktop && !isMobileLandscape) {
       setScrollPosition(currentScrollPosition);
       setView('detail');
     }
@@ -60,7 +63,7 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
 
   const handleBackToCalendar = () => {
     setView('calendar');
-    setHighlightCategoryId(null); // 🆕 Reset highlight
+    setHighlightCategoryId(null);
     if (selectedDayIndex !== null) {
       setScrollToDayId(trip.days[selectedDayIndex].id);
     }
@@ -73,22 +76,22 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
 
   const handleChangeDayIndex = (newIndex) => {
     setSelectedDayIndex(newIndex);
-    setHighlightCategoryId(null); // 🆕 Reset highlight quando cambi giorno manualmente
-    if (isDesktop) {
+    setHighlightCategoryId(null);
+    if (isDesktop || isMobileLandscape) {
       setScrollToDayId(trip.days[newIndex].id);
     }
   };
 
   useEffect(() => {
-    if (!isDesktop && view === 'detail' && selectedDayIndex !== null) {
-      // Mantieni la selezione quando passi a mobile
-    } else if (isDesktop && view === 'detail') {
+    if (!isDesktop && !isMobileLandscape && view === 'detail' && selectedDayIndex !== null) {
+      // Mantieni la selezione quando passi a mobile portrait
+    } else if ((isDesktop || isMobileLandscape) && view === 'detail') {
       setView('calendar');
     }
-  }, [isDesktop]);
+  }, [isDesktop, isMobileLandscape]);
 
-  // ========== RENDERING MOBILE ==========
-  if (!isDesktop) {
+  // ========== RENDERING MOBILE PORTRAIT (normale) ==========
+  if (!isDesktop && !isMobileLandscape) {
     if (view === 'detail' && selectedDayIndex !== null) {
       return (
         <>
@@ -100,7 +103,7 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
             onChangeDayIndex={handleChangeDayIndex}
             isDesktop={false}
             user={currentUser}
-            highlightCategoryId={highlightCategoryId} // 🆕
+            highlightCategoryId={highlightCategoryId}
           />
         </>
       );
@@ -122,6 +125,56 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
           onInviteClick={() => setShowInviteModal(true)}
         />
       </>
+    );
+  }
+
+  // ========== RENDERING MOBILE LANDSCAPE (split-screen) ==========
+  if (isMobileLandscape) {
+    return (
+      <div className="flex h-screen bg-gray-50">
+        {/* Calendar - 50% sinistra */}
+        <div className="w-1/2 border-r border-gray-300 overflow-hidden flex-col">
+          <CalendarView
+            trip={trip}
+            onUpdateTrip={onUpdateTrip}
+            onBack={onBackToHome}
+            onOpenDay={handleOpenDay}
+            scrollToDayId={scrollToDayId}
+            savedScrollPosition={null}
+            onScrollComplete={handleScrollComplete}
+            isDesktop={true} // 🆕 Usa layout desktop per mobile landscape
+            selectedDayIndex={selectedDayIndex}
+            currentUser={currentUser}
+            onInviteClick={() => setShowInviteModal(true)}
+          />
+        </div>
+
+        {/* DayDetail - 50% destra */}
+        <div className="w-1/2 overflow-y-auto flex flex-col bg-white">
+          {selectedDayIndex !== null ? (
+            <DayDetailView
+              trip={trip}
+              dayIndex={selectedDayIndex}
+              onUpdateTrip={onUpdateTrip}
+              onBack={null}
+              onChangeDayIndex={handleChangeDayIndex}
+              isDesktop={true} // 🆕 Usa layout desktop per mobile landscape
+              user={currentUser}
+              highlightCategoryId={highlightCategoryId}
+            />
+          ) : (
+            <div className="h-full flex items-center justify-center text-gray-400 bg-gray-50">
+              <div className="text-center px-6">
+                <Calendar size={48} className="mx-auto mb-3 opacity-30" />
+                <p className="text-base font-medium text-gray-500">Seleziona un giorno</p>
+                <p className="text-xs text-gray-400 mt-2">
+                  Tocca una cella del calendario
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     );
   }
 
@@ -154,7 +207,7 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
             onChangeDayIndex={handleChangeDayIndex}
             isDesktop={true}
             user={currentUser}
-            highlightCategoryId={highlightCategoryId} // 🆕
+            highlightCategoryId={highlightCategoryId}
           />
         ) : (
           <div className="h-full flex items-center justify-center text-gray-400 bg-gray-50">

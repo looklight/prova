@@ -190,7 +190,7 @@ const DayCell: React.FC<DayCellProps> = ({
     >
       {hasContent ? (
         <div className={`text-xs relative overflow-hidden h-full flex flex-col ${
-          category.id === 'note' && expandedNotes ? 'justify-start py-1' : 'justify-center'
+          category.id === 'note' && expandedNotes ? 'justify-start py-0.5' : 'justify-center'
         }`}>
           {/* 📸 Pallino MEDIA in ALTO a SINISTRA - visibile solo con toggle Note attivo */}
           {showMediaIndicator && (
@@ -316,9 +316,9 @@ const DayCell: React.FC<DayCellProps> = ({
               </div>
             )
           ) : category.id === 'note' ? (
-            <div className="text-[11px] text-gray-700 px-0.5 overflow-hidden" style={{ 
+            <div className="text-[11px] text-gray-700 px-0.5 overflow-hidden h-full flex items-start" style={{ 
               display: '-webkit-box',
-              WebkitLineClamp: expandedNotes ? '5' : '2',
+              WebkitLineClamp: expandedNotes ? '6' : '2',
               WebkitBoxOrient: 'vertical',
               textOverflow: 'ellipsis',
               lineHeight: expandedNotes ? '1.0' : '1.2'
