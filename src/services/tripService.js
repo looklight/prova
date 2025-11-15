@@ -338,8 +338,8 @@ export const updateTrip = async (userId, tripId, updates) => {
 export const updateTripMetadata = async (userId, tripId, metadata) => {
   try {
     const role = await getUserRole(tripId, userId);
-    if (role !== 'owner') {
-      throw new Error('Solo il proprietario può modificare le informazioni del viaggio');
+    if (role !== 'owner' && role !== 'member') {
+      throw new Error('Non hai i permessi per modificare questo viaggio');
     }
 
     const tripRef = doc(db, 'trips', tripId.toString());

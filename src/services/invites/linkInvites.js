@@ -139,12 +139,39 @@ export const acceptInviteLink = async (token, userId, userProfile) => {
     const invite = await getInviteDetails(token);
     console.log('✅ STEP 1: Token valido', invite);
     
-    console.log('🔍 STEP 2: Preparazione update...');
+    console.log('🔍 STEP 2: Verifica se utente già membro...');
     const tripRef = doc(db, 'trips', invite.tripId);
+    const tripSnap = await getDoc(tripRef);
     
-    // ⭐ Non leggiamo il viaggio - aggiorniamo direttamente
-    // Le regole Firestore verificheranno che l'utente non sia già membro
+    if (!tripSnap.exists()) {
+      // Viaggio eliminato, rimuovi invito orfano
+      console.log('🗑️ Viaggio non trovato, elimino invito orfano...');
+      const inviteRef = doc(db, 'invites', token);
+      await deleteDoc(inviteRef);
+      throw new Error('Questo viaggio non esiste più');
+    }
     
+    const trip = tripSnap.data();
+    
+    // ⭐ CONTROLLO CRITICO: Verifica se utente già membro
+    if (trip.sharing?.memberIds?.includes(userId)) {
+      const memberInfo = trip.sharing.members?.[userId];
+      
+      if (memberInfo?.role === 'owner') {
+        throw new Error('Sei già il proprietario di questo viaggio');
+      }
+      
+      if (memberInfo?.status === 'active') {
+        throw new Error('Sei già membro di questo viaggio');
+      }
+      
+      // Se status è "removed", può ri-entrare
+      console.log('ℹ️ Utente era membro rimosso, può rientrare');
+    }
+    
+    console.log('✅ STEP 2: Utente non è membro, può entrare');
+    
+    console.log('🔍 STEP 3: Preparazione update...');
     const updateData = {
       'sharing.memberIds': arrayUnion(userId),
       [`sharing.members.${userId}`]: {
@@ -160,25 +187,14 @@ export const acceptInviteLink = async (token, userId, userProfile) => {
       'updatedAt': new Date()
     };
     
-    console.log('✅ STEP 2: Dati preparati', updateData);
-    console.log('🔍 STEP 3: Esecuzione updateDoc...');
+    console.log('✅ STEP 3: Dati preparati');
+    console.log('🔍 STEP 4: Esecuzione updateDoc...');
     
-    try {
-      await updateDoc(tripRef, updateData);
-      console.log('✅ STEP 3: Update completato!');
-    } catch (error) {
-      // ⭐ Se viaggio non esiste, elimina l'invito orfano
-      if (error.code === 'not-found') {
-        console.log('🗑️ Viaggio non trovato, elimino invito orfano...');
-        const inviteRef = doc(db, 'invites', token);
-        await deleteDoc(inviteRef);
-        throw new Error('Questo viaggio non esiste più');
-      }
-      throw error;
-    }
+    await updateDoc(tripRef, updateData);
+    console.log('✅ STEP 4: Update completato!');
     
     // Aggiorna invito (tracking utilizzo + dettagli)
-    console.log('🔍 STEP 4: Aggiornamento tracking invito...');
+    console.log('🔍 STEP 5: Aggiornamento tracking invito...');
     const inviteRef = doc(db, 'invites', token);
     await updateDoc(inviteRef, {
       usedBy: arrayUnion(userId),
@@ -190,22 +206,17 @@ export const acceptInviteLink = async (token, userId, userProfile) => {
       }
     });
     
-    console.log('✅ STEP 4: Tracking completato!');
+    console.log('✅ STEP 5: Tracking completato!');
     
-    // ⭐ NUOVO: Crea notifica per owner
-    console.log('🔍 STEP 5: Creazione notifica per owner...');
-    console.log('   - Owner ID:', invite.invitedBy);
-    console.log('   - Trip ID:', invite.tripId);
-    console.log('   - Trip Name:', invite.tripName);
-    console.log('   - User Profile:', userProfile);
-    
+    // Crea notifica per owner
+    console.log('🔍 STEP 6: Creazione notifica per owner...');
     await createLinkInviteAcceptedNotification(
       invite.invitedBy,
       invite.tripId,
       invite.tripName,
       userProfile
     );
-    console.log('✅ STEP 5: Notifica creata!');
+    console.log('✅ STEP 6: Notifica creata!');
     console.log(`✅ Invito accettato tramite link: ${userProfile.username || userProfile.displayName}`);
     
     return {

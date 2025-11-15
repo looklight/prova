@@ -32,7 +32,7 @@ const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExp
 
   const getTripMembers = (trip) => {
     if (!trip.sharing?.memberIds) return [];
-    
+
     return trip.sharing.memberIds
       .map(userId => ({
         userId,
@@ -55,9 +55,9 @@ const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExp
             await updateDoc(tripRef, {
               budget: updatedTrip.budget
             });
-            
+
             console.log('✅ Budget aggiornato su Firebase');
-            
+
             // Aggiorna lo stato locale
             setSelectedTripForSummary(updatedTrip);
           } catch (error) {
@@ -90,33 +90,54 @@ const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExp
         />
       )}
 
-      {deleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
-            <h3 className="text-xl font-bold mb-2">Elimina viaggio</h3>
-            <p className="text-gray-600 mb-6">
-              Vuoi eliminare "{deleteConfirm.name}"? Questa azione non può essere annullata.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                className="flex-1 py-2 px-4 bg-gray-200 text-gray-700 rounded-full font-medium hover:bg-gray-300"
-              >
-                Annulla
-              </button>
-              <button
-                onClick={() => {
-                  onDeleteTrip(deleteConfirm.id);
-                  setDeleteConfirm(null);
-                }}
-                className="flex-1 py-2 px-4 bg-red-500 text-white rounded-full font-medium hover:bg-red-600"
-              >
-                Elimina
-              </button>
+      {/* Modal Elimina/Esci Viaggio - Dinamico */}
+      {deleteConfirm && (() => {
+        const trip = trips.find(t => t.id === deleteConfirm.id);
+        const members = getTripMembers(trip);
+        const isShared = members.length > 1;
+
+        return (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+              {/* Titolo dinamico */}
+              <h3 className="text-xl font-bold mb-2">
+                {isShared ? 'Esci dal viaggio' : 'Elimina viaggio'}
+              </h3>
+              
+              {/* Messaggio dinamico */}
+              <p className="text-gray-600 mb-6">
+                {isShared 
+                  ? `Vuoi uscire da "${deleteConfirm.name}"? Perderai accesso e dati relativi a questo viaggio.`
+                  : `Vuoi eliminare "${deleteConfirm.name}"? Questa azione non può essere annullata.`
+                }
+              </p>
+
+              {/* Bottoni */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteConfirm(null)}
+                  className="flex-1 py-2 px-4 bg-gray-200 text-gray-700 rounded-full font-medium hover:bg-gray-300"
+                >
+                  Annulla
+                </button>
+                <button
+                  onClick={() => {
+                    onDeleteTrip(deleteConfirm.id);
+                    setDeleteConfirm(null);
+                  }}
+                  className={`flex-1 py-2 px-4 rounded-full font-medium ${
+                    isShared 
+                      ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                      : 'bg-red-500 text-white hover:bg-red-600'
+                  }`}
+                >
+                  {isShared ? 'Esci' : 'Elimina'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {exportMenu && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -150,26 +171,26 @@ const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExp
       <div className="bg-white px-4 py-6 shadow-sm">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">I Miei Viaggi</h1>
-          
+
           <div className="flex items-center gap-2">
             {/* ✅ Badge unificato - sostituisce NotificationBadge + InvitationsNotifications */}
-            <NotificationCenter 
+            <NotificationCenter
               userProfile={{
                 displayName: currentUser.displayName,
                 username: currentUser.username,
                 avatar: currentUser.photoURL
               }}
             />
-            
+
             {/* 🆕 AVATAR INVECE DI ICONA USER */}
             <button
               onClick={onOpenProfile}
               className="hover:opacity-80 transition-opacity"
               aria-label="Profilo"
             >
-              <Avatar 
-                src={currentUser.photoURL} 
-                name={currentUser.displayName || 'User'} 
+              <Avatar
+                src={currentUser.photoURL}
+                name={currentUser.displayName || 'User'}
                 size="sm"
                 className="!w-8 !h-8 !text-sm"
               />
@@ -187,7 +208,7 @@ const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExp
             <Plus size={20} />
             Nuovo
           </button>
-          
+
           <button
             onClick={() => fileInputRef.current?.click()}
             className="flex-1 py-3 bg-green-500 text-white rounded-2xl font-semibold text-base hover:bg-green-600 shadow-lg flex items-center justify-center gap-2"
@@ -215,11 +236,12 @@ const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExp
                 key={trip.id}
                 className="bg-white rounded-xl shadow hover:shadow-md transition-shadow p-4"
               >
-                <div className="flex items-start gap-4">
-                  <div 
-                    className="flex-shrink-0 cursor-pointer" 
-                    onClick={() => onOpenTrip(trip.id)}
-                  >
+                <div
+                  className="flex items-start gap-4 cursor-pointer"
+                  onClick={() => onOpenTrip(trip.id)}
+                >
+                  {/* Avatar viaggio */}
+                  <div className="flex-shrink-0">
                     {trip.image ? (
                       <img
                         src={trip.image}
@@ -233,10 +255,8 @@ const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExp
                     )}
                   </div>
 
-                  <div 
-                    className="flex-1 min-w-0 cursor-pointer" 
-                    onClick={() => onOpenTrip(trip.id)}
-                  >
+                  {/* Info viaggio */}
+                  <div className="flex-1 min-w-0">
                     <h3 className="text-lg font-semibold truncate">{trip.name}</h3>
                     <p className="text-sm text-gray-500">
                       {trip.days.length} {trip.days.length === 1 ? 'giorno' : 'giorni'}
@@ -244,7 +264,8 @@ const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExp
                     <p className="text-xs text-gray-400">
                       {trip.startDate.toLocaleDateString('it-IT')}
                     </p>
-                    
+
+                    {/* Avatar membri - Solo gli avatar sono cliccabili */}
                     <div className="mt-2">
                       <MembersAvatarStack
                         members={members}
@@ -259,12 +280,16 @@ const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExp
                   </div>
 
                   {/* COLONNA DESTRA: Layout fisso con costo cliccabile */}
-                  <div className="flex-shrink-0" style={{ width: '44px' }}>
+                  <div
+                    className="flex-shrink-0"
+                    style={{ width: '44px' }}
+                    onClick={(e) => e.stopPropagation()} // Blocca propagazione per bottoni
+                  >
                     <div className="flex flex-col gap-2 items-end">
                       {/* Riga 1: Costo (altezza fissa e cliccabile) */}
                       <div className="h-5 flex items-center justify-end pr-2">
                         {tripCost > 0 && (
-                          <span 
+                          <span
                             className="text-sm text-gray-400 cursor-pointer hover:text-blue-500 hover:underline transition-colors"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -276,7 +301,7 @@ const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExp
                           </span>
                         )}
                       </div>
-                      
+
                       {/* Riga 2: Bottone Download */}
                       <button
                         onClick={(e) => {
@@ -288,7 +313,7 @@ const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExp
                       >
                         <Download size={20} />
                       </button>
-                      
+
                       {/* Riga 3: Bottone Elimina */}
                       <button
                         onClick={(e) => {

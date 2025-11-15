@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, Upload, UserPlus } from 'lucide-react';
+import { X, Upload, UserPlus, Crown } from 'lucide-react';
 import { resizeAndUploadImage } from '../services';
 import { IMAGE_COMPRESSION } from '../config/imageConfig';
 import InviteOptionsModal from './InviteOptionsModal';
+import UserProfileModal from './UserProfileModal';
 import Avatar from './Avatar';
 
 interface TripMetadataModalProps {
@@ -20,6 +21,7 @@ interface TripMetadataModalProps {
           displayName: string;
           username?: string;
           avatar?: string;
+          joinedAt?: Date;
         };
       };
     };
@@ -32,6 +34,7 @@ interface TripMetadataModalProps {
     email?: string;
   };
   mode: 'create' | 'edit';
+  onInviteClick?: () => void;
 }
 
 export interface TripMetadata {
@@ -47,7 +50,8 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
   onSave,
   initialData,
   currentUser,
-  mode
+  mode,
+  onInviteClick
 }) => {
   const [tripName, setTripName] = useState('');
   const [destinations, setDestinations] = useState<string[]>([]);
@@ -56,6 +60,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
   const [image, setImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [selectedUserProfile, setSelectedUserProfile] = useState<string | null>(null);
 
   // Carica dati iniziali quando il modal si apre
   useEffect(() => {
@@ -159,6 +164,16 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
       }
     }
   } : null;
+
+  // Lista membri per UserProfileModal
+  const activeMembers = initialData?.sharing?.members 
+    ? Object.entries(initialData.sharing.members)
+        .filter(([_, member]) => member.status === 'active')
+        .map(([userId, member]) => ({
+          userId,
+          ...member
+        }))
+    : [];
 
   return (
     <>
@@ -298,7 +313,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                 <span>Chi organizza questo viaggio</span>
               </label>
 
-              {/* LISTA MEMBRI */}
+              {/* LISTA MEMBRI - UNIFORMATA E CLICCABILE */}
               <div className="space-y-2">
                 {mode === 'edit' && initialData?.sharing?.members ? (
                   // Modalità edit: mostra tutti i membri
@@ -315,55 +330,72 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                       return (
                         <div
                           key={userId}
-                          className={`flex items-center gap-3 rounded-lg p-3 shadow-sm ${isCurrentUser ? 'bg-blue-100 border-2 border-blue-300' : 'bg-white'
-                            }`}
+                          onClick={() => setSelectedUserProfile(userId)}
+                          className={`border-2 rounded-lg p-3 transition-all cursor-pointer ${
+                            isCurrentUser 
+                              ? 'border-blue-400 bg-blue-100' 
+                              : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
+                          }`}
                         >
-                          <Avatar 
-                            src={member.avatar} 
-                            name={member.displayName} 
-                            size="lg"
-                          />
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <p className="font-semibold text-gray-800 text-sm">
-                                {member.displayName}
-                              </p>
-                              {isCurrentUser && (
-                                <span className="px-2 py-0.5 bg-blue-600 text-white text-xs font-bold rounded-full">
-                                  Tu
-                                </span>
+                          <div className="flex items-center gap-3">
+                            {/* Avatar */}
+                            <Avatar 
+                              src={member.avatar} 
+                              name={member.displayName} 
+                              size="md"
+                            />
+
+                            {/* Info */}
+                            <div className="flex-1 min-w-0">
+                              {/* Riga 1: Nome + Badge Owner inline */}
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <p className="font-semibold text-gray-900 truncate">
+                                  {member.displayName}
+                                </p>
+                                {member.role === 'owner' && (
+                                  <span className="flex-shrink-0 px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full flex items-center gap-1">
+                                    <Crown size={12} />
+                                    Owner
+                                  </span>
+                                )}
+                              </div>
+                              
+                              {/* Riga 2: Username */}
+                              {member.username && (
+                                <p className="text-sm text-gray-500 truncate">@{member.username}</p>
                               )}
                             </div>
-                            {member.username && (
-                              <p className="text-xs text-gray-500">@{member.username}</p>
-                            )}
                           </div>
-                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${member.role === 'owner'
-                              ? 'bg-yellow-100 text-yellow-700 border border-yellow-300'
-                              : 'bg-blue-100 text-blue-700 border border-blue-300'
-                            }`}>
-                            {member.role === 'owner' ? 'Owner' : 'Member'}
-                          </span>
                         </div>
                       );
                     })
                 ) : (
-                  // Modalità create: mostra solo currentUser
-                  <div className="flex items-center gap-3 bg-white rounded-lg p-3 shadow-sm">
-                    <Avatar 
-                      src={currentUser.photoURL} 
-                      name={currentUser.displayName} 
-                      size="lg"
-                    />
-                    <div className="flex-1">
-                      <p className="font-semibold text-gray-800 text-sm">{currentUser.displayName}</p>
-                      {currentUser.username && (
-                        <p className="text-xs text-gray-500">@{currentUser.username}</p>
-                      )}
+                  // Modalità create: mostra solo currentUser (cliccabile)
+                  <div 
+                    onClick={() => setSelectedUserProfile(currentUser.uid)}
+                    className="border-2 border-blue-400 bg-blue-100 rounded-lg p-3 cursor-pointer hover:shadow-sm transition-all"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Avatar 
+                        src={currentUser.photoURL} 
+                        name={currentUser.displayName} 
+                        size="md"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <p className="font-semibold text-gray-900 truncate">
+                            {currentUser.displayName}
+                          </p>
+                          <span className="flex-shrink-0 px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full flex items-center gap-1">
+                            <Crown size={12} />
+                            Owner
+                          </span>
+                        </div>
+                        {currentUser.username && (
+                          <p className="text-sm text-gray-500 truncate">@{currentUser.username}</p>
+                        )}
+                      </div>
                     </div>
-                    <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-semibold border border-yellow-300">
-                      Owner
-                    </span>
                   </div>
                 )}
               </div>
@@ -378,7 +410,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                     className="w-full mt-3 px-4 py-2.5 bg-white border-2 border-blue-400 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-semibold text-sm flex items-center justify-center gap-2 shadow-sm"
                   >
                     <UserPlus size={18} />
-                    Invita collaboratori
+                    Invita 
                   </button>
                 )}
 
@@ -440,6 +472,30 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
           currentUser={currentUser}
         />
       )}
+
+      {/* Modal Profilo Utente */}
+      {selectedUserProfile && (() => {
+        const memberData = activeMembers.find(m => m.userId === selectedUserProfile);
+        return (
+          <UserProfileModal
+            isOpen={true}
+            onClose={() => setSelectedUserProfile(null)}
+            userId={selectedUserProfile}
+            tripContext={memberData ? {
+              role: memberData.role,
+              joinedAt: memberData.joinedAt,
+              displayName: memberData.displayName,
+              username: memberData.username,
+              avatar: memberData.avatar
+            } : mode === 'create' && selectedUserProfile === currentUser.uid ? {
+              role: 'owner',
+              displayName: currentUser.displayName,
+              username: currentUser.username,
+              avatar: currentUser.photoURL
+            } : undefined}
+          />
+        );
+      })()}
     </>
   );
 };

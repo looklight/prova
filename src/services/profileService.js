@@ -226,3 +226,49 @@ export const searchUsersByUsername = async (searchTerm, limitCount = 10) => {
     throw error;
   }
 };
+
+// ============= FUNZIONE PER PROFILO PUBBLICO =============
+
+/**
+ * 🔍 Carica il profilo pubblico di un utente
+ * Restituisce gli stessi dati visibili in ProfileView
+ * @param {string} userId - ID dell'utente da caricare
+ * @returns {Promise<Object|null>} Dati profilo pubblico o null
+ */
+export const loadPublicProfile = async (userId) => {
+  try {
+    const profileRef = doc(db, 'users', userId, 'profile', 'info');
+    const profileSnap = await getDoc(profileRef);
+
+    if (!profileSnap.exists()) {
+      console.warn(`⚠️ Profilo pubblico non trovato per userId: ${userId}`);
+      // Restituisci dati base minimi
+      return {
+        uid: userId,
+        displayName: 'Utente',
+        username: null,
+        avatar: null,
+        createdAt: null,
+        bio: null
+      };
+    }
+
+    const data = profileSnap.data();
+    
+    console.log(`✅ Profilo pubblico caricato: ${data.username}`);
+    
+    return {
+      uid: userId,
+      displayName: data.displayName || 'Utente',
+      username: data.username || null,
+      avatar: data.avatar || null,
+      email: data.email || null,
+      bio: data.bio || null,
+      createdAt: data.createdAt || null,
+      updatedAt: data.updatedAt || null
+    };
+  } catch (error) {
+    console.error('❌ Errore caricamento profilo pubblico:', error);
+    return null;
+  }
+};

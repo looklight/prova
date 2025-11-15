@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, User, Crown, Trash2, UserPlus } from 'lucide-react';
 import { removeMember } from '../services/tripService';
 import InviteOptionsModal from './InviteOptionsModal';
+import UserProfileModal from './UserProfileModal';
 import Avatar from './Avatar';
 
 interface TripMembersModalProps {
@@ -43,6 +44,7 @@ const TripMembersModal: React.FC<TripMembersModalProps> = ({
 }) => {
   const [processingMember, setProcessingMember] = useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [selectedUserProfile, setSelectedUserProfile] = useState<string | null>(null);
 
   const isOwner = trip.sharing.members[currentUser.uid]?.role === 'owner';
 
@@ -83,27 +85,6 @@ const TripMembersModal: React.FC<TripMembersModalProps> = ({
     }
   };
 
-  const getRoleIcon = (role: string) => {
-    if (role === 'owner') {
-      return <Crown size={16} className="text-yellow-600" />;
-    }
-    return null;
-  };
-
-  const getRoleLabel = (role: string) => {
-    if (role === 'owner') {
-      return 'Owner';
-    }
-    return 'Member';
-  };
-
-  const getRoleBadgeColor = (role: string) => {
-    if (role === 'owner') {
-      return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-    }
-    return 'bg-blue-100 text-blue-800 border-blue-300';
-  };
-
   return (
     <>
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
@@ -114,7 +95,7 @@ const TripMembersModal: React.FC<TripMembersModalProps> = ({
             <div>
               <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
                 <User size={24} />
-                Gestisci Membri
+                Partecipanti
               </h2>
               <p className="text-sm text-gray-500 mt-1">
                 {activeMembers.length} {activeMembers.length === 1 ? 'persona' : 'persone'}
@@ -139,76 +120,75 @@ const TripMembersModal: React.FC<TripMembersModalProps> = ({
                 return (
                   <div
                     key={member.userId}
-                    className={`border-2 rounded-lg p-4 transition-all ${
-                      isCurrentUser ? 'border-blue-300 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                    className={`border-2 rounded-lg p-3 transition-all ${
+                      isCurrentUser 
+                        ? 'border-blue-400 bg-blue-50' 
+                        : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
                     }`}
                   >
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
                       
-                      {/* Avatar */}
-                      <Avatar 
-                        src={member.avatar} 
-                        name={member.displayName} 
-                        size="lg"
-                      />
+                      {/* Area cliccabile: Avatar + Info */}
+                      <div 
+                        className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+                        onClick={() => setSelectedUserProfile(member.userId)}
+                      >
+                        {/* Avatar */}
+                        <Avatar 
+                          src={member.avatar} 
+                          name={member.displayName} 
+                          size="md"
+                        />
 
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="font-semibold text-gray-900 truncate">
-                            {member.displayName}
-                          </p>
-                          {isCurrentUser && (
-                            <span className="px-2 py-0.5 bg-blue-600 text-white text-xs font-bold rounded-full">
-                              Tu
-                            </span>
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          {/* Riga 1: Nome + Badge Owner inline */}
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <p className="font-semibold text-gray-900 truncate">
+                              {member.displayName}
+                            </p>
+                            {member.role === 'owner' && (
+                              <span className="flex-shrink-0 px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full flex items-center gap-1">
+                                <Crown size={12} />
+                                Owner
+                              </span>
+                            )}
+                          </div>
+                          
+                          {/* Riga 2: Username */}
+                          {member.username && (
+                            <p className="text-sm text-gray-500 truncate">@{member.username}</p>
                           )}
-                          {member.joinedVia === 'link' && (
-                            <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-semibold rounded-full">
-                              Via Link
-                            </span>
-                          )}
-                        </div>
-                        
-                        {member.username && (
-                          <p className="text-sm text-gray-500">@{member.username}</p>
-                        )}
-                        
-                        {/* Badge Ruolo */}
-                        <div className="flex items-center gap-1.5 mt-2">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border ${getRoleBadgeColor(member.role)}`}>
-                            {getRoleIcon(member.role)}
-                            {getRoleLabel(member.role)}
-                          </span>
                         </div>
                       </div>
 
-                      {/* Azioni */}
+                      {/* Bottone Rimuovi - FUORI dall'area cliccabile */}
                       {canManage && (
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleRemoveMember(member.userId, member.displayName)}
-                            disabled={isProcessing}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                            title="Rimuovi"
-                          >
-                            <Trash2 size={20} />
-                          </button>
-                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation(); // ← Blocca l'apertura del profilo
+                            handleRemoveMember(member.userId, member.displayName);
+                          }}
+                          disabled={isProcessing}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 flex-shrink-0"
+                          title="Rimuovi"
+                        >
+                          <Trash2 size={20} />
+                        </button>
                       )}
                     </div>
                   </div>
                 );
               })}
 
-              {/* Bottone Invita Membri */}
+              {/* Bottone Invita Membri - Stile moderno */}
               {isOwner && (
                 <button
                   onClick={() => setShowInviteModal(true)}
-                  className="w-full py-3 border-2 border-dashed border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors flex items-center justify-center gap-2 font-medium mt-4"
+                  className="w-full py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2 font-medium mt-4 shadow-sm"
                 >
                   <UserPlus size={20} />
-                  Invita Membri
+                  Invita
                 </button>
               )}
             </div>
@@ -234,6 +214,25 @@ const TripMembersModal: React.FC<TripMembersModalProps> = ({
         trip={trip}
         currentUser={currentUser}
       />
+
+      {/* Modal Profilo Utente */}
+      {selectedUserProfile && (() => {
+        const memberData = activeMembers.find(m => m.userId === selectedUserProfile);
+        return (
+          <UserProfileModal
+            isOpen={true}
+            onClose={() => setSelectedUserProfile(null)}
+            userId={selectedUserProfile}
+            tripContext={memberData ? {
+              role: memberData.role,
+              joinedAt: memberData.joinedAt,
+              displayName: memberData.displayName,
+              username: memberData.username,
+              avatar: memberData.avatar
+            } : undefined}
+          />
+        );
+      })()}
     </>
   );
 };

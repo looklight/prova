@@ -10,7 +10,7 @@ interface MembersAvatarStackProps {
   }[];
   maxVisible?: number;
   size?: 'sm' | 'md' | 'lg';
-  onClick?: () => void;
+  onClick?: (e?: React.MouseEvent) => void;
 }
 
 const MembersAvatarStack: React.FC<MembersAvatarStackProps> = ({
@@ -39,7 +39,7 @@ const MembersAvatarStack: React.FC<MembersAvatarStackProps> = ({
 
   return (
     <div 
-      className={`flex items-center ${onClick ? 'cursor-pointer' : ''}`}
+      className={`inline-flex items-center ${onClick ? 'cursor-pointer' : ''}`}
       onClick={onClick}
       title={`${activeMembers.length} ${activeMembers.length === 1 ? 'membro' : 'membri'}`}
     >
