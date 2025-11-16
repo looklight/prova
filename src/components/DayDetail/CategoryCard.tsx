@@ -159,6 +159,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
                 onUpdateCategory(category.id, 'costBreakdown', null);
                 onUpdateCategory(category.id, 'hasSplitCost', false);
               }}
+              onOpenManageBreakdown={onOpenCostBreakdown}
             />
           </div>
         )}

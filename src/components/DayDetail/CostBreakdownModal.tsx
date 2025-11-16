@@ -17,7 +17,7 @@ interface CostBreakdownModalProps {
   existingBreakdown: Array<{ userId: string; amount: number }> | null;
   existingParticipants?: string[] | null;
   onClose: () => void;
-  onConfirm: (breakdown: Array<{ userId: string; amount: number }>, participants: string[]) => void;
+  onConfirm: (breakdown: Array<{ userId: string; amount: number }> | 'RESET_ALL', participants: string[] | null) => void;
 }
 
 const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
@@ -35,17 +35,15 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
   const [nextId, setNextId] = useState(2);
   const [participants, setParticipants] = useState<Set<string>>(new Set());
 
-  // 🆕 Inizializza entries e participants con AUTO-INCLUDE membri mancanti
+  // Inizializza entries e participants con AUTO-INCLUDE membri mancanti
   useEffect(() => {
     if (isOpen) {
-      // 🆕 SOLUZIONE 2: Auto-include membri mancanti
+      // Auto-include membri mancanti
       if (existingParticipants && existingParticipants.length > 0) {
-        // Filtra solo participants che sono ancora membri attivi
         const activeParticipants = existingParticipants.filter(uid =>
           tripMembers.some(m => m.uid === uid)
         );
         
-        // 🆕 Aggiungi membri mancanti automaticamente
         const allActiveMemberIds = tripMembers.map(m => m.uid);
         const missingMembers = allActiveMemberIds.filter(uid => 
           !activeParticipants.includes(uid)
@@ -58,12 +56,10 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
           setParticipants(new Set(activeParticipants));
         }
       } else {
-        // Default: tutti i membri attivi
         setParticipants(new Set(tripMembers.map(m => m.uid)));
       }
 
       if (existingBreakdown && existingBreakdown.length > 0) {
-        // Carica breakdown esistente, ma FILTRA solo membri attivi
         const activeBreakdown = existingBreakdown.filter(item =>
           tripMembers.some(m => m.uid === item.userId)
         );
@@ -78,12 +74,10 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
           );
           setNextId(activeBreakdown.length + 1);
         } else {
-          // Nessun membro attivo nel breakdown, crea entry vuota
           setEntries([{ id: 1, userId: currentUserId, amount: '' }]);
           setNextId(2);
         }
       } else {
-        // Nuova entry con utente corrente di default
         setEntries([{ id: 1, userId: currentUserId, amount: '' }]);
         setNextId(2);
       }
@@ -107,19 +101,16 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
     ));
   };
 
-  // Toggle partecipante
   const toggleParticipant = (userId: string) => {
     setParticipants(prev => {
       const newSet = new Set(prev);
       if (newSet.has(userId)) {
-        // Non permettere di rimuovere l'ultimo partecipante
         if (newSet.size === 1) {
           alert('Almeno una persona deve usufruire di questa spesa');
           return prev;
         }
         newSet.delete(userId);
         
-        // Se rimuovi un partecipante, azzera il suo amount
         setEntries(currentEntries => 
           currentEntries.map(e => 
             e.userId === userId ? { ...e, amount: '0' } : e
@@ -140,30 +131,53 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
   };
 
   const handleConfirm = () => {
-    // Valida che ci siano partecipanti
     if (participants.size === 0) {
       alert('Seleziona almeno una persona che ha usufruito di questa spesa');
       return;
     }
 
-    // Valida che ci siano dei valori
     const validEntries = entries.filter(e => 
       e.userId && e.amount && parseFloat(e.amount) > 0
     );
 
+    // Se tutti a 0€ → Chiedi conferma azzeramento
     if (validEntries.length === 0) {
-      alert('Inserisci almeno un contributo valido');
+      const confirmed = window.confirm(
+        '⚠️  Nessun contributo inserito\n\n' +
+        'I costi di questa spesa verranno azzerati.\n\n' +
+        'Vuoi continuare?'
+      );
+      
+      if (confirmed) {
+        onConfirm([], []);
+        onClose();
+      }
       return;
     }
 
+    // Salvataggio normale
     const breakdown = validEntries.map(e => ({
       userId: e.userId,
       amount: parseFloat(e.amount)
     }));
 
-    // Passa anche i participants
     onConfirm(breakdown, Array.from(participants));
     onClose();
+  };
+
+  // 🆕 Handler reset categoria
+  const handleResetCategory = () => {
+    const confirmed = window.confirm(
+      `⚠️  Eliminare completamente questa categoria?\n\n` +
+      `Verranno cancellati nome, costi, media e note.\n` +
+      `La categoria tornerà vuota.\n\n` +
+      `Questa azione non può essere annullata.`
+    );
+    
+    if (confirmed) {
+      onConfirm('RESET_ALL', null);
+      onClose();
+    }
   };
 
   const getMember = (userId: string) => {
@@ -257,7 +271,6 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
                         </option>
                       ))}
                     </select>
-                    {/* Avatar sovrapposto */}
                     <div className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none">
                       <Avatar 
                         src={member?.avatar} 
@@ -322,7 +335,7 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
             </div>
 
             {/* Dettaglio bilancio per partecipante */}
-            {participants.size > 0 && (
+            {participants.size > 0 && total > 0 && (
               <div className="mt-3 pt-3 border-t border-blue-200 space-y-2">
                 {Array.from(participants).map((userId) => {
                   const member = getMember(userId);
@@ -355,10 +368,20 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
               </div>
             )}
           </div>
+
+          {/* 🆕 Reset categoria (in fondo allo scroll) */}
+          <div className="mt-8 pt-6 border-t border-gray-200">
+            <button
+              onClick={handleResetCategory}
+              className="text-xs text-red-500 hover:text-red-700 hover:underline transition-colors w-full text-center py-2"
+            >
+              Reset categoria
+            </button>
+          </div>
         </div>
 
         {/* Footer */}
-        <div className="flex gap-3 p-6 border-t">
+        <div className="flex gap-3 px-6 pb-6 border-t">
           <button
             onClick={onClose}
             className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors"

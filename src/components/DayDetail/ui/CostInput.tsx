@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import CostConflictDialog from './CostConflictDialog';
 
 interface CostInputProps {
   value: string;
@@ -9,6 +10,7 @@ interface CostInputProps {
   costBreakdown?: Array<{ userId: string; amount: number }> | null;
   tripMembers?: Record<string, { status: string; displayName: string; avatar?: string }> | null;
   onClearBreakdown?: () => void;
+  onOpenManageBreakdown?: () => void;
 }
 
 const CostInput: React.FC<CostInputProps> = ({ 
@@ -19,9 +21,13 @@ const CostInput: React.FC<CostInputProps> = ({
   currentUserId,
   costBreakdown,
   tripMembers,
-  onClearBreakdown
+  onClearBreakdown,
+  onOpenManageBreakdown
 }) => {
-  // 🔧 FIX: Filtra breakdown per membri ATTIVI
+  const [showConflictDialog, setShowConflictDialog] = useState(false);
+  const [pendingValue, setPendingValue] = useState<string>('');
+
+  // Filtra breakdown per membri ATTIVI
   const getActiveBreakdown = () => {
     if (!costBreakdown || costBreakdown.length === 0 || !tripMembers) {
       return [];
@@ -33,22 +39,21 @@ const CostInput: React.FC<CostInputProps> = ({
     });
   };
 
-  // 🔧 Calcola il valore effettivo da mostrare (solo membri attivi)
+  // Calcola il valore effettivo da mostrare (solo membri attivi)
   const activeBreakdown = getActiveBreakdown();
   const displayValue = activeBreakdown.length > 0
     ? activeBreakdown.reduce((sum, entry) => sum + entry.amount, 0).toString()
     : '';
 
-  // 🔧 FIX: Determina colore basato su UTENTI UNICI ATTIVI che hanno pagato
+  // Determina colore basato su UTENTI UNICI ATTIVI che hanno pagato
   const getBackgroundColor = () => {
     const activeBreakdown = getActiveBreakdown();
     
-    // Se non c'è breakdown attivo, usa grigio normale
     if (activeBreakdown.length === 0) {
       return 'bg-gray-50';
     }
 
-    // 🔧 Conta utenti UNICI ATTIVI che hanno pagato
+    // Conta utenti UNICI ATTIVI che hanno pagato
     const uniquePayers = new Set(activeBreakdown.map(e => e.userId));
     const uniquePayersCount = uniquePayers.size;
 
@@ -57,34 +62,33 @@ const CostInput: React.FC<CostInputProps> = ({
       return 'bg-orange-50 ring-1 ring-orange-300';
     }
 
-    // Spesa singola (1 utente attivo solo, anche con più contributi)
+    // Spesa singola (1 utente attivo solo)
     const singlePayer = activeBreakdown[0].userId;
     
     if (singlePayer === currentUserId) {
-      return 'bg-blue-50 ring-1 ring-blue-300'; // 🔵 Pagato interamente da ME
+      return 'bg-blue-50 ring-1 ring-blue-300'; // Pagato da ME
     } else {
-      return 'bg-gray-50'; // ⚪ Pagato interamente da ALTRI
+      return 'bg-gray-50'; // Pagato da ALTRI
     }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     const currentAmount = parseFloat(displayValue) || 0;
-    const newAmount = parseFloat(newValue) || 0;
 
-    // 🔧 FIX: Usa SOLO breakdown di membri ATTIVI
+    // Usa SOLO breakdown di membri ATTIVI
     const uniquePayers = new Set(activeBreakdown.map(e => e.userId));
     const uniquePayersCount = uniquePayers.size;
 
-    // 🔧 Breakdown multi-utente (2+ utenti attivi diversi)
+    // Breakdown multi-utente (2+ utenti attivi diversi)
     const isMultiUser = uniquePayersCount > 1;
     
-    // 🔧 Breakdown di altro utente attivo (1 utente attivo, non sei tu)
+    // Breakdown di altro utente attivo (1 utente attivo, non sei tu)
     const isOtherUserCost = uniquePayersCount === 1 && 
       activeBreakdown.length > 0 &&
       activeBreakdown[0].userId !== currentUserId;
     
-    // 🔧 Breakdown tuo (1 utente attivo, sei tu, anche con più contributi)
+    // Breakdown tuo (1 utente attivo, sei tu)
     const isYourBreakdown = uniquePayersCount === 1 && 
       activeBreakdown.length > 0 &&
       activeBreakdown[0].userId === currentUserId;
@@ -93,68 +97,85 @@ const CostInput: React.FC<CostInputProps> = ({
     const isActivelyEditing = isYourBreakdown && 
       activeBreakdown.reduce((sum, e) => sum + e.amount, 0) === currentAmount;
 
-    console.log('🔍 [CostInput] handleChange:', {
-      displayValue,
-      newValue,
-      costBreakdown,
-      activeBreakdown,
-      currentUserId,
-      uniquePayersCount,
-      isMultiUser,
-      isOtherUserCost,
-      isYourBreakdown,
-      isActivelyEditing
-    });
-
-    // Mostra alert SOLO se:
-    // 1. Multi-utente attivo (2+ persone attive diverse), O
+    // Mostra dialogo SOLO se:
+    // 1. Multi-utente attivo (2+ persone), O
     // 2. Altro utente attivo singolo
-    // MA NON se stai attivamente modificando il tuo breakdown
-    const shouldShowAlert = (isMultiUser || isOtherUserCost) && !isActivelyEditing;
+    // MA NON se stai modificando il tuo breakdown
+    const shouldShowDialog = (isMultiUser || isOtherUserCost) && !isActivelyEditing;
 
-    if (shouldShowAlert && newValue !== displayValue && onClearBreakdown) {
-      console.log('⚠️ [CostInput] Showing alert');
-      const confirmed = window.confirm(
-        'Sovrascrivendo il costo, la ripartizione verrà cancellata.\n\n' +
-        'Per aggiungere contributi, usa \'Gestisci spesa\'.\n\n' +
-        'Vuoi continuare?'
-      );
-
-      if (confirmed) {
-        onClearBreakdown();
-        onChange(e);
-      }
+    if (shouldShowDialog && newValue !== displayValue && onClearBreakdown) {
+      console.log('⚠️ [CostInput] Rilevato conflitto, apertura dialogo');
+      setPendingValue(newValue);
+      setShowConflictDialog(true);
     } else {
-      console.log('✅ [CostInput] Normal onChange');
+      console.log('✅ [CostInput] Modifica normale');
       onChange(e);
     }
   };
 
+  // Handler per "Elimina e ricomincia"
+  const handleReset = () => {
+    if (onClearBreakdown) {
+      onClearBreakdown();
+      // Reset completo: svuota il campo
+      const syntheticEvent = {
+        target: { value: '' }
+      } as React.ChangeEvent<HTMLInputElement>;
+      onChange(syntheticEvent);
+    }
+    setShowConflictDialog(false);
+    setPendingValue('');
+  };
+
+  // Handler per "Gestisci ripartizione"
+  const handleManage = () => {
+    setShowConflictDialog(false);
+    setPendingValue('');
+    if (onOpenManageBreakdown) {
+      onOpenManageBreakdown();
+    }
+  };
+
+  // Handler per "Annulla"
+  const handleCancel = () => {
+    setShowConflictDialog(false);
+    setPendingValue('');
+  };
+
   return (
-    <div className="relative" style={{ width: '90px' }}>
-      <input
-        type="number"
-        inputMode="decimal"
-        value={displayValue}
-        onChange={handleChange}
-        placeholder={placeholder}
-        className={`w-full px-3 py-2.5 pr-7 border rounded-full text-sm text-center ${getBackgroundColor()}`}
-        onWheel={(e) => e.currentTarget.blur()}
+    <>
+      <div className="relative" style={{ width: '90px' }}>
+        <input
+          type="number"
+          inputMode="decimal"
+          value={displayValue}
+          onChange={handleChange}
+          placeholder={placeholder}
+          className={`w-full px-3 py-2.5 pr-7 border rounded-full text-sm text-center ${getBackgroundColor()}`}
+          onWheel={(e) => e.currentTarget.blur()}
+        />
+        <style>{`
+          input[type=number]::-webkit-inner-spin-button,
+          input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+          }
+          input[type=number] {
+            -moz-appearance: textfield;
+          }
+        `}</style>
+        <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm pointer-events-none">
+          €
+        </span>
+      </div>
+
+      <CostConflictDialog
+        isOpen={showConflictDialog}
+        onReset={handleReset}
+        onManage={handleManage}
+        onCancel={handleCancel}
       />
-      <style>{`
-        input[type=number]::-webkit-inner-spin-button,
-        input[type=number]::-webkit-outer-spin-button {
-          -webkit-appearance: none;
-          margin: 0;
-        }
-        input[type=number] {
-          -moz-appearance: textfield;
-        }
-      `}</style>
-      <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm pointer-events-none">
-        €
-      </span>
-    </div>
+    </>
   );
 };
 

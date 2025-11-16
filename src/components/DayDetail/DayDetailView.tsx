@@ -22,7 +22,7 @@ const DayDetailView = ({
   user,
   highlightCategoryId = null
 }) => {
-  // Safety check: se dayIndex è invalido, non renderizzare nulla
+  // Safety check
   if (dayIndex === null || dayIndex === undefined || dayIndex >= trip.days.length || dayIndex < 0) {
     console.warn('⚠️ DayDetailView: dayIndex invalido', dayIndex);
     return null;
@@ -171,7 +171,6 @@ const DayDetailView = ({
     }
   };
 
-  // 🔧 Calcola costi considerando SOLO membri ATTIVI
   const dayCost = useMemo(() => {
     return calculateDayCost(currentDay, trip.data, trip.sharing?.members);
   }, [currentDay.id, trip.data, trip.sharing?.members]);
@@ -198,10 +197,47 @@ const DayDetailView = ({
     setCostBreakdownModal({ isOpen: true, categoryId: null, expenseId });
   };
 
-  // ✅ FIX COMPLETO: Salva breakdown + participants + cost + hasSplitCost
   const handleConfirmBreakdown = (breakdown, participants) => {
     console.log('✅ [handleConfirmBreakdown] Salvataggio:', { breakdown, participants });
     
+    // 🆕 Gestisci RESET_ALL
+    if (breakdown === 'RESET_ALL') {
+      if (costBreakdownModal.categoryId) {
+        const categoryId = costBreakdownModal.categoryId;
+        const category = CATEGORIES.find(c => c.id === categoryId);
+        const key = `${currentDay.id}-${categoryId}`;
+        
+        // Reset completo a stato vergine
+        const emptyData = {
+          title: '',
+          cost: '',
+          costBreakdown: null,
+          participants: null,
+          hasSplitCost: false,
+          bookingStatus: 'na',
+          transportMode: categoryId.startsWith('spostamenti') ? 'treno' : 'none',
+          links: [],
+          images: [],
+          videos: [],
+          mediaNotes: [],
+          notes: ''
+        };
+        
+        console.log(`🧹 Reset categoria: ${category?.label}`);
+        
+        onUpdateTrip({
+          ...trip,
+          data: {
+            ...trip.data,
+            [key]: emptyData
+          }
+        });
+      }
+      // Per altre spese, ignoriamo RESET_ALL (hanno già la X)
+      return;
+    }
+    
+    // Salvataggio normale
     if (costBreakdownModal.categoryId) {
       const categoryId = costBreakdownModal.categoryId;
       const key = `${currentDay.id}-${categoryId}`;

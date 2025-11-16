@@ -10,9 +10,11 @@
  * - Auto-assegnazione costi all'utente corrente
  * - Sincronizzazione con Firebase in background
  * - Aggiunta automatica nuova spesa vuota
+ * - ✅ SYNC OTTIMIZZATA: Aggiorna UI quando trip.data cambia (es. da breakdown modal)
+ * - ✅ RESET CHIRURGICO: Breakdown vuoto resetta solo costi, non title/media
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { CATEGORIES } from '../utils/constants';
 
 // 🔧 Helper per normalizzare otherExpenses (oggetto o array → array)
@@ -71,8 +73,19 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
     }));
   });
 
-  // ✅ SOLO quando cambia il giorno (non trip.data!)
+  // Ref per evitare loop quando aggiorni TU stesso
+  const isLocalUpdateRef = useRef(false);
+
+  // ✅ Sincronizza categoryData quando trip.data cambia (es. da breakdown modal)
   useEffect(() => {
+    // Salta se l'update viene da questo stesso hook (evita loop)
+    if (isLocalUpdateRef.current) {
+      isLocalUpdateRef.current = false;
+      return;
+    }
+
+    console.log('🔄 [useDayData] Sync categoryData da trip.data');
+    
     const data = {};
     
     CATEGORIES.forEach(cat => {
@@ -96,12 +109,20 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
     });
     
     setCategoryData(data);
-  }, [currentDay.id]);
+  }, [currentDay.id, trip.data]);
 
+  // ✅ Sincronizza otherExpenses quando trip.data cambia
   useEffect(() => {
+    if (isLocalUpdateRef.current) {
+      isLocalUpdateRef.current = false;
+      return;
+    }
+
+    console.log('🔄 [useDayData] Sync otherExpenses da trip.data');
+    
     const key = `${currentDay.id}-otherExpenses`;
     const expensesRaw = trip.data[key];
-    const expenses = normalizeExpenses(expensesRaw); // 🔧 Normalizza
+    const expenses = normalizeExpenses(expensesRaw);
     
     const expensesWithBreakdown = expenses.map(exp => ({
       id: exp.id,
@@ -113,7 +134,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
     }));
     
     setOtherExpenses(expensesWithBreakdown);
-  }, [currentDay.id]);
+  }, [currentDay.id, trip.data]);
 
   // Aggiungi automaticamente una nuova spesa vuota quando l'ultima viene compilata
   useEffect(() => {
@@ -149,6 +170,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
     // 🔧 FIX: Gestisci costBreakdown PRIMA (ha priorità massima)
     if (field === 'costBreakdown') {
       if (Array.isArray(value) && value.length > 0) {
+        // Breakdown normale con contributi
         updatedCellData.hasSplitCost = value.length > 1;
         const total = value.reduce((sum, entry) => sum + entry.amount, 0);
         updatedCellData.cost = total.toString();
@@ -156,11 +178,14 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
         if (!updatedCellData.participants) {
           updatedCellData.participants = getDefaultParticipants();
         }
-        console.log('✅ [updateCategory] Breakdown aggiornato manualmente:', value);
+        console.log('✅ [updateCategory] Breakdown aggiornato:', value);
       } else {
+        // 🆕 Breakdown vuoto/null = reset SOLO costi (non title/media)
         updatedCellData.costBreakdown = null;
         updatedCellData.participants = null;
         updatedCellData.hasSplitCost = false;
+        updatedCellData.cost = ''; // ← Reset costo
+        console.log('🧹 [updateCategory] Reset costi (title/media intatti)');
       }
     }
     // 🔧 FIX: Se modifichi 'participants', NON toccare il breakdown
@@ -213,6 +238,9 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
       }
     }
 
+    // Marca come update locale (evita loop in useEffect)
+    isLocalUpdateRef.current = true;
+
     // CRITICAL FIX: Aggiorna stato locale CON TUTTI I CAMPI
     setCategoryData(prev => ({
       ...prev,
@@ -254,11 +282,14 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
           if (!updatedExpense.participants) {
             updatedExpense.participants = getDefaultParticipants();
           }
-          console.log('✅ [updateOtherExpense] Breakdown aggiornato manualmente:', value);
+          console.log('✅ [updateOtherExpense] Breakdown aggiornato:', value);
         } else {
+          // 🆕 Breakdown vuoto = reset SOLO costi (title intatto)
           updatedExpense.costBreakdown = null;
           updatedExpense.participants = null;
           updatedExpense.hasSplitCost = false;
+          updatedExpense.cost = ''; // ← Reset costo
+          console.log('🧹 [updateOtherExpense] Reset costi (title intatto)');
         }
       }
       else if (field === 'participants') {
@@ -306,6 +337,9 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
       return updatedExpense;
     });
     
+    // Marca come update locale
+    isLocalUpdateRef.current = true;
+    
     // IMPORTANTE: Aggiorna stato locale PRIMA
     setOtherExpenses(updated);
     
@@ -334,6 +368,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
       updated = otherExpenses.filter(exp => exp.id !== expenseId);
     }
     
+    isLocalUpdateRef.current = true;
     setOtherExpenses(updated);
     
     const updatedData = {
@@ -362,6 +397,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
     
     const updated = [...otherExpenses, newExpense];
     
+    isLocalUpdateRef.current = true;
     setOtherExpenses(updated);
     
     const updatedData = {
