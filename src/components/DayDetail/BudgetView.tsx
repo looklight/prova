@@ -5,6 +5,7 @@ import { calculateCategoryGroupCost, getSuggestedBudget, CATEGORY_GROUPS, CATEGO
 interface BudgetViewProps {
   trip: any;
   onUpdateTrip: (updatedTrip: any) => void;
+  isDesktop?: boolean;
 }
 
 /**
@@ -16,7 +17,7 @@ interface BudgetViewProps {
  * - Permettere edit manuale delle categorie
  * - Sincronizzare con trip.budget quando arriva da Firestore
  */
-const BudgetView: React.FC<BudgetViewProps> = ({ trip, onUpdateTrip }) => {
+const BudgetView: React.FC<BudgetViewProps> = ({ trip, onUpdateTrip, isDesktop = false }) => {
   const [budgets, setBudgets] = useState<Record<string, number>>(trip.budget || {});
   const [editMode, setEditMode] = useState(false); // ✨ Modalità editing globale
   const [editValues, setEditValues] = useState<Record<string, string>>({}); // Valori temporanei
@@ -90,42 +91,46 @@ const BudgetView: React.FC<BudgetViewProps> = ({ trip, onUpdateTrip }) => {
   };
 
   return (
-    <div className="p-4 space-y-4">
-      {/* Header con totale */}
-      <div className="bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-xl shadow-lg p-6">
-        <div className="text-center mb-4">
-          <p className="text-xs uppercase tracking-wide opacity-80 mb-2">Budget Totale</p>
-          <p className="text-4xl font-bold mb-2">{Math.round(totalBudget)}€</p>
-          <div className="flex items-center justify-center gap-3 text-sm opacity-90">
-            <span>{numberOfDays} {numberOfDays === 1 ? 'giorno' : 'giorni'}</span>
-            <span>•</span>
-            <span>{activeMembers} {activeMembers === 1 ? 'persona' : 'persone'}</span>
+    <div className={`${isDesktop ? 'space-y-3' : 'space-y-4'}`}>
+      {/* Header con totale - Versione compatta Opzione A */}
+      <div className="bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-xl shadow-lg p-4">
+        {/* Riga 1: Base identica alle altre tab */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-baseline gap-2">
+            <span className="text-xs opacity-75">Budget</span>
+            <span className="text-3xl font-bold">{Math.round(totalBudget)}€</span>
+          </div>
+          <div className="text-sm opacity-90">
+            {activeMembers} {activeMembers === 1 ? 'pers' : 'pers'} • {numberOfDays} {numberOfDays === 1 ? 'gg' : 'gg'}
           </div>
         </div>
         
-        <div className="flex justify-between text-sm mb-2">
+        {/* Riga 2: Speso vs Rimangono */}
+        <div className="flex justify-between text-xs opacity-90 mb-2">
           <span>Speso: {Math.round(totalSpent)}€</span>
           <span>
             {remaining >= 0 ? (
               <>Rimangono: {Math.round(remaining)}€</>
             ) : (
-              <>❌ Sforato di {Math.round(Math.abs(remaining))}€</>
+              <>⚠️ Sforato di {Math.round(Math.abs(remaining))}€</>
             )}
           </span>
         </div>
         
-        {/* Barra progresso */}
-        <div className="w-full bg-white/30 rounded-full h-3">
-          <div
-            className={`h-3 rounded-full transition-all ${
-              percentageSpent > 100 ? 'bg-red-400' : percentageSpent > 90 ? 'bg-yellow-300' : 'bg-green-400'
-            }`}
-            style={{ width: `${Math.min(percentageSpent, 100)}%` }}
-          />
+        {/* Riga 3: Barra progresso + Percentuale */}
+        <div className="space-y-1">
+          <div className="w-full bg-white/20 rounded-full h-2">
+            <div
+              className={`h-2 rounded-full transition-all ${
+                percentageSpent > 100 ? 'bg-red-300' : percentageSpent > 90 ? 'bg-yellow-300' : 'bg-white'
+              }`}
+              style={{ width: `${Math.min(percentageSpent, 100)}%` }}
+            />
+          </div>
+          <p className="text-center text-xs opacity-75">
+            {percentageSpent.toFixed(0)}% utilizzato
+          </p>
         </div>
-        <p className="text-center text-xs mt-2 opacity-90">
-          {percentageSpent.toFixed(0)}% utilizzato
-        </p>
       </div>
 
       {/* Toolbar con pulsante Modifica/Salva/Annulla */}
@@ -160,7 +165,7 @@ const BudgetView: React.FC<BudgetViewProps> = ({ trip, onUpdateTrip }) => {
         )}
       </div>
 
-      {/* Categorie */}
+      {/* Categorie - Layout compatto Opzione A */}
       {categoryGroups.map(groupKey => {
         const { total: spent } = calculateCategoryGroupCost(trip, groupKey);
         const budget = editMode ? (parseFloat(editValues[groupKey]) || 0) : (budgets[groupKey] || 0);
@@ -169,74 +174,64 @@ const BudgetView: React.FC<BudgetViewProps> = ({ trip, onUpdateTrip }) => {
         return (
           <div 
             key={groupKey} 
-            className={`bg-white rounded-xl shadow p-4 transition-all ${
+            className={`bg-white rounded-xl shadow p-3 transition-all ${
               editMode ? 'ring-2 ring-blue-200' : ''
             }`}
           >
-            {/* Header categoria */}
-            <div className="flex items-center gap-3 mb-3">
-              <span className="text-2xl">{CATEGORY_ICONS[groupKey]}</span>
-              <h3 className="font-semibold text-gray-800">{CATEGORY_LABELS[groupKey]}</h3>
-            </div>
-
-            {/* Budget input/display */}
-            <div className="mb-3">
-              <div className="flex items-baseline gap-2">
-                <span className="text-sm text-gray-500">Budget:</span>
-                {editMode ? (
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    value={editValues[groupKey] || ''}
-                    onChange={(e) => handleChange(groupKey, e.target.value)}
-                    className="flex-1 px-3 py-1.5 border-2 border-blue-400 rounded-lg text-base font-semibold focus:outline-none focus:border-blue-500"
-                    placeholder="0"
-                  />
-                ) : (
-                  <span className="text-lg font-bold text-gray-800">{Math.round(budget)}€</span>
-                )}
+            {/* Riga 1: Icon + Label + Budget/Input */}
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">{CATEGORY_ICONS[groupKey]}</span>
+                <h3 className="font-semibold text-gray-800 text-sm">{CATEGORY_LABELS[groupKey]}</h3>
               </div>
-            </div>
-
-            {/* Info spesa */}
-            <div className="text-sm text-gray-600 mb-2">
-              Speso: <span className="font-medium">{Math.round(spent)}€</span> / {Math.round(budget)}€
-              {budget > 0 && (
-                <span className="ml-2 text-xs">
-                  ({percentageUsed.toFixed(0)}%)
-                </span>
-              )}
-            </div>
-
-            {/* Barra progresso */}
-            <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-              <div
-                className={`h-2 rounded-full transition-all ${
-                  percentageUsed > 100 ? 'bg-red-500' : percentageUsed > 90 ? 'bg-yellow-500' : 'bg-green-500'
-                }`}
-                style={{ width: `${Math.min(percentageUsed, 100)}%` }}
-              />
-            </div>
-
-            {/* Stato */}
-            <div className="text-xs">
-              {percentageUsed > 100 ? (
-                <span className="text-red-600 font-medium">
-                  ❌ Sforato di {Math.round(spent - budget)}€
-                </span>
-              ) : percentageUsed > 90 ? (
-                <span className="text-yellow-600 font-medium">
-                  ⚠️ Rimangono {Math.round(budget - spent)}€
-                </span>
-              ) : budget > 0 ? (
-                <span className="text-green-600 font-medium">
-                  ✅ Rimangono {Math.round(budget - spent)}€
-                </span>
+              
+              {editMode ? (
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={editValues[groupKey] || ''}
+                  onChange={(e) => handleChange(groupKey, e.target.value)}
+                  className="w-20 px-2 py-1 border-2 border-blue-400 rounded-lg text-sm font-semibold text-right focus:outline-none focus:border-blue-500"
+                  placeholder="0"
+                />
               ) : (
-                <span className="text-gray-400">
-                  Nessun budget impostato
-                </span>
+                <span className="text-lg font-bold text-gray-800">{Math.round(budget)}€</span>
               )}
+            </div>
+
+            {/* Riga 2: Barra + Percentuale inline */}
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <div className="flex-1 bg-gray-200 rounded-full h-2">
+                  <div
+                    className={`h-2 rounded-full transition-all ${
+                      percentageUsed > 100 ? 'bg-red-500' : percentageUsed > 90 ? 'bg-yellow-500' : 'bg-green-500'
+                    }`}
+                    style={{ width: `${Math.min(percentageUsed, 100)}%` }}
+                  />
+                </div>
+                <span className="text-xs font-medium text-gray-600 min-w-[35px] text-right">
+                  {percentageUsed.toFixed(0)}%
+                </span>
+              </div>
+              
+              {/* Riga 3: Speso + Rimangono */}
+              <div className="flex justify-between text-xs text-gray-600">
+                <span>Speso <span className="font-medium text-gray-900">{Math.round(spent)}€</span></span>
+                <span className={`font-medium ${
+                  percentageUsed > 100 ? 'text-red-600' : 
+                  percentageUsed > 90 ? 'text-yellow-600' : 
+                  'text-green-600'
+                }`}>
+                  {percentageUsed > 100 ? (
+                    <>Sforato {Math.round(spent - budget)}€</>
+                  ) : budget > 0 ? (
+                    <>Rimangono {Math.round(budget - spent)}€</>
+                  ) : (
+                    <span className="text-gray-400">Nessun budget</span>
+                  )}
+                </span>
+              </div>
             </div>
           </div>
         );

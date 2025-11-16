@@ -6,9 +6,10 @@ import { ArrowRight } from 'lucide-react';
 
 interface BalanceViewProps {
   trip: any;
+  isDesktop?: boolean;
 }
 
-const BalanceView: React.FC<BalanceViewProps> = ({ trip }) => {
+const BalanceView: React.FC<BalanceViewProps> = ({ trip, isDesktop = false }) => {
   // Calcola bilanci e transazioni
   const { balances, transactions } = useMemo(() => {
     return calculateTripBalances(trip);
@@ -45,31 +46,29 @@ const BalanceView: React.FC<BalanceViewProps> = ({ trip }) => {
   };
 
   return (
-    <div className="p-4 space-y-4">
-      {/* Riepilogo Generale */}
-      <div className="bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-xl shadow-lg p-6">
-        <h3 className="text-lg font-semibold mb-4">📊 Riepilogo Generale</h3>
+    <div className={`${isDesktop ? 'space-y-3' : 'space-y-4'}`}>
+      {/* Riepilogo Generale - Versione compatta Opzione A con spacing aumentato */}
+      <div className="bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-xl shadow-lg p-4">
+        {/* Riga 1: Base identica alle altre tab */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-baseline gap-2">
+            <span className="text-xs opacity-75">Totale</span>
+            <span className="text-3xl font-bold">{Math.round(stats.totalSpent)}€</span>
+          </div>
+          <div className="text-sm opacity-90">
+            {stats.activeMembers} {stats.activeMembers === 1 ? 'pers' : 'pers'} • {trip.days?.length || 0} {trip.days?.length === 1 ? 'gg' : 'gg'}
+          </div>
+        </div>
         
-        <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <span className="text-sm opacity-90">Totale speso</span>
-            <span className="text-2xl font-bold">{Math.round(stats.totalSpent)}€</span>
-          </div>
-          
-          <div className="flex justify-between items-center text-sm">
-            <span className="opacity-90">Partecipanti attivi</span>
-            <span className="font-medium">{stats.activeMembers}</span>
-          </div>
-          
-          <div className="flex justify-between items-center text-sm">
-            <span className="opacity-90">Quota media per persona</span>
-            <span className="font-medium">{Math.round(stats.avgShare)}€</span>
-          </div>
+        {/* Riga 2: Quota media evidenziata */}
+        <div className="flex items-center justify-between pt-4 border-t border-white/20">
+          <span className="text-xs opacity-75">Media per persona</span>
+          <span className="text-xl font-bold">{Math.round(stats.avgShare)}€</span>
         </div>
       </div>
 
-      {/* Situazione Individuale */}
-      <div className="space-y-3">
+      {/* Situazione Individuale - Versione compatta con badge */}
+      <div className={`${isDesktop ? 'space-y-2' : 'space-y-3'}`}>
         <h3 className="text-base font-semibold text-gray-800 px-2">👤 Situazione Individuale</h3>
         
         {sortedBalances.map(([uid, data]) => {
@@ -78,19 +77,24 @@ const BalanceView: React.FC<BalanceViewProps> = ({ trip }) => {
           const isBalanced = !isCreditor && !isDebtor;
 
           return (
-            <div key={uid} className="bg-white rounded-xl shadow p-4">
-              <div className="flex items-center gap-3 mb-3">
+            <div key={uid} className="bg-white rounded-xl shadow p-3">
+              <div className="flex items-center gap-3">
+                {/* Avatar */}
                 <Avatar src={data.avatar} name={data.displayName} size="md" />
-                <div className="flex-1">
-                  <h4 className="font-semibold">{data.displayName}</h4>
-                  <p className="text-xs text-gray-500">
-                    {isCreditor && '💚 In credito'}
-                    {isDebtor && '🔴 In debito'}
-                    {isBalanced && '✅ In pari'}
-                  </p>
+                
+                {/* Info principale */}
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-semibold truncate">{data.displayName}</h4>
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <span>Pagato {Math.round(data.paid)}€</span>
+                    <span>•</span>
+                    <span>Doveva {Math.round(data.owes)}€</span>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className={`text-xl font-bold ${
+                
+                {/* Balance con badge */}
+                <div className="flex flex-col items-end gap-1">
+                  <p className={`text-lg font-bold ${
                     isCreditor ? 'text-green-600' : 
                     isDebtor ? 'text-red-600' : 
                     'text-gray-600'
@@ -98,18 +102,15 @@ const BalanceView: React.FC<BalanceViewProps> = ({ trip }) => {
                     {isCreditor && '+'}
                     {Math.round(data.balance)}€
                   </p>
-                </div>
-              </div>
-
-              {/* Dettagli */}
-              <div className="grid grid-cols-2 gap-2 pt-3 border-t text-sm">
-                <div>
-                  <p className="text-gray-500 text-xs">Ha pagato</p>
-                  <p className="font-medium">{Math.round(data.paid)}€</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 text-xs">Doveva pagare</p>
-                  <p className="font-medium">{Math.round(data.owes)}€</p>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                    isCreditor ? 'bg-green-100 text-green-700' : 
+                    isDebtor ? 'bg-red-100 text-red-700' : 
+                    'bg-gray-100 text-gray-600'
+                  }`}>
+                    {isCreditor && 'Credito'}
+                    {isDebtor && 'Debito'}
+                    {isBalanced && 'In pari'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -119,7 +120,7 @@ const BalanceView: React.FC<BalanceViewProps> = ({ trip }) => {
 
       {/* Transazioni Suggerite */}
       {transactions.length > 0 && (
-        <div className="space-y-3">
+        <div className={`${isDesktop ? 'space-y-2' : 'space-y-3'}`}>
           <h3 className="text-base font-semibold text-gray-800 px-2">💸 Come Regolare i Conti</h3>
           
           <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
@@ -127,7 +128,7 @@ const BalanceView: React.FC<BalanceViewProps> = ({ trip }) => {
               Per pareggiare i conti bastano <span className="font-bold text-blue-600">{transactions.length}</span> {transactions.length === 1 ? 'transazione' : 'transazioni'}:
             </p>
             
-            <div className="space-y-3">
+            <div className={`${isDesktop ? 'space-y-2' : 'space-y-3'}`}>
               {transactions.map((transaction, idx) => (
                 <div key={idx} className="bg-white rounded-lg p-3 shadow-sm">
                   <div className="flex items-center justify-between">

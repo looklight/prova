@@ -4,9 +4,10 @@ import { calculateCategoryGroupCost, CATEGORY_GROUPS, CATEGORY_ICONS, CATEGORY_L
 
 interface CategoryBreakdownViewProps {
   trip: any;
+  isDesktop?: boolean;
 }
 
-const CategoryBreakdownView: React.FC<CategoryBreakdownViewProps> = ({ trip }) => {
+const CategoryBreakdownView: React.FC<CategoryBreakdownViewProps> = ({ trip, isDesktop = false }) => {
   const [expandedCategories, setExpandedCategories] = React.useState<Set<string>>(new Set());
 
   const categoryGroups = Object.keys(CATEGORY_GROUPS);
@@ -28,8 +29,25 @@ const CategoryBreakdownView: React.FC<CategoryBreakdownViewProps> = ({ trip }) =
     });
   };
 
+  // 🆕 Calcola numero membri attivi
+  const activeMembers = Object.values(trip.sharing?.members || {})
+    .filter((m: any) => m.status === 'active').length;
+
   return (
-    <div className="p-4 space-y-4">
+    <div className={`${isDesktop ? 'space-y-3' : 'space-y-4'}`}>
+      {/* 🆕 Header card - Identica a Tab "Per Utente" */}
+      <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl p-4 text-white shadow-lg">
+        <div className="flex items-center justify-between">
+          <div className="flex items-baseline gap-2">
+            <span className="text-xs opacity-75">Totale</span>
+            <span className="text-3xl font-bold">{Math.round(totalTrip)}€</span>
+          </div>
+          <div className="text-sm opacity-90">
+            {activeMembers} {activeMembers === 1 ? 'pers' : 'pers'} • {trip.days?.length || 0} {trip.days?.length === 1 ? 'gg' : 'gg'}
+          </div>
+        </div>
+      </div>
+
       {categoryGroups.map(groupKey => {
         const { total, details } = calculateCategoryGroupCost(trip, groupKey);
         if (total === 0) return null;
