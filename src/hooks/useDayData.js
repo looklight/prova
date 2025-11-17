@@ -12,6 +12,7 @@
  * - Aggiunta automatica nuova spesa vuota
  * - ✅ SYNC OTTIMIZZATA: Aggiorna UI quando trip.data cambia (es. da breakdown modal)
  * - ✅ RESET CHIRURGICO: Breakdown vuoto resetta solo costi, non title/media
+ * - 🔧 FIX PARTICIPANTS: Non sovrascrive più i participants quando si aggiorna costBreakdown
  */
 
 import { useState, useEffect, useRef } from 'react';
@@ -20,15 +21,15 @@ import { CATEGORIES } from '../utils/constants';
 // 🔧 Helper per normalizzare otherExpenses (oggetto o array → array)
 const normalizeExpenses = (expenses) => {
   if (!expenses) return [{ id: 1, title: '', cost: '' }];
-  
+
   // Se è già un array, usalo
   if (Array.isArray(expenses)) return expenses;
-  
+
   // Se è un oggetto, converti in array (rimuovi chiavi non-numeriche)
   const entries = Object.entries(expenses)
     .filter(([key]) => !isNaN(parseInt(key))) // Solo chiavi numeriche
     .map(([_, value]) => value);
-  
+
   return entries.length > 0 ? entries : [{ id: 1, title: '', cost: '' }];
 };
 
@@ -39,12 +40,13 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
     CATEGORIES.forEach(cat => {
       const key = `${currentDay.id}-${cat.id}`;
       const cellData = trip.data[key] || {};
-      
+
       data[cat.id] = {
         title: cellData.title || '',
         cost: cellData.cost || '',
         costBreakdown: cellData.costBreakdown || null,
         participants: cellData.participants || null,
+        participantsUpdatedAt: cellData.participantsUpdatedAt || null,  // 🆕 Timestamp
         hasSplitCost: cellData.hasSplitCost || false,
         bookingStatus: cellData.bookingStatus || 'na',
         transportMode: cellData.transportMode || 'treno',
@@ -61,14 +63,15 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
   const [otherExpenses, setOtherExpenses] = useState(() => {
     const key = `${currentDay.id}-otherExpenses`;
     const expensesRaw = trip.data[key];
-    const expenses = normalizeExpenses(expensesRaw); // 🔧 Normalizza
-    
+    const expenses = normalizeExpenses(expensesRaw);
+
     return expenses.map(exp => ({
       id: exp.id,
       title: exp.title || '',
       cost: exp.cost || '',
       costBreakdown: exp.costBreakdown || null,
       participants: exp.participants || null,
+      participantsUpdatedAt: exp.participantsUpdatedAt || null,  // 🆕 Timestamp
       hasSplitCost: exp.hasSplitCost || false
     }));
   });
@@ -85,18 +88,19 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
     }
 
     console.log('🔄 [useDayData] Sync categoryData da trip.data');
-    
+
     const data = {};
-    
+
     CATEGORIES.forEach(cat => {
       const key = `${currentDay.id}-${cat.id}`;
       const cellData = trip.data[key] || {};
-      
+
       data[cat.id] = {
         title: cellData.title || '',
         cost: cellData.cost || '',
         costBreakdown: cellData.costBreakdown || null,
         participants: cellData.participants || null,
+        participantsUpdatedAt: cellData.participantsUpdatedAt || null,  // 🆕 Timestamp
         hasSplitCost: cellData.hasSplitCost || false,
         bookingStatus: cellData.bookingStatus || 'na',
         transportMode: cellData.transportMode || 'treno',
@@ -107,7 +111,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
         notes: cellData.notes || ''
       };
     });
-    
+
     setCategoryData(data);
   }, [currentDay.id, trip.data]);
 
@@ -119,32 +123,33 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
     }
 
     console.log('🔄 [useDayData] Sync otherExpenses da trip.data');
-    
+
     const key = `${currentDay.id}-otherExpenses`;
     const expensesRaw = trip.data[key];
     const expenses = normalizeExpenses(expensesRaw);
-    
+
     const expensesWithBreakdown = expenses.map(exp => ({
       id: exp.id,
       title: exp.title || '',
       cost: exp.cost || '',
       costBreakdown: exp.costBreakdown || null,
       participants: exp.participants || null,
+      participantsUpdatedAt: exp.participantsUpdatedAt || null,  // 🆕 Timestamp
       hasSplitCost: exp.hasSplitCost || false
     }));
-    
+
     setOtherExpenses(expensesWithBreakdown);
   }, [currentDay.id, trip.data]);
 
   // Aggiungi automaticamente una nuova spesa vuota quando l'ultima viene compilata
   useEffect(() => {
     const lastExpense = otherExpenses[otherExpenses.length - 1];
-    
+
     if (lastExpense && (lastExpense.title.trim() !== '' || lastExpense.cost.trim() !== '')) {
-      const hasEmptyExpense = otherExpenses.some(exp => 
+      const hasEmptyExpense = otherExpenses.some(exp =>
         exp.title.trim() === '' && exp.cost.trim() === ''
       );
-      
+
       if (!hasEmptyExpense) {
         addOtherExpense();
       }
@@ -161,13 +166,13 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
   const updateCategory = (catId, field, value) => {
     const key = `${currentDay.id}-${catId}`;
     const currentData = trip.data[key] || {};
-    
+
     let updatedCellData = {
       ...currentData,
       [field]: value
     };
 
-    // 🔧 FIX: Gestisci costBreakdown PRIMA (ha priorità massima)
+    // 🔧 FIX: Gestisci costBreakdown
     if (field === 'costBreakdown') {
       if (Array.isArray(value) && value.length > 0) {
         // Breakdown normale con contributi
@@ -175,47 +180,52 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
         const total = value.reduce((sum, entry) => sum + entry.amount, 0);
         updatedCellData.cost = total.toString();
         updatedCellData.costBreakdown = value;
-        if (!updatedCellData.participants) {
-          updatedCellData.participants = getDefaultParticipants();
-        }
-        console.log('✅ [updateCategory] Breakdown aggiornato:', value);
+
+        // ✅ FIX CRITICO: NON toccare participants qui!
+        // Viene gestito separatamente quando serve
+
+        console.log('✅ [updateCategory] Breakdown aggiornato (participants NON toccato)');
       } else {
         // 🆕 Breakdown vuoto/null = reset SOLO costi (non title/media)
         updatedCellData.costBreakdown = null;
         updatedCellData.participants = null;
+        updatedCellData.participantsUpdatedAt = null;  // 🆕 Reset anche timestamp
         updatedCellData.hasSplitCost = false;
-        updatedCellData.cost = ''; // ← Reset costo
+        updatedCellData.cost = '';
         console.log('🧹 [updateCategory] Reset costi (title/media intatti)');
       }
     }
-    // 🔧 FIX: Se modifichi 'participants', NON toccare il breakdown
+    // 🔧 FIX: Se modifichi 'participants', aggiorna anche timestamp
     else if (field === 'participants') {
       // Salva solo participants, lascia breakdown intatto
-      console.log('✅ [updateCategory] Participants aggiornati:', value);
+      updatedCellData.participants = value;
+      updatedCellData.participantsUpdatedAt = new Date();  // 🆕 Aggiorna timestamp
+      console.log('✅ [updateCategory] Participants aggiornati con timestamp:', value);
     }
     // AUTO-ASSEGNAZIONE: SOLO se modifichi 'cost' E non esiste già breakdown VALIDO
     else if (field === 'cost' && value !== undefined) {
       const amount = parseFloat(value) || 0;
-      
+
       if (amount > 0) {
         // 🔧 FIX: Verifica se esiste breakdown VALIDO (con dati)
-        const hasValidBreakdown = currentData.costBreakdown && 
-                                   Array.isArray(currentData.costBreakdown) &&
-                                   currentData.costBreakdown.length > 0 &&
-                                   currentData.costBreakdown.some(e => e.amount > 0);
-        
+        const hasValidBreakdown = currentData.costBreakdown &&
+          Array.isArray(currentData.costBreakdown) &&
+          currentData.costBreakdown.length > 0 &&
+          currentData.costBreakdown.some(e => e.amount > 0);
+
         if (!hasValidBreakdown) {
-          // SOLO prima assegnazione (breakdown vuoto/null)
+          // ✅ PRIMA ASSEGNAZIONE (breakdown vuoto/null)
           updatedCellData.costBreakdown = [
             { userId: currentUserId, amount: amount }
           ];
           updatedCellData.participants = getDefaultParticipants();
+          updatedCellData.participantsUpdatedAt = new Date();  // 🆕 Inizializza timestamp!
           updatedCellData.hasSplitCost = false;
-          console.log('✅ [updateCategory] Breakdown creato (prima volta)');
+          console.log('✅ [updateCategory] Breakdown creato (prima volta) con timestamp');
         } else {
           // 🔧 Breakdown valido esiste → aggiorna SOLO totali proporzionalmente
           const oldTotal = currentData.costBreakdown.reduce((sum, e) => sum + e.amount, 0);
-          
+
           // Se il totale è identico, NON fare nulla (evita loop infiniti)
           if (Math.abs(amount - oldTotal) > 0.01) {
             const ratio = amount / oldTotal;
@@ -223,6 +233,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
               ...entry,
               amount: Math.round(entry.amount * ratio * 100) / 100
             }));
+            // ⚠️ NON aggiornare participantsUpdatedAt qui (è solo un ricalcolo proporzionale)
             console.log('✅ [updateCategory] Breakdown aggiornato proporzionalmente');
           } else {
             // Totale identico → mantieni breakdown esistente
@@ -233,6 +244,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
         // Cost = 0 → reset tutto
         updatedCellData.costBreakdown = null;
         updatedCellData.participants = null;
+        updatedCellData.participantsUpdatedAt = null;  // 🆕 Reset timestamp
         updatedCellData.hasSplitCost = false;
         updatedCellData.cost = '';
       }
@@ -250,23 +262,23 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
       }
     }));
 
-    console.log('💾 [updateCategory] Stato locale aggiornato:', catId, updatedCellData);
-    
+    console.log('💾 [updateCategory] Stato locale aggiornato:', catId, field);
+
     const updatedData = {
       ...trip.data,
       [key]: updatedCellData
     };
-    
+
     // Salva su Firebase in background (non blocca UI)
     onUpdateTrip({ ...trip, data: updatedData });
   };
 
   const updateOtherExpense = (expenseId, field, value) => {
     const key = `${currentDay.id}-otherExpenses`;
-    
+
     const updated = otherExpenses.map(exp => {
       if (exp.id !== expenseId) return exp;
-      
+
       let updatedExpense = {
         ...exp,
         [field]: value
@@ -279,48 +291,54 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
           const total = value.reduce((sum, entry) => sum + entry.amount, 0);
           updatedExpense.cost = total.toString();
           updatedExpense.costBreakdown = value;
-          if (!updatedExpense.participants) {
-            updatedExpense.participants = getDefaultParticipants();
-          }
-          console.log('✅ [updateOtherExpense] Breakdown aggiornato:', value);
+
+          // ✅ FIX CRITICO: NON toccare participants qui!
+
+          console.log('✅ [updateOtherExpense] Breakdown aggiornato (participants NON toccato)');
         } else {
           // 🆕 Breakdown vuoto = reset SOLO costi (title intatto)
           updatedExpense.costBreakdown = null;
           updatedExpense.participants = null;
+          updatedExpense.participantsUpdatedAt = null;  // 🆕 Reset timestamp
           updatedExpense.hasSplitCost = false;
-          updatedExpense.cost = ''; // ← Reset costo
+          updatedExpense.cost = '';
           console.log('🧹 [updateOtherExpense] Reset costi (title intatto)');
         }
       }
       else if (field === 'participants') {
         // Salva solo participants, lascia breakdown intatto
-        console.log('✅ [updateOtherExpense] Participants aggiornati:', value);
+        updatedExpense.participants = value;
+        updatedExpense.participantsUpdatedAt = new Date();  // 🆕 Aggiorna timestamp
+        console.log('✅ [updateOtherExpense] Participants aggiornati con timestamp:', value);
       }
       else if (field === 'cost' && value !== undefined) {
         const amount = parseFloat(value) || 0;
-        
+
         if (amount > 0) {
-          const hasValidBreakdown = exp.costBreakdown && 
-                                     Array.isArray(exp.costBreakdown) &&
-                                     exp.costBreakdown.length > 0 &&
-                                     exp.costBreakdown.some(e => e.amount > 0);
-          
+          const hasValidBreakdown = exp.costBreakdown &&
+            Array.isArray(exp.costBreakdown) &&
+            exp.costBreakdown.length > 0 &&
+            exp.costBreakdown.some(e => e.amount > 0);
+
           if (!hasValidBreakdown) {
+            // ✅ PRIMA ASSEGNAZIONE
             updatedExpense.costBreakdown = [
               { userId: currentUserId, amount: amount }
             ];
             updatedExpense.participants = getDefaultParticipants();
+            updatedExpense.participantsUpdatedAt = new Date();  // 🆕 Inizializza timestamp!
             updatedExpense.hasSplitCost = false;
-            console.log('✅ [updateOtherExpense] Breakdown creato (prima volta)');
+            console.log('✅ [updateOtherExpense] Breakdown creato (prima volta) con timestamp');
           } else {
             const oldTotal = exp.costBreakdown.reduce((sum, e) => sum + e.amount, 0);
-            
+
             if (Math.abs(amount - oldTotal) > 0.01) {
               const ratio = amount / oldTotal;
               updatedExpense.costBreakdown = exp.costBreakdown.map(entry => ({
                 ...entry,
                 amount: Math.round(entry.amount * ratio * 100) / 100
               }));
+              // ⚠️ NON aggiornare participantsUpdatedAt (ricalcolo proporzionale)
               console.log('✅ [updateOtherExpense] Breakdown aggiornato proporzionalmente');
             } else {
               updatedExpense.costBreakdown = exp.costBreakdown;
@@ -329,28 +347,29 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
         } else {
           updatedExpense.costBreakdown = null;
           updatedExpense.participants = null;
+          updatedExpense.participantsUpdatedAt = null;  // 🆕 Reset timestamp
           updatedExpense.hasSplitCost = false;
           updatedExpense.cost = '';
         }
       }
-      
+
       return updatedExpense;
     });
-    
+
     // Marca come update locale
     isLocalUpdateRef.current = true;
-    
+
     // IMPORTANTE: Aggiorna stato locale PRIMA
     setOtherExpenses(updated);
-    
-    console.log('💾 [updateOtherExpense] Stato locale aggiornato:', updated.find(e => e.id === expenseId));
-    
+
+    console.log('💾 [updateOtherExpense] Stato locale aggiornato:', expenseId, field);
+
     // Poi aggiorna Firebase
     const updatedData = {
       ...trip.data,
       [key]: updated
     };
-    
+
     onUpdateTrip({
       ...trip,
       data: updatedData
@@ -359,23 +378,23 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
 
   const removeOtherExpense = (expenseId) => {
     const key = `${currentDay.id}-otherExpenses`;
-    
+
     let updated;
-    
+
     if (otherExpenses.length === 1) {
       updated = [{ id: Date.now(), title: '', cost: '', costBreakdown: null, participants: null, hasSplitCost: false }];
     } else {
       updated = otherExpenses.filter(exp => exp.id !== expenseId);
     }
-    
+
     isLocalUpdateRef.current = true;
     setOtherExpenses(updated);
-    
+
     const updatedData = {
       ...trip.data,
       [key]: updated
     };
-    
+
     onUpdateTrip({
       ...trip,
       data: updatedData
@@ -385,7 +404,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
   // Aggiungi nuova spesa
   const addOtherExpense = () => {
     const key = `${currentDay.id}-otherExpenses`;
-    
+
     const newExpense = {
       id: Date.now() + Math.floor(Math.random() * 1000),
       title: '',
@@ -394,22 +413,22 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
       participants: null,
       hasSplitCost: false
     };
-    
+
     const updated = [...otherExpenses, newExpense];
-    
+
     isLocalUpdateRef.current = true;
     setOtherExpenses(updated);
-    
+
     const updatedData = {
       ...trip.data,
       [key]: updated
     };
-    
+
     onUpdateTrip({
       ...trip,
       data: updatedData
     });
-    
+
     console.log('✅ Nuova spesa aggiunta:', newExpense.id);
   };
 

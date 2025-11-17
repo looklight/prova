@@ -14,8 +14,10 @@ interface CostBreakdownModalProps {
   categoryLabel: string;
   currentUserId: string;
   tripMembers: Array<{ uid: string; displayName: string; avatar?: string }>;
+  tripSharing: any;  // Struttura completa di sharing del trip (necessaria per timestamp)
   existingBreakdown: Array<{ userId: string; amount: number }> | null;
   existingParticipants?: string[] | null;
+  existingParticipantsUpdatedAt?: any | null;  // 🆕 Timestamp (Date o Firestore Timestamp)
   onClose: () => void;
   onConfirm: (breakdown: Array<{ userId: string; amount: number }> | 'RESET_ALL', participants: string[] | null) => void;
 }
@@ -26,8 +28,10 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
   categoryLabel,
   currentUserId,
   tripMembers,
+  tripSharing,
   existingBreakdown,
   existingParticipants,
+  existingParticipantsUpdatedAt,
   onClose,
   onConfirm
 }) => {
@@ -35,35 +39,95 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
   const [nextId, setNextId] = useState(2);
   const [participants, setParticipants] = useState<Set<string>>(new Set());
 
-  // Inizializza entries e participants con AUTO-INCLUDE membri mancanti
+  // Helper per convertire Firestore Timestamp in Date
+  const toDate = (timestamp: any): Date | null => {
+    if (!timestamp) return null;
+    if (timestamp instanceof Date) return timestamp;
+    if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+      return timestamp.toDate();
+    }
+    return null;
+  };
+
+  // 🆕 AUTO-INCLUDE INTELLIGENTE basato su timestamp
   useEffect(() => {
     if (isOpen) {
-      // Auto-include membri mancanti
+      // ====== GESTIONE PARTICIPANTS ======
       if (existingParticipants && existingParticipants.length > 0) {
+        // Filtra solo membri ancora attivi
         const activeParticipants = existingParticipants.filter(uid =>
           tripMembers.some(m => m.uid === uid)
         );
-        
-        const allActiveMemberIds = tripMembers.map(m => m.uid);
-        const missingMembers = allActiveMemberIds.filter(uid => 
-          !activeParticipants.includes(uid)
-        );
-        
-        if (missingMembers.length > 0) {
-          console.log(`🆕 Auto-inclusi ${missingMembers.length} nuovi membri nei participants`);
-          setParticipants(new Set([...activeParticipants, ...missingMembers]));
+
+        console.log(`✅ [CostBreakdown] Participants caricati da DB:`, activeParticipants);
+
+        const participantsUpdatedDate = toDate(existingParticipantsUpdatedAt);
+        console.log(`📅 [CostBreakdown] Ultimo aggiornamento participants:`, participantsUpdatedDate);
+
+        // 🔧 FIX: AUTO-INCLUDE basato su confronto timestamp EFFETTIVO
+        if (participantsUpdatedDate && tripSharing?.members) {
+          const newMembers: string[] = [];
+
+          tripMembers.forEach(member => {
+            // Skip se già nei participants
+            if (activeParticipants.includes(member.uid)) return;
+
+            // 🆕 Ottieni data aggiunta del membro
+            const memberInfo = tripSharing.members[member.uid];
+            if (!memberInfo) {
+              console.warn(`⚠️ [CostBreakdown] Membro ${member.uid} non trovato in sharing`);
+              return;
+            }
+
+            const memberAddedAt = toDate(memberInfo.addedAt);
+
+            if (!memberAddedAt) {
+              // Membro senza addedAt (legacy o owner originale)
+              console.log(`⚠️ [CostBreakdown] ${member.displayName} senza addedAt, skip auto-include`);
+              return;
+            }
+
+            // ✅ CONFRONTO TIMESTAMP: auto-include SOLO se aggiunto DOPO l'ultimo update
+            if (memberAddedAt > participantsUpdatedDate) {
+              console.log(`🆕 [CostBreakdown] Auto-include ${member.displayName}:`, {
+                addedAt: memberAddedAt.toISOString(),
+                participantsUpdated: participantsUpdatedDate.toISOString(),
+                diff: `${Math.round((memberAddedAt - participantsUpdatedDate) / 1000)}s dopo`
+              });
+              newMembers.push(member.uid);
+            } else {
+              console.log(`⏭️ [CostBreakdown] Skip ${member.displayName} (aggiunto prima dell'ultimo update):`, {
+                addedAt: memberAddedAt.toISOString(),
+                participantsUpdated: participantsUpdatedDate.toISOString()
+              });
+            }
+          });
+
+          if (newMembers.length > 0) {
+            console.log(`✅ [CostBreakdown] Auto-inclusi ${newMembers.length} nuovi membri:`, newMembers);
+            setParticipants(new Set([...activeParticipants, ...newMembers]));
+          } else {
+            console.log(`✅ [CostBreakdown] Nessun nuovo membro da auto-includere`);
+            setParticipants(new Set(activeParticipants));
+          }
         } else {
+          // Nessun timestamp o sharing (spesa legacy)
+          console.log(`⚠️ [CostBreakdown] Nessun timestamp o sharing, skip auto-include`);
           setParticipants(new Set(activeParticipants));
         }
+
       } else {
+        // Prima apertura → includi tutti
+        console.log(`🆕 [CostBreakdown] Prima apertura, inclusi tutti i membri`);
         setParticipants(new Set(tripMembers.map(m => m.uid)));
       }
 
+      // ====== GESTIONE BREAKDOWN ======
       if (existingBreakdown && existingBreakdown.length > 0) {
         const activeBreakdown = existingBreakdown.filter(item =>
           tripMembers.some(m => m.uid === item.userId)
         );
-        
+
         if (activeBreakdown.length > 0) {
           setEntries(
             activeBreakdown.map((item, idx) => ({
@@ -82,7 +146,7 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
         setNextId(2);
       }
     }
-  }, [isOpen, existingBreakdown, existingParticipants, currentUserId, tripMembers]);
+  }, [isOpen, existingBreakdown, existingParticipants, existingParticipantsUpdatedAt, currentUserId, tripMembers, tripSharing]);
 
   const addEntry = () => {
     setEntries([...entries, { id: nextId, userId: currentUserId, amount: '' }]);
@@ -96,7 +160,7 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
   };
 
   const updateEntry = (id: number, field: 'userId' | 'amount', value: string) => {
-    setEntries(entries.map(e => 
+    setEntries(entries.map(e =>
       e.id === id ? { ...e, [field]: value } : e
     ));
   };
@@ -110,14 +174,18 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
           return prev;
         }
         newSet.delete(userId);
-        
-        setEntries(currentEntries => 
-          currentEntries.map(e => 
+
+        // Imposta a 0 l'importo per l'utente escluso
+        setEntries(currentEntries =>
+          currentEntries.map(e =>
             e.userId === userId ? { ...e, amount: '0' } : e
           )
         );
+
+        console.log(`❌ [CostBreakdown] Utente ${userId} escluso dai participants`);
       } else {
         newSet.add(userId);
+        console.log(`✅ [CostBreakdown] Utente ${userId} aggiunto ai participants`);
       }
       return newSet;
     });
@@ -136,7 +204,7 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
       return;
     }
 
-    const validEntries = entries.filter(e => 
+    const validEntries = entries.filter(e =>
       e.userId && e.amount && parseFloat(e.amount) > 0
     );
 
@@ -147,7 +215,7 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
         'I costi di questa spesa verranno azzerati.\n\n' +
         'Vuoi continuare?'
       );
-      
+
       if (confirmed) {
         onConfirm([], []);
         onClose();
@@ -161,6 +229,11 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
       amount: parseFloat(e.amount)
     }));
 
+    console.log(`💾 [CostBreakdown] Salvataggio:`, {
+      breakdown: breakdown.length,
+      participants: Array.from(participants)
+    });
+
     onConfirm(breakdown, Array.from(participants));
     onClose();
   };
@@ -173,7 +246,7 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
       `La categoria tornerà vuota.\n\n` +
       `Questa azione non può essere annullata.`
     );
-    
+
     if (confirmed) {
       onConfirm('RESET_ALL', null);
       onClose();
@@ -190,11 +263,11 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
   const idealShare = participants.size > 0 ? total / participants.size : 0;
 
   return (
-    <div 
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" 
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
       onClick={onClose}
     >
-      <div 
+      <div
         className={`bg-white rounded-2xl w-full ${isDesktop ? 'max-w-md' : 'max-w-[430px]'} max-h-[80vh] overflow-hidden flex flex-col`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -227,8 +300,8 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
                     className={`
                       flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium
                       transition-all duration-200
-                      ${isSelected 
-                        ? 'bg-blue-500 text-white shadow-md' 
+                      ${isSelected
+                        ? 'bg-blue-500 text-white shadow-md'
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }
                     `}
@@ -255,7 +328,7 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
             {entries.map((entry) => {
               const member = getMember(entry.userId);
               const isParticipant = participants.has(entry.userId);
-              
+
               return (
                 <div key={entry.id} className="flex gap-2 items-center">
                   {/* Dropdown Membro con Avatar */}
@@ -272,9 +345,9 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
                       ))}
                     </select>
                     <div className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                      <Avatar 
-                        src={member?.avatar} 
-                        name={member?.displayName || 'Utente'} 
+                      <Avatar
+                        src={member?.avatar}
+                        name={member?.displayName || 'Utente'}
                         size="xs"
                       />
                     </div>
@@ -288,9 +361,8 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
                       value={entry.amount}
                       onChange={(e) => updateEntry(entry.id, 'amount', e.target.value)}
                       placeholder="0"
-                      className={`w-full px-3 py-2.5 pr-7 border rounded-lg text-sm text-center ${
-                        !isParticipant ? 'bg-gray-50 text-gray-400' : ''
-                      }`}
+                      className={`w-full px-3 py-2.5 pr-7 border rounded-lg text-sm text-center ${!isParticipant ? 'bg-gray-50 text-gray-400' : ''
+                        }`}
                       disabled={!isParticipant}
                       onWheel={(e) => e.currentTarget.blur()}
                     />
@@ -328,7 +400,7 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
               <span className="text-sm font-medium text-gray-700">Totale Spesa</span>
               <span className="text-xl font-bold text-blue-700">{total.toFixed(2)} €</span>
             </div>
-            
+
             <div className="flex justify-between items-center text-xs text-gray-600 mb-3">
               <span>Quota per persona</span>
               <span className="font-medium">{idealShare.toFixed(2)} € ({participants.size} {participants.size === 1 ? 'partecipante' : 'partecipanti'})</span>
@@ -343,13 +415,13 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
                     .filter(e => e.userId === userId)
                     .reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
                   const balance = paidAmount - idealShare;
-                  
+
                   return (
                     <div key={userId} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Avatar 
-                          src={member?.avatar} 
-                          name={member?.displayName || 'Utente'} 
+                        <Avatar
+                          src={member?.avatar}
+                          name={member?.displayName || 'Utente'}
                           size="xs"
                         />
                         <span className="text-xs text-gray-600">{member?.displayName}</span>

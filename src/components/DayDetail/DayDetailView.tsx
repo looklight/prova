@@ -12,13 +12,13 @@ import MediaDialog from './MediaDialog';
 import CostBreakdownModal from './CostBreakdownModal';
 import CostSummaryByUserView from './CostSummaryByUserView';
 
-const DayDetailView = ({ 
-  trip, 
-  dayIndex, 
-  onUpdateTrip, 
-  onBack, 
-  onChangeDayIndex, 
-  isDesktop = false, 
+const DayDetailView = ({
+  trip,
+  dayIndex,
+  onUpdateTrip,
+  onBack,
+  onChangeDayIndex,
+  isDesktop = false,
   user,
   highlightCategoryId = null
 }) => {
@@ -47,16 +47,16 @@ const DayDetailView = ({
   const [showFullSummary, setShowFullSummary] = useState(false);
   const [showEmptyCategories, setShowEmptyCategories] = useState(false);
   const [highlightedCategory, setHighlightedCategory] = useState(null);
-  
+
   const hasScrolledRef = useRef(false);
   const [layoutSnapshot, setLayoutSnapshot] = useState(null);
 
   const calculateHasData = useCallback((catId, dataSource) => {
     const key = `${currentDay.id}-${catId}`;
     const data = dataSource[key];
-    
+
     if (!data) return false;
-    
+
     return Boolean(
       data.title?.trim() ||
       data.cost?.trim() ||
@@ -71,20 +71,20 @@ const DayDetailView = ({
   useEffect(() => {
     const alwaysVisible = ['base', 'note'];
     const frozenData = trip.data;
-    
+
     const snapshot = {
       categoriesWithData: CATEGORIES
         .filter(cat => cat.id !== 'otherExpenses')
-        .filter(cat => 
+        .filter(cat =>
           alwaysVisible.includes(cat.id) || calculateHasData(cat.id, frozenData)
         ),
       categoriesWithoutData: CATEGORIES
         .filter(cat => cat.id !== 'otherExpenses')
-        .filter(cat => 
+        .filter(cat =>
           !alwaysVisible.includes(cat.id) && !calculateHasData(cat.id, frozenData)
         )
     };
-    
+
     setLayoutSnapshot(snapshot);
     console.log('📸 Snapshot layout aggiornato per giorno', dayIndex);
   }, [dayIndex, calculateHasData]);
@@ -95,7 +95,7 @@ const DayDetailView = ({
 
   useEffect(() => {
     const hasRealData = categoriesWithData.length > alwaysVisible.length;
-    
+
     if (!hasRealData) {
       setShowEmptyCategories(true);
     } else {
@@ -112,7 +112,7 @@ const DayDetailView = ({
 
     const key = `${currentDay.id}-${highlightCategoryId}`;
     const data = trip.data[key];
-    
+
     const categoryHasData = Boolean(
       data?.title?.trim() ||
       data?.cost?.trim() ||
@@ -122,15 +122,15 @@ const DayDetailView = ({
       data?.mediaNotes?.length ||
       data?.notes?.trim()
     );
-    
+
     const alwaysVisible = ['base', 'note'];
     const isAlwaysVisible = alwaysVisible.includes(highlightCategoryId);
     const needsDropdown = !categoryHasData && !isAlwaysVisible;
-    
+
     if (needsDropdown && !showEmptyCategories) {
       console.log('📂 Espando dropdown per categoria nascosta:', highlightCategoryId);
       setShowEmptyCategories(true);
-      
+
       setTimeout(() => {
         scrollToAndHighlight(highlightCategoryId);
         hasScrolledRef.current = true;
@@ -145,22 +145,22 @@ const DayDetailView = ({
 
   const scrollToAndHighlight = (categoryId, retryCount = 0) => {
     const element = document.getElementById(`category-${categoryId}`);
-    
+
     if (element) {
       console.log('✅ Scrolling a categoria:', categoryId);
-      element.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'center' 
+      element.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
       });
-      
+
       setHighlightedCategory(categoryId);
-      
+
       setTimeout(() => {
         setHighlightedCategory(null);
       }, 800);
     } else {
       console.warn(`⚠️ Elemento #category-${categoryId} non trovato (tentativo ${retryCount + 1}/3)`);
-      
+
       if (retryCount < 3) {
         setTimeout(() => {
           scrollToAndHighlight(categoryId, retryCount + 1);
@@ -197,22 +197,24 @@ const DayDetailView = ({
     setCostBreakdownModal({ isOpen: true, categoryId: null, expenseId });
   };
 
+  // 🔧 FIX CRITICO: Salvataggio atomico di breakdown + participants + timestamp
   const handleConfirmBreakdown = (breakdown, participants) => {
-    console.log('✅ [handleConfirmBreakdown] Salvataggio:', { breakdown, participants });
-    
+    console.log('✅ [handleConfirmBreakdown] Ricevuto:', { breakdown, participants });
+
     // 🆕 Gestisci RESET_ALL
     if (breakdown === 'RESET_ALL') {
       if (costBreakdownModal.categoryId) {
         const categoryId = costBreakdownModal.categoryId;
         const category = CATEGORIES.find(c => c.id === categoryId);
         const key = `${currentDay.id}-${categoryId}`;
-        
+
         // Reset completo a stato vergine
         const emptyData = {
           title: '',
           cost: '',
           costBreakdown: null,
           participants: null,
+          participantsUpdatedAt: null,  // 🆕 Reset anche timestamp
           hasSplitCost: false,
           bookingStatus: 'na',
           transportMode: categoryId.startsWith('spostamenti') ? 'treno' : 'none',
@@ -222,9 +224,9 @@ const DayDetailView = ({
           mediaNotes: [],
           notes: ''
         };
-        
+
         console.log(`🧹 Reset categoria: ${category?.label}`);
-        
+
         onUpdateTrip({
           ...trip,
           data: {
@@ -233,28 +235,36 @@ const DayDetailView = ({
           }
         });
       }
-      // Per altre spese, ignoriamo RESET_ALL (hanno già la X)
       return;
     }
-    
-    // Salvataggio normale
+
+    // ✅ FIX: Salvataggio ATOMICO per categorie normali CON TIMESTAMP
     if (costBreakdownModal.categoryId) {
       const categoryId = costBreakdownModal.categoryId;
       const key = `${currentDay.id}-${categoryId}`;
       const currentData = trip.data[key] || {};
-      
+
       // Calcola totale
       const total = breakdown.reduce((sum, entry) => sum + entry.amount, 0);
-      
-      // Aggiorna TUTTO insieme
+
+      // ✅ AGGIORNA TUTTO INSIEME in un'unica operazione
       const updatedData = {
         ...currentData,
-        costBreakdown: breakdown,
         participants: participants,
+        participantsUpdatedAt: new Date(),  // 🆕 Timestamp aggiornamento
+        costBreakdown: breakdown,
         cost: total.toString(),
-        hasSplitCost: breakdown.length > 0
+        hasSplitCost: breakdown.length > 1
       };
-      
+
+      console.log('💾 [Categoria] Salvataggio atomico con timestamp:', {
+        categoryId,
+        participants,
+        participantsUpdatedAt: updatedData.participantsUpdatedAt,
+        breakdown: breakdown.length,
+        total
+      });
+
       onUpdateTrip({
         ...trip,
         data: {
@@ -262,25 +272,38 @@ const DayDetailView = ({
           [key]: updatedData
         }
       });
-      
-    } else if (costBreakdownModal.expenseId !== null) {
+
+    }
+    // ✅ FIX: Salvataggio ATOMICO per altre spese CON TIMESTAMP
+    else if (costBreakdownModal.expenseId !== null) {
       const key = `${currentDay.id}-otherExpenses`;
       const expensesArray = trip.data[key] || [];
-      
+
       const expenseIndex = expensesArray.findIndex(e => e.id === costBreakdownModal.expenseId);
-      if (expenseIndex === -1) return;
-      
+      if (expenseIndex === -1) {
+        console.warn('⚠️ Spesa non trovata:', costBreakdownModal.expenseId);
+        return;
+      }
+
       const total = breakdown.reduce((sum, entry) => sum + entry.amount, 0);
-      
+
+      // ✅ AGGIORNA TUTTO INSIEME in un'unica operazione
       const updatedExpenses = [...expensesArray];
       updatedExpenses[expenseIndex] = {
         ...updatedExpenses[expenseIndex],
-        costBreakdown: breakdown,
         participants: participants,
+        participantsUpdatedAt: new Date(),  // 🆕 Timestamp aggiornamento
+        costBreakdown: breakdown,
         cost: total.toString(),
-        hasSplitCost: breakdown.length > 0
+        hasSplitCost: breakdown.length > 1
       };
-      
+
+      console.log('💾 [OtherExpense] Salvataggio atomico con timestamp:', {
+        expenseId: costBreakdownModal.expenseId,
+        participants,
+        participantsUpdatedAt: updatedExpenses[expenseIndex].participantsUpdatedAt
+      });
+
       onUpdateTrip({
         ...trip,
         data: {
@@ -352,7 +375,7 @@ const DayDetailView = ({
           onOpenCostBreakdown={handleOpenExpenseBreakdown}
           currentUserId={user.uid}
           tripMembers={trip.sharing?.members}
-          isHighlighted={highlightedCategory === 'otherExpenses'} 
+          isHighlighted={highlightedCategory === 'otherExpenses'}
         />
 
         {categoriesWithoutData.length > 0 && (
@@ -374,12 +397,12 @@ const DayDetailView = ({
                 </>
               )}
             </button>
-            
+
             {showEmptyCategories && (
               <div className="space-y-3 mt-3">
                 {categoriesWithoutData.map((category) => {
                   const suggestion = getSuggestion(category.id);
-                  
+
                   return (
                     <CategoryCard
                       key={category.id}
@@ -449,6 +472,7 @@ const DayDetailView = ({
         }
         currentUserId={user.uid}
         tripMembers={activeMembers}
+        tripSharing={trip.sharing} // 🆕 Passa trip.sharing
         existingBreakdown={
           costBreakdownModal.categoryId
             ? categoryData[costBreakdownModal.categoryId]?.costBreakdown || null
@@ -458,6 +482,11 @@ const DayDetailView = ({
           costBreakdownModal.categoryId
             ? categoryData[costBreakdownModal.categoryId]?.participants || null
             : otherExpenses.find(e => e.id === costBreakdownModal.expenseId)?.participants || null
+        }
+        existingParticipantsUpdatedAt={  // 🆕 Passa timestamp
+          costBreakdownModal.categoryId
+            ? categoryData[costBreakdownModal.categoryId]?.participantsUpdatedAt || null
+            : otherExpenses.find(e => e.id === costBreakdownModal.expenseId)?.participantsUpdatedAt || null
         }
         onClose={() => setCostBreakdownModal({ isOpen: false, categoryId: null, expenseId: null })}
         onConfirm={handleConfirmBreakdown}
