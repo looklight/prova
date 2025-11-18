@@ -487,15 +487,7 @@ const CostSummaryByUserView: React.FC<CostSummaryByUserViewProps> = ({
                       </div>
                       <p className="text-sm text-gray-500">
                         {totalItems} {totalItems === 1 ? 'spesa' : 'spese'} • {categories.length} {categories.length === 1 ? 'categoria' : 'categorie'}
-                      </p>
-                      {/* 🆕 DATA DI USCITA */}
-                      <p className="text-xs text-gray-400 mt-1">
-                        Uscito il {new Date(histUser.leftAt).toLocaleDateString('it-IT', { 
-                          day: 'numeric', 
-                          month: 'short', 
-                          year: 'numeric' 
-                        })}
-                      </p>
+                      </p>   
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="text-right">

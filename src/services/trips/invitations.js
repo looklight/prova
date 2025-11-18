@@ -1,5 +1,4 @@
-// services/trips/invitations.js
-import { db } from '../../firebase'; // ⭐ DUE livelli su
+import { db } from '../../firebase';
 import {
   collection,
   collectionGroup,
@@ -31,7 +30,7 @@ export const inviteMemberByUsername = async (tripId, invitedUserId, invitedUserP
     // Controlla che chi invita sia owner attivo
     const inviterInfo = trip.sharing?.members?.[invitedBy];
     if (!inviterInfo || inviterInfo.role !== 'owner' || inviterInfo.status !== 'active') {
-      throw new Error(`Solo il proprietario può invitare altri utenti`);
+      throw new Error('Solo il proprietario può invitare altri utenti');
     }
 
     // Utente già membro?
@@ -72,13 +71,13 @@ export const inviteMemberByUsername = async (tripId, invitedUserId, invitedUserP
     console.log(`✅ Invito creato: ${invitedUserProfile.username} come member (inviteId=${inviteId})`);
     return inviteId;
   } catch (error) {
-    console.error('❌ Errore creazione invito (raw):', error);
+    console.error('❌ Errore creazione invito:', error);
     throw error;
   }
 };
 
 /**
- * 🆕 AGGIORNATO: Accetta un invito (aggiunge membro come 'member' + auto-include in participants)
+ * 🆕 Accetta invito (aggiunge membro + auto-include participants + ELIMINA invito)
  */
 export const acceptInvitation = async (invitationId, tripId, userId, userProfile) => {
   try {
@@ -122,71 +121,62 @@ export const acceptInvitation = async (invitationId, tripId, userId, userProfile
     let hasUpdates = false;
     let updatedCount = 0;
 
-    // Itera su tutte le celle del viaggio
     Object.keys(updatedData).forEach(key => {
       const cellData = updatedData[key];
       
-      // 🔧 CASO 1: Categorie normali con participants
+      // Categorie normali con participants
       if (cellData && typeof cellData === 'object' && !Array.isArray(cellData)) {
         if (cellData.participants && Array.isArray(cellData.participants)) {
           if (!cellData.participants.includes(userId)) {
             cellData.participants = [...cellData.participants, userId];
             hasUpdates = true;
             updatedCount++;
-            console.log(`  ✅ Aggiunto a participants di ${key}`);
           }
         }
       }
       
-      // 🔧 CASO 2: OtherExpenses (array di spese)
+      // OtherExpenses (array di spese)
       if (key.endsWith('-otherExpenses') && Array.isArray(cellData)) {
-        cellData.forEach((expense, idx) => {
+        cellData.forEach((expense) => {
           if (expense?.participants && Array.isArray(expense.participants)) {
             if (!expense.participants.includes(userId)) {
               expense.participants = [...expense.participants, userId];
               hasUpdates = true;
               updatedCount++;
-              console.log(`  ✅ Aggiunto a participants di ${key}[${idx}]`);
             }
           }
         });
       }
     });
 
-    // Salva le modifiche se necessario
     if (hasUpdates) {
       await updateDoc(tripRef, { 
         data: updatedData,
         updatedAt: new Date()
       });
       console.log(`🎉 Nuovo membro aggiunto a ${updatedCount} spese esistenti`);
-    } else {
-      console.log(`ℹ️ Nessuna spesa con participants da aggiornare`);
     }
 
-    // ⭐ STEP 3: Aggiorna lo stato dell'invito
-    await updateDoc(inviteRef, {
-      status: 'accepted',
-      acceptedAt: new Date()
-    });
-
-    // ⭐ STEP 4: Crea notifica per owner
+    // ⭐ STEP 3: Crea notifica per owner
     await createUsernameInviteAcceptedNotification(
-      invite.invitedBy,      // Owner che ha invitato
+      invite.invitedBy,
       tripId,
-      invite.tripName,       // Nome viaggio dall'invito
-      userProfile            // Chi ha accettato
+      invite.tripName,
+      userProfile
     );
 
-    console.log(`✅ Invito accettato completamente: ${userProfile.username || userProfile.displayName} come member`);
+    // ⭐ STEP 4: 🆕 Elimina invito subito (non serve più)
+    await deleteDoc(inviteRef);
+    
+    console.log(`✅ Invito accettato ed eliminato`);
   } catch (error) {
-    console.error('❌ Errore accettazione invito (raw):', error);
+    console.error('❌ Errore accettazione invito:', error);
     throw error;
   }
 };
 
 /**
- * Rifiuta un invito
+ * 🆕 Rifiuta invito (ELIMINA subito)
  */
 export const rejectInvitation = async (invitationId, tripId, userId) => {
   try {
@@ -198,20 +188,18 @@ export const rejectInvitation = async (invitationId, tripId, userId) => {
     if (invite.invitedUserId !== userId) throw new Error('Questo invito non è per te');
     if (invite.status !== 'pending') throw new Error('Questo invito non è più valido');
 
-    await updateDoc(inviteRef, {
-      status: 'rejected',
-      rejectedAt: new Date()
-    });
-
-    console.log(`❌ Invito rifiutato da ${userId}`);
+    // 🆕 Elimina direttamente (no status update)
+    await deleteDoc(inviteRef);
+    
+    console.log(`✅ Invito rifiutato ed eliminato`);
   } catch (error) {
-    console.error('❌ Errore rifiuto invito (raw):', error);
+    console.error('❌ Errore rifiuto invito:', error);
     throw error;
   }
 };
 
 /**
- * ⭐ NUOVO: Elimina un invito scaduto
+ * 🗑️ Elimina un invito (per owner)
  */
 export const deleteInvitation = async (tripId, invitationId) => {
   try {
@@ -249,7 +237,7 @@ export const loadPendingInvitations = async (userId) => {
     console.log(`✅ Inviti pendenti caricati: ${invitations.length}`);
     return invitations;
   } catch (error) {
-    console.error('❌ Errore caricamento inviti (raw):', error);
+    console.error('❌ Errore caricamento inviti:', error);
     throw error;
   }
 };
@@ -281,14 +269,42 @@ export const subscribeToPendingInvitations = (userId, onInvitationsUpdate, onErr
         onInvitationsUpdate(invitations);
       },
       (error) => {
-        console.error('❌ Errore listener inviti (raw):', error);
+        console.error('❌ Errore listener inviti:', error);
         if (onError) onError(error);
       }
     );
 
     return unsubscribe;
   } catch (error) {
-    console.error('❌ Errore sottoscrizione inviti (raw):', error);
+    console.error('❌ Errore sottoscrizione inviti:', error);
     throw error;
+  }
+};
+
+/**
+ * 🧹 Auto-cleanup inviti scaduti (chiamare al login)
+ * Elimina inviti con expiresAt < now
+ */
+export const cleanupExpiredInvitations = async (userId) => {
+  try {
+    const now = new Date();
+    const invitationsRef = collectionGroup(db, 'invitations');
+    
+    const q = query(
+      invitationsRef,
+      where('invitedUserId', '==', userId),
+      where('status', '==', 'pending'),
+      where('expiresAt', '<', now)
+    );
+    
+    const snapshot = await getDocs(q);
+    const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(deletePromises);
+    
+    if (snapshot.size > 0) {
+      console.log(`🧹 ${snapshot.size} inviti scaduti eliminati`);
+    }
+  } catch (error) {
+    console.error('❌ Errore cleanup inviti:', error);
   }
 };

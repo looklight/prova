@@ -36,7 +36,8 @@ export {
   rejectInvitation,
   loadPendingInvitations,
   subscribeToPendingInvitations,
-  deleteInvitation
+  deleteInvitation,
+  cleanupExpiredInvitations
 } from './invitations';
 
 // Media service

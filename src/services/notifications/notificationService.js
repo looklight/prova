@@ -1,4 +1,3 @@
-// services/notifications/notificationService.js
 import { db } from '../../firebase';
 import { 
   collection, 
@@ -13,17 +12,18 @@ import {
 } from 'firebase/firestore';
 
 /**
- * 🔄 Sottoscrivi alle notifiche non lette dell'utente (real-time)
- * @param {string} userId - ID utente
- * @param {Function} onUpdate - Callback con notifiche aggiornate
- * @returns {Function} - Funzione unsubscribe
+ * 🔄 Sottoscrivi a TUTTE le notifiche recenti (lette e non lette)
+ * Le notifiche vengono mostrate per 7 giorni, poi auto-eliminate
  */
 export const subscribeToNotifications = (userId, onUpdate) => {
   try {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
     const q = query(
       collection(db, 'notifications'),
       where('userId', '==', userId),
-      where('read', '==', false),
+      where('createdAt', '>=', sevenDaysAgo),  // 🆕 Ultime 7 giorni
       orderBy('createdAt', 'desc')
     );
     
@@ -38,7 +38,9 @@ export const subscribeToNotifications = (userId, onUpdate) => {
           });
         });
         
-        console.log(`🔔 Notifiche non lette: ${notifications.length}`);
+        const unreadCount = notifications.filter(n => !n.read).length;
+        console.log(`🔔 Notifiche totali: ${notifications.length} (${unreadCount} non lette)`);
+        
         onUpdate(notifications);
       },
       (error) => {
@@ -50,13 +52,12 @@ export const subscribeToNotifications = (userId, onUpdate) => {
     return unsubscribe;
   } catch (error) {
     console.error('❌ Errore sottoscrizione notifiche:', error);
-    return () => {}; // Ritorna funzione vuota
+    return () => {};
   }
 };
 
 /**
  * ✅ Segna una notifica come letta
- * @param {string} notificationId - ID notifica
  */
 export const markAsRead = async (notificationId) => {
   try {
@@ -65,7 +66,6 @@ export const markAsRead = async (notificationId) => {
       read: true,
       readAt: new Date()
     });
-    
     console.log(`✅ Notifica ${notificationId} segnata come letta`);
   } catch (error) {
     console.error('❌ Errore aggiornamento notifica:', error);
@@ -74,7 +74,6 @@ export const markAsRead = async (notificationId) => {
 
 /**
  * ✅ Segna tutte le notifiche come lette
- * @param {string} userId - ID utente
  */
 export const markAllAsRead = async (userId) => {
   try {
@@ -85,7 +84,6 @@ export const markAllAsRead = async (userId) => {
     );
     
     const snapshot = await getDocs(q);
-    
     const updatePromises = snapshot.docs.map(doc => 
       updateDoc(doc.ref, {
         read: true,
@@ -102,7 +100,6 @@ export const markAllAsRead = async (userId) => {
 
 /**
  * 🗑️ Elimina una notifica
- * @param {string} notificationId - ID notifica
  */
 export const deleteNotification = async (notificationId) => {
   try {
@@ -114,24 +111,28 @@ export const deleteNotification = async (notificationId) => {
 };
 
 /**
- * 🗑️ Elimina tutte le notifiche lette dell'utente
- * @param {string} userId - ID utente
+ * 🧹 Auto-cleanup notifiche vecchie (chiamare al login)
+ * Elimina notifiche più vecchie di 7 giorni
  */
-export const deleteReadNotifications = async (userId) => {
+export const cleanupOldNotifications = async (userId) => {
   try {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
     const q = query(
       collection(db, 'notifications'),
       where('userId', '==', userId),
-      where('read', '==', true)
+      where('createdAt', '<', sevenDaysAgo)  // 🆕 Più vecchie di 7 giorni
     );
     
     const snapshot = await getDocs(q);
-    
     const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
     await Promise.all(deletePromises);
     
-    console.log(`✅ ${snapshot.size} notifiche lette eliminate`);
+    if (snapshot.size > 0) {
+      console.log(`🧹 ${snapshot.size} notifiche vecchie eliminate`);
+    }
   } catch (error) {
-    console.error('❌ Errore eliminazione notifiche:', error);
+    console.error('❌ Errore cleanup notifiche:', error);
   }
 };

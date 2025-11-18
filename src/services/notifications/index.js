@@ -6,7 +6,7 @@ export {
   markAsRead,
   markAllAsRead,
   deleteNotification,
-  deleteReadNotifications
+  cleanupOldNotifications
 } from './notificationService';
 
 // Notification creators
