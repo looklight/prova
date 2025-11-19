@@ -396,7 +396,22 @@ const TravelPlannerApp = ({ user }) => {
   }
 
   if (currentView === 'profile') {
-    return <ProfileView onBack={() => setCurrentView('home')} user={user} trips={trips} />;
+    return (
+      <ProfileView
+        onBack={async () => {
+          // 🆕 Ricarica profilo quando torni alla home
+          try {
+            const profile = await loadUserProfile(user.uid, user.email);
+            setUserProfile(profile);
+          } catch (error) {
+            console.error('Errore ricaricamento profilo:', error);
+          }
+          setCurrentView('home');
+        }}
+        user={user}
+        trips={trips}
+      />
+    );
   }
 
   if (!currentTrip) return null;
