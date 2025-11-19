@@ -57,8 +57,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[90] p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
-        
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <h2 className="text-xl font-bold text-gray-800">Profilo</h2>
@@ -84,12 +83,12 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
             </div>
           ) : (
             <div className="text-center space-y-4">
-              
+
               {/* Avatar */}
               <div className="flex justify-center">
-                <Avatar 
-                  src={avatar} 
-                  name={displayName} 
+                <Avatar
+                  src={avatar}
+                  name={displayName}
                   size="xl"
                   className="border-4 border-gray-200 shadow-lg"
                 />
@@ -132,8 +131,8 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   <p className="flex items-center justify-center gap-2">
                     <span>✈️</span>
                     <span>
-                      Su Look Travel da{' '}
-                      {createdAt.toDate ? 
+                      Membro da{' '}
+                      {createdAt.toDate ?
                         createdAt.toDate().toLocaleDateString('it-IT', {
                           month: 'long',
                           year: 'numeric'
@@ -146,7 +145,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     </span>
                   </p>
                 )}
-                
+
                 {tripContext?.joinedAt && (
                   <p className="flex items-center justify-center gap-2">
                     <span>🤝</span>
