@@ -12,11 +12,44 @@ import {
   orderBy,
   onSnapshot,
   arrayRemove,
-  writeBatch
+  writeBatch,
+  runTransaction
 } from 'firebase/firestore';
-import { getUserRole, canEdit } from './permissions';
+import { canEdit } from './permissions';
 import { calculateUserSnapshot, removeUserFromBreakdowns } from '../../utils/costsUtils';
 import { cleanupTripImages, cleanupTripCover } from '../../utils/storageCleanup';
+
+// ============= HELPER PER CONVERSIONE DATE =============
+
+/**
+ * Converte in modo sicuro un Timestamp Firebase in Date
+ */
+const safeConvertToDate = (timestamp) => {
+  if (!timestamp) return new Date();
+  
+  if (timestamp instanceof Date) return timestamp;
+  
+  if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+    try {
+      return timestamp.toDate();
+    } catch (error) {
+      console.error('❌ Errore conversione Timestamp:', error);
+      return new Date();
+    }
+  }
+  
+  if (typeof timestamp === 'string' || typeof timestamp === 'number') {
+    const date = new Date(timestamp);
+    if (!isNaN(date.getTime())) return date;
+  }
+  
+  if (timestamp.seconds !== undefined) {
+    return new Date(timestamp.seconds * 1000);
+  }
+  
+  console.warn('⚠️ Formato timestamp non riconosciuto:', timestamp);
+  return new Date();
+};
 
 // ============= FUNZIONI PER I VIAGGI =============
 
@@ -46,12 +79,12 @@ export const subscribeToUserTrips = (userId, onTripsUpdate, onError) => {
             trips.push({
               id: docSnap.id,
               ...data,
-              startDate: data.startDate?.toDate() || new Date(),
-              createdAt: data.createdAt?.toDate() || new Date(),
-              updatedAt: data.updatedAt?.toDate() || new Date(),
+              startDate: safeConvertToDate(data.startDate),
+              createdAt: safeConvertToDate(data.createdAt),
+              updatedAt: safeConvertToDate(data.updatedAt),
               days: data.days.map(day => ({
                 ...day,
-                date: day.date?.toDate() || new Date()
+                date: safeConvertToDate(day.date)
               }))
             });
           }
@@ -108,7 +141,7 @@ export const createTrip = async (trip, userProfile) => {
       ...trip,
       metadata,
       sharing,
-      costHistory: [],
+      history: { removedMembers: [] },
       name: metadata.name,
       image: metadata.image,
       startDate: trip.startDate,
@@ -173,9 +206,9 @@ export const updateTrip = async (userId, tripId, updates) => {
  */
 export const updateTripMetadata = async (userId, tripId, metadata) => {
   try {
-    const role = await getUserRole(tripId, userId);
-    if (role !== 'owner') {
-      throw new Error('Solo il proprietario può modificare le informazioni del viaggio');
+    const hasPermission = await canEdit(tripId, userId);
+    if (!hasPermission) {
+      throw new Error('Non hai i permessi per modificare questo viaggio');
     }
     
     const tripRef = doc(db, 'trips', tripId.toString());
@@ -195,104 +228,217 @@ export const updateTripMetadata = async (userId, tripId, metadata) => {
 };
 
 /**
- * ⭐ Abbandona un viaggio (logica WhatsApp)
+ * ⭐ Abbandona un viaggio (logica completa con transaction + cleanup + snapshot)
  */
 export const leaveTrip = async (tripId, userId) => {
   try {
     const tripRef = doc(db, 'trips', tripId.toString());
-    const tripSnap = await getDoc(tripRef);
 
-    if (!tripSnap.exists()) {
-      throw new Error('Viaggio non trovato');
-    }
+    return await runTransaction(db, async (transaction) => {
+      const tripDoc = await transaction.get(tripRef);
 
-    const trip = tripSnap.data();
-    const members = trip.sharing.members;
-
-    if (!members[userId] || members[userId].status !== 'active') {
-      throw new Error('Non sei membro di questo viaggio');
-    }
-
-    const activeMembers = Object.entries(members).filter(
-      ([id, member]) => member.status === 'active'
-    );
-
-    // ⭐ CASO 1: Ultimo membro → Elimina viaggio CON CLEANUP
-    if (activeMembers.length === 1) {
-      console.log('🗑️ Ultimo membro, eliminazione viaggio...');
-
-      try {
-        const tripForCleanup = {
-          id: tripSnap.id,
-          ...trip,
-          days: trip.days.map(day => ({
-            ...day,
-            date: day.date?.toDate?.() || day.date
-          }))
-        };
-
-        console.log('🧹 Cleanup immagini dei giorni...');
-        const result = await cleanupTripImages(tripForCleanup);
-        console.log(`✅ ${result.deletedCount} immagini eliminate`);
-
-        // ⭐ SEMPLIFICATO: cleanupTripCover gestisce sia path che URL
-        if (trip.metadata?.imagePath || trip.metadata?.image) {
-          console.log('🧹 Cleanup cover viaggio...');
-          const coverReference = trip.metadata.imagePath || trip.metadata.image;
-          await cleanupTripCover(coverReference);
-        }
-        
-      } catch (cleanupError) {
-        console.error('⚠️ Errore cleanup immagini:', cleanupError);
+      if (!tripDoc.exists()) {
+        throw new Error('Viaggio non trovato');
       }
 
-      await deleteDoc(tripRef);
-      console.log('✅ Viaggio eliminato definitivamente');
-      return { action: 'deleted' };
-    }
+      const trip = {
+        id: tripDoc.id,
+        ...tripDoc.data(),
+        // Converti date per cleanup immagini
+        days: tripDoc.data().days.map(day => ({
+          ...day,
+          date: safeConvertToDate(day.date)
+        }))
+      };
 
-    // [... resto del codice invariato fino a ...]
+      const members = trip.sharing.members;
 
-    // ⭐ CASO 2: Owner che abbandona
-    if (members[userId].role === 'owner') {
-      const otherMembers = activeMembers.filter(
-        ([id, member]) => id !== userId && member.role === 'member'
+      if (!members[userId] || members[userId].status !== 'active') {
+        throw new Error('Non sei membro di questo viaggio');
+      }
+
+      const activeMembers = Object.entries(members).filter(
+        ([id, member]) => member.status === 'active'
       );
 
-      if (otherMembers.length > 0) {
-        // ... promozione owner (codice invariato)
-      } else {
-        console.log('🗑️ Nessun altro membro, eliminazione viaggio...');
+      // ⭐ CASO 1: Ultimo membro → Elimina viaggio CON CLEANUP
+      if (activeMembers.length === 1) {
+        console.log('🗑️ Ultimo membro, eliminazione viaggio...');
 
+        // Cleanup immagini (fuori dalla transaction)
         try {
-          const tripForCleanup = {
-            id: tripSnap.id,
-            ...trip,
-            days: trip.days.map(day => ({
-              ...day,
-              date: day.date?.toDate?.() || day.date
-            }))
-          };
+          console.log('🧹 Cleanup immagini dei giorni...');
+          const result = await cleanupTripImages(trip);
+          console.log(`✅ ${result.deletedCount} immagini eliminate`);
 
-          await cleanupTripImages(tripForCleanup);
-          
-          // ⭐ SEMPLIFICATO: cleanupTripCover gestisce sia path che URL
           if (trip.metadata?.imagePath || trip.metadata?.image) {
+            console.log('🧹 Cleanup cover viaggio...');
             const coverReference = trip.metadata.imagePath || trip.metadata.image;
             await cleanupTripCover(coverReference);
           }
-          
         } catch (cleanupError) {
           console.error('⚠️ Errore cleanup immagini:', cleanupError);
         }
 
-        await deleteDoc(tripRef);
+        // Elimina inviti link
+        const invitesRef = collection(db, 'invites');
+        const invitesQuery = query(invitesRef, where('tripId', '==', String(tripId)));
+        const invitesSnap = await getDocs(invitesQuery);
+
+        if (!invitesSnap.empty) {
+          const batch = writeBatch(db);
+          invitesSnap.forEach(doc => batch.delete(doc.ref));
+          await batch.commit();
+          console.log(`🗑️ Eliminati ${invitesSnap.size} inviti link`);
+        }
+
+        transaction.delete(tripRef);
         console.log('✅ Viaggio eliminato definitivamente');
         return { action: 'deleted' };
       }
-    }
 
-    // ... resto funzione invariato
+      // ⭐ CASO 2: Owner che abbandona
+      if (members[userId].role === 'owner') {
+        const otherMembers = activeMembers.filter(
+          ([id, member]) => id !== userId && member.role === 'member'
+        );
+
+        if (otherMembers.length > 0) {
+          // Promuovi primo member a owner
+          const [newOwnerId] = otherMembers[0];
+          console.log(`👑 Promozione ${newOwnerId} a owner`);
+
+          // 📸 Calcola snapshot spese
+          console.log('📸 Calcolo snapshot spese...');
+          const expenseSnapshot = calculateUserSnapshot(trip, userId);
+
+          // 🧹 Pulisci breakdown
+          console.log('🧹 Pulizia breakdown...');
+          const cleanedData = removeUserFromBreakdowns(trip.data, userId);
+
+          const memberInfo = members[userId];
+          const snapshotEntry = {
+            userId,
+            displayName: memberInfo.displayName,
+            username: memberInfo.username || null,
+            avatar: memberInfo.avatar || null,
+            removedAt: new Date(),
+            total: expenseSnapshot.total,
+            byCategory: expenseSnapshot.byCategory
+          };
+
+          const updatedSharing = {
+            ...trip.sharing,
+            members: {
+              ...trip.sharing.members,
+              [newOwnerId]: {
+                ...trip.sharing.members[newOwnerId],
+                role: 'owner'
+              },
+              [userId]: {
+                ...trip.sharing.members[userId],
+                status: 'left'
+              }
+            },
+            memberIds: trip.sharing.memberIds.filter(id => id !== userId)
+          };
+
+          const updatedHistory = {
+            removedMembers: [
+              ...(trip.history?.removedMembers || []),
+              snapshotEntry
+            ]
+          };
+
+          transaction.update(tripRef, {
+            sharing: updatedSharing,
+            data: cleanedData,
+            history: updatedHistory,
+            updatedAt: new Date()
+          });
+
+          console.log('✅ Member promosso a owner');
+          return { action: 'left', newOwner: newOwnerId };
+        } else {
+          // Nessun altro membro, elimina viaggio
+          console.log('🗑️ Nessun altro membro, eliminazione viaggio...');
+
+          // Cleanup immagini
+          try {
+            await cleanupTripImages(trip);
+            
+            if (trip.metadata?.imagePath || trip.metadata?.image) {
+              const coverReference = trip.metadata.imagePath || trip.metadata.image;
+              await cleanupTripCover(coverReference);
+            }
+          } catch (cleanupError) {
+            console.error('⚠️ Errore cleanup immagini:', cleanupError);
+          }
+
+          // Elimina inviti link
+          const invitesRef = collection(db, 'invites');
+          const invitesQuery = query(invitesRef, where('tripId', '==', String(tripId)));
+          const invitesSnap = await getDocs(invitesQuery);
+
+          if (!invitesSnap.empty) {
+            const batch = writeBatch(db);
+            invitesSnap.forEach(doc => batch.delete(doc.ref));
+            await batch.commit();
+          }
+
+          transaction.delete(tripRef);
+          console.log('✅ Viaggio eliminato definitivamente');
+          return { action: 'deleted' };
+        }
+      }
+
+      // ⭐ CASO 3: Member normale che abbandona
+      console.log('📸 Calcolo snapshot spese...');
+      const expenseSnapshot = calculateUserSnapshot(trip, userId);
+
+      console.log('🧹 Pulizia breakdown...');
+      const cleanedData = removeUserFromBreakdowns(trip.data, userId);
+
+      const memberInfo = members[userId];
+      const snapshotEntry = {
+        userId,
+        displayName: memberInfo.displayName,
+        username: memberInfo.username || null,
+        avatar: memberInfo.avatar || null,
+        removedAt: new Date(),
+        total: expenseSnapshot.total,
+        byCategory: expenseSnapshot.byCategory
+      };
+
+      const updatedSharing = {
+        ...trip.sharing,
+        members: {
+          ...trip.sharing.members,
+          [userId]: {
+            ...trip.sharing.members[userId],
+            status: 'left'
+          }
+        },
+        memberIds: trip.sharing.memberIds.filter(id => id !== userId)
+      };
+
+      const updatedHistory = {
+        removedMembers: [
+          ...(trip.history?.removedMembers || []),
+          snapshotEntry
+        ]
+      };
+
+      transaction.update(tripRef, {
+        sharing: updatedSharing,
+        data: cleanedData,
+        history: updatedHistory,
+        updatedAt: new Date()
+      });
+
+      console.log('✅ Hai abbandonato il viaggio');
+      return { action: 'left' };
+    });
   } catch (error) {
     console.error('❌ Errore abbandono viaggio:', error);
     throw error;
@@ -300,7 +446,7 @@ export const leaveTrip = async (tripId, userId) => {
 };
 
 /**
- * ⭐ Elimina viaggio per un utente
+ * ⭐ Elimina viaggio per un utente (usa leaveTrip)
  */
 export const deleteTripForUser = async (userId, tripId) => {
   return leaveTrip(tripId, userId);
@@ -328,12 +474,12 @@ export const loadTrip = async (userId, tripId) => {
     return {
       id: snapshot.id,
       ...data,
-      startDate: data.startDate?.toDate() || new Date(),
-      createdAt: data.createdAt?.toDate() || new Date(),
-      updatedAt: data.updatedAt?.toDate() || new Date(),
+      startDate: safeConvertToDate(data.startDate),
+      createdAt: safeConvertToDate(data.createdAt),
+      updatedAt: safeConvertToDate(data.updatedAt),
       days: data.days.map(day => ({
         ...day,
-        date: day.date?.toDate() || new Date()
+        date: safeConvertToDate(day.date)
       }))
     };
   } catch (error) {
@@ -388,6 +534,47 @@ export const updateUserProfileInTrips = async (userId, updates) => {
     return updatedCount;
   } catch (error) {
     console.error('❌ Errore aggiornamento profilo nei viaggi:', error);
+    throw error;
+  }
+};
+
+/**
+ * Carica tutti i viaggi di un utente (snapshot singolo, non real-time)
+ */
+export const loadUserTrips = async (userId) => {
+  try {
+    const tripsRef = collection(db, 'trips');
+    const q = query(
+      tripsRef,
+      where('sharing.memberIds', 'array-contains', userId),
+      orderBy('updatedAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+
+    const trips = [];
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+
+      const member = data.sharing?.members?.[userId];
+      if (member && member.status === 'active') {
+        trips.push({
+          id: docSnap.id,
+          ...data,
+          startDate: safeConvertToDate(data.startDate),
+          createdAt: safeConvertToDate(data.createdAt),
+          updatedAt: safeConvertToDate(data.updatedAt),
+          days: data.days.map(day => ({
+            ...day,
+            date: safeConvertToDate(day.date)
+          }))
+        });
+      }
+    });
+
+    console.log('✅ Viaggi caricati:', trips.length);
+    return trips;
+  } catch (error) {
+    console.error('❌ Errore caricamento viaggi:', error);
     throw error;
   }
 };

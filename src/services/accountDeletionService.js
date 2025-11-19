@@ -18,7 +18,7 @@ import {
 } from 'firebase/firestore';
 import { deleteImageFromStorage } from './mediaService';
 import { loadUserProfile } from './profileService';
-import { loadUserTrips, leaveTrip } from './tripService';
+import { loadUserTrips, leaveTrip } from '../services';
 
 /**
  * 🔑 Re-autenticazione utente (richiesta da Firebase per operazioni sensibili)

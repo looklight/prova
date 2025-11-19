@@ -19,6 +19,7 @@ export {
   leaveTrip,
   deleteTripForUser,
   loadTrip,
+  loadUserTrips,
   updateUserProfileInTrips
 } from './tripOperations';
 
