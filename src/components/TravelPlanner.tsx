@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import HomeView from './HomeView';
 import TripView from './TripView';
-import ProfileView from './ProfileView';
+import { ProfileView } from './Profile';
 import { CATEGORIES } from './constants';
 import { subscribeToUserTrips, createTrip, updateTrip, deleteTripForUser, loadUserProfile } from "../services";
 import { setAnalyticsUserId, updateUserAnalyticsProperties } from "../services/analyticsService";

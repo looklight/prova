@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, User, Crown, Trash2, UserPlus } from 'lucide-react';
 import { removeMember } from '../services/tripService';
 import InviteOptionsModal from './InviteOptionsModal';
-import UserProfileModal from './UserProfileModal';
+import UserProfileModal from './Profile/UserProfileModal';
 import Avatar from './Avatar';
 
 interface TripMembersModalProps {

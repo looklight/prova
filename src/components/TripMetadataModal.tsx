@@ -3,7 +3,7 @@ import { X, Upload, UserPlus, Crown } from 'lucide-react';
 import { resizeAndUploadImage, deleteImageFromStorage } from '../services/mediaService';
 import { IMAGE_COMPRESSION } from '../config/imageConfig';
 import InviteOptionsModal from './InviteOptionsModal';
-import UserProfileModal from './UserProfileModal';
+import UserProfileModal from './Profile/UserProfileModal';
 import Avatar from './Avatar';
 import { normalizeDestination } from '../utils/textUtils';
 import { useAnalytics } from '../hooks/useAnalytics';

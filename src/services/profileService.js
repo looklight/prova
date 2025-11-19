@@ -7,7 +7,9 @@ import {
   setDoc,
   query,
   where,
-  limit
+  limit,
+  collection, 
+  writeBatch
 } from 'firebase/firestore';
 
 // ============= GESTIONE USERNAME UNIVOCI =============
@@ -270,5 +272,43 @@ export const loadPublicProfile = async (userId) => {
   } catch (error) {
     console.error('❌ Errore caricamento profilo pubblico:', error);
     return null;
+  }
+};
+
+/**
+ * 🔄 Aggiorna profilo utente in TUTTI i viaggi dove è membro
+ */
+export const updateUserProfileInTrips = async (userId, updates) => {
+  try {
+    const tripsRef = collection(db, 'trips');
+    const q = query(
+      tripsRef,
+      where('sharing.memberIds', 'array-contains', userId)
+    );
+    
+    const snapshot = await getDocs(q);
+    
+    if (snapshot.empty) {
+      console.log('✅ Nessun viaggio da aggiornare');
+      return;
+    }
+
+    const batch = writeBatch(db);
+    
+    snapshot.forEach(docSnap => {
+      const tripRef = doc(db, 'trips', docSnap.id);
+      batch.update(tripRef, {
+        [`sharing.members.${userId}.displayName`]: updates.displayName,
+        [`sharing.members.${userId}.username`]: updates.username || null,
+        [`sharing.members.${userId}.avatar`]: updates.avatar || null,
+        'updatedAt': new Date()
+      });
+    });
+    
+    await batch.commit();
+    console.log(`✅ Profilo aggiornato in ${snapshot.size} viaggi`);
+  } catch (error) {
+    console.error('❌ Errore aggiornamento profilo nei viaggi:', error);
+    throw error;
   }
 };

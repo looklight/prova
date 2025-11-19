@@ -1,17 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { X, Crown, Loader } from 'lucide-react';
-import { loadPublicProfile } from '../services/profileService';
-import Avatar from './Avatar';
+import { loadPublicProfile } from '../../services/profileService';
+import Avatar from '../Avatar';
 
 interface UserProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
   userId: string;
-  // Dati specifici del viaggio corrente (opzionali)
   tripContext?: {
     role?: 'owner' | 'member';
     joinedAt?: Date;
-    displayName?: string; // fallback se profilo non caricato
+    displayName?: string;
     username?: string;
     avatar?: string;
   };
@@ -49,12 +48,12 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Usa profilo caricato o fallback dai dati del viaggio
   const displayName = profile?.displayName || tripContext?.displayName || 'Utente';
   const username = profile?.username || tripContext?.username;
   const avatar = profile?.avatar || tripContext?.avatar;
   const createdAt = profile?.createdAt;
-  const bio = profile?.bio; // futuro
+  const bio = profile?.bio;
+  const gender = profile?.gender;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[90] p-4">
@@ -104,7 +103,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 )}
               </div>
 
-              {/* Badge Ruolo (se presente nel viaggio) */}
+              {/* Badge Ruolo */}
               {tripContext?.role && (
                 <div className="flex justify-center">
                   {tripContext.role === 'owner' ? (
@@ -120,7 +119,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 </div>
               )}
 
-              {/* Bio (futuro) */}
+              {/* Bio */}
               {bio && (
                 <div className="bg-gray-50 rounded-lg p-4 text-left">
                   <p className="text-sm text-gray-700 leading-relaxed">{bio}</p>
