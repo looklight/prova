@@ -308,24 +308,71 @@ export const leaveTrip = async (tripId, userId) => {
           const [newOwnerId] = otherMembers[0];
           console.log(`👑 Promozione ${newOwnerId} a owner`);
 
-          // 📸 Calcola snapshot spese
+          // 📸 Calcola snapshot spese (con dettaglio completo)
           console.log('📸 Calcolo snapshot spese...');
           const expenseSnapshot = calculateUserSnapshot(trip, userId);
+          
+          console.log('🔍 DEBUG - Snapshot calcolato:', {
+            total: expenseSnapshot.total,
+            categoriesCount: Object.keys(expenseSnapshot.byCategory).length,
+            categories: Object.keys(expenseSnapshot.byCategory)
+          });
 
-          // 🧹 Pulisci breakdown
+          // 🧹 Pulisci breakdown (con clonazione profonda)
           console.log('🧹 Pulizia breakdown...');
-          const cleanedData = removeUserFromBreakdowns(trip.data, userId);
+          const cleanedData = removeUserFromBreakdowns(
+            JSON.parse(JSON.stringify(trip.data)),
+            userId
+          );
+
+          // ✅ Verifica che la pulizia sia avvenuta
+          let remainingReferences = 0;
+          Object.keys(cleanedData).forEach(key => {
+            const cellData = cleanedData[key];
+            
+            if (cellData?.costBreakdown && Array.isArray(cellData.costBreakdown)) {
+              if (cellData.costBreakdown.some(entry => entry.userId === userId)) {
+                console.warn(`⚠️ Riferimento residuo trovato in ${key}`);
+                remainingReferences++;
+              }
+            }
+            
+            if (key.endsWith('-otherExpenses') && Array.isArray(cellData)) {
+              cellData.forEach((expense, idx) => {
+                if (expense?.costBreakdown && Array.isArray(expense.costBreakdown)) {
+                  if (expense.costBreakdown.some(entry => entry.userId === userId)) {
+                    console.warn(`⚠️ Riferimento residuo trovato in ${key}[${idx}]`);
+                    remainingReferences++;
+                  }
+                }
+              });
+            }
+          });
+
+          if (remainingReferences > 0) {
+            console.error(`❌ ATTENZIONE: ${remainingReferences} riferimenti non rimossi!`);
+          } else {
+            console.log('✅ Tutti i riferimenti rimossi correttamente');
+          }
 
           const memberInfo = members[userId];
+          
+          // ⭐ SALVA SNAPSHOT COMPLETO (con dettaglio items per categoria)
           const snapshotEntry = {
             userId,
             displayName: memberInfo.displayName,
             username: memberInfo.username || null,
             avatar: memberInfo.avatar || null,
             removedAt: new Date(),
-            total: expenseSnapshot.total,
-            byCategory: expenseSnapshot.byCategory
+            totalPaid: expenseSnapshot.total,  // ← Usa .total da calculateUserSnapshot
+            byCategory: expenseSnapshot.byCategory  // ← Struttura completa con items
           };
+
+          console.log('💾 Salvataggio snapshot:', {
+            userId,
+            totalPaid: snapshotEntry.totalPaid,
+            categories: Object.keys(snapshotEntry.byCategory)
+          });
 
           const updatedSharing = {
             ...trip.sharing,
@@ -357,13 +404,12 @@ export const leaveTrip = async (tripId, userId) => {
             updatedAt: new Date()
           });
 
-          console.log('✅ Member promosso a owner');
+          console.log('✅ Member promosso a owner + Snapshot salvato');
           return { action: 'left', newOwner: newOwnerId };
         } else {
           // Nessun altro membro, elimina viaggio
           console.log('🗑️ Nessun altro membro, eliminazione viaggio...');
 
-          // Cleanup immagini
           try {
             await cleanupTripImages(trip);
             
@@ -375,7 +421,6 @@ export const leaveTrip = async (tripId, userId) => {
             console.error('⚠️ Errore cleanup immagini:', cleanupError);
           }
 
-          // Elimina inviti link
           const invitesRef = collection(db, 'invites');
           const invitesQuery = query(invitesRef, where('tripId', '==', String(tripId)));
           const invitesSnap = await getDocs(invitesQuery);
@@ -395,20 +440,67 @@ export const leaveTrip = async (tripId, userId) => {
       // ⭐ CASO 3: Member normale che abbandona
       console.log('📸 Calcolo snapshot spese...');
       const expenseSnapshot = calculateUserSnapshot(trip, userId);
+      
+      console.log('🔍 DEBUG - Snapshot calcolato:', {
+        total: expenseSnapshot.total,
+        categoriesCount: Object.keys(expenseSnapshot.byCategory).length,
+        categories: Object.keys(expenseSnapshot.byCategory)
+      });
 
       console.log('🧹 Pulizia breakdown...');
-      const cleanedData = removeUserFromBreakdowns(trip.data, userId);
+      const cleanedData = removeUserFromBreakdowns(
+        JSON.parse(JSON.stringify(trip.data)),
+        userId
+      );
+
+      // ✅ Verifica pulizia
+      let remainingReferences = 0;
+      Object.keys(cleanedData).forEach(key => {
+        const cellData = cleanedData[key];
+        
+        if (cellData?.costBreakdown && Array.isArray(cellData.costBreakdown)) {
+          if (cellData.costBreakdown.some(entry => entry.userId === userId)) {
+            console.warn(`⚠️ Riferimento residuo trovato in ${key}`);
+            remainingReferences++;
+          }
+        }
+        
+        if (key.endsWith('-otherExpenses') && Array.isArray(cellData)) {
+          cellData.forEach((expense, idx) => {
+            if (expense?.costBreakdown && Array.isArray(expense.costBreakdown)) {
+              if (expense.costBreakdown.some(entry => entry.userId === userId)) {
+                console.warn(`⚠️ Riferimento residuo trovato in ${key}[${idx}]`);
+                remainingReferences++;
+              }
+            }
+          });
+        }
+      });
+
+      if (remainingReferences > 0) {
+        console.error(`❌ ATTENZIONE: ${remainingReferences} riferimenti non rimossi!`);
+      } else {
+        console.log('✅ Tutti i riferimenti rimossi correttamente');
+      }
 
       const memberInfo = members[userId];
+      
+      // ⭐ SALVA SNAPSHOT COMPLETO
       const snapshotEntry = {
         userId,
         displayName: memberInfo.displayName,
         username: memberInfo.username || null,
         avatar: memberInfo.avatar || null,
         removedAt: new Date(),
-        total: expenseSnapshot.total,
-        byCategory: expenseSnapshot.byCategory
+        totalPaid: expenseSnapshot.total,  // ← Usa .total
+        byCategory: expenseSnapshot.byCategory  // ← Struttura completa
       };
+
+      console.log('💾 Salvataggio snapshot:', {
+        userId,
+        totalPaid: snapshotEntry.totalPaid,
+        categories: Object.keys(snapshotEntry.byCategory)
+      });
 
       const updatedSharing = {
         ...trip.sharing,
@@ -436,7 +528,7 @@ export const leaveTrip = async (tripId, userId) => {
         updatedAt: new Date()
       });
 
-      console.log('✅ Hai abbandonato il viaggio');
+      console.log('✅ Hai abbandonato il viaggio + Snapshot salvato');
       return { action: 'left' };
     });
   } catch (error) {
@@ -489,6 +581,47 @@ export const loadTrip = async (userId, tripId) => {
 };
 
 /**
+ * Carica tutti i viaggi di un utente (snapshot singolo, non real-time)
+ */
+export const loadUserTrips = async (userId) => {
+  try {
+    const tripsRef = collection(db, 'trips');
+    const q = query(
+      tripsRef,
+      where('sharing.memberIds', 'array-contains', userId),
+      orderBy('updatedAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+
+    const trips = [];
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+
+      const member = data.sharing?.members?.[userId];
+      if (member && member.status === 'active') {
+        trips.push({
+          id: docSnap.id,
+          ...data,
+          startDate: safeConvertToDate(data.startDate),
+          createdAt: safeConvertToDate(data.createdAt),
+          updatedAt: safeConvertToDate(data.updatedAt),
+          days: data.days.map(day => ({
+            ...day,
+            date: safeConvertToDate(day.date)
+          }))
+        });
+      }
+    });
+
+    console.log('✅ Viaggi caricati:', trips.length);
+    return trips;
+  } catch (error) {
+    console.error('❌ Errore caricamento viaggi:', error);
+    throw error;
+  }
+};
+
+/**
  * Aggiorna profilo utente in tutti i viaggi condivisi
  */
 export const updateUserProfileInTrips = async (userId, updates) => {
@@ -534,47 +667,6 @@ export const updateUserProfileInTrips = async (userId, updates) => {
     return updatedCount;
   } catch (error) {
     console.error('❌ Errore aggiornamento profilo nei viaggi:', error);
-    throw error;
-  }
-};
-
-/**
- * Carica tutti i viaggi di un utente (snapshot singolo, non real-time)
- */
-export const loadUserTrips = async (userId) => {
-  try {
-    const tripsRef = collection(db, 'trips');
-    const q = query(
-      tripsRef,
-      where('sharing.memberIds', 'array-contains', userId),
-      orderBy('updatedAt', 'desc')
-    );
-    const snapshot = await getDocs(q);
-
-    const trips = [];
-    snapshot.forEach((docSnap) => {
-      const data = docSnap.data();
-
-      const member = data.sharing?.members?.[userId];
-      if (member && member.status === 'active') {
-        trips.push({
-          id: docSnap.id,
-          ...data,
-          startDate: safeConvertToDate(data.startDate),
-          createdAt: safeConvertToDate(data.createdAt),
-          updatedAt: safeConvertToDate(data.updatedAt),
-          days: data.days.map(day => ({
-            ...day,
-            date: safeConvertToDate(day.date)
-          }))
-        });
-      }
-    });
-
-    console.log('✅ Viaggi caricati:', trips.length);
-    return trips;
-  } catch (error) {
-    console.error('❌ Errore caricamento viaggi:', error);
     throw error;
   }
 };
