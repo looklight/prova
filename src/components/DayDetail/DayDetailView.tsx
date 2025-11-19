@@ -11,6 +11,7 @@ import CostSummary from './CostSummary';
 import MediaDialog from './MediaDialog';
 import CostBreakdownModal from './CostBreakdownModal';
 import CostSummaryByUserView from './CostSummaryByUserView';
+import { useAnalytics } from '../../hooks/useAnalytics';
 
 const DayDetailView = ({
   trip,
@@ -34,7 +35,7 @@ const DayDetailView = ({
   const { categoryData, otherExpenses, updateCategory, updateOtherExpense, removeOtherExpense, addOtherExpense } =
     useDayData(trip, currentDay, onUpdateTrip, user.uid);
 
-  const mediaHandlers = useMediaHandlers(categoryData, updateCategory);
+  const mediaHandlers = useMediaHandlers(categoryData, updateCategory, trip.id);
   const { getSuggestion } = useSuggestions(trip, dayIndex, categoryData);
 
   // Local State
@@ -47,6 +48,7 @@ const DayDetailView = ({
   const [showFullSummary, setShowFullSummary] = useState(false);
   const [showEmptyCategories, setShowEmptyCategories] = useState(false);
   const [highlightedCategory, setHighlightedCategory] = useState(null);
+  const analytics = useAnalytics();
 
   const hasScrolledRef = useRef(false);
   const [layoutSnapshot, setLayoutSnapshot] = useState(null);
@@ -190,10 +192,14 @@ const DayDetailView = ({
   }, [trip.sharing.members]);
 
   const handleOpenCategoryBreakdown = (categoryId) => {
+    // 📊 Track apertura breakdown
+    analytics.trackCostBreakdownOpened(trip.id, categoryId, false);
     setCostBreakdownModal({ isOpen: true, categoryId, expenseId: null });
   };
 
   const handleOpenExpenseBreakdown = (expenseId) => {
+    // 📊 Track apertura breakdown altre spese
+    analytics.trackCostBreakdownOpened(trip.id, 'other', true);
     setCostBreakdownModal({ isOpen: true, categoryId: null, expenseId });
   };
 
@@ -313,6 +319,13 @@ const DayDetailView = ({
       });
     }
   };
+
+  // 📊 Track visualizzazione dettaglio giorno
+  useEffect(() => {
+    if (trip?.id && currentDay?.number !== undefined) {
+      analytics.trackDayDetailViewed(trip.id, currentDay.number, isDesktop);
+    }
+  }, [trip?.id, currentDay?.number, isDesktop]);
 
   if (showFullSummary) {
     return (

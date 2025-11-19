@@ -1,43 +1,82 @@
-// services/mediaService.js
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from '../firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { IMAGE_COMPRESSION } from '../config/imageConfig';
 
 /**
- * Ridimensiona e carica un'immagine su Firebase Storage
- * @param {File} file - File immagine caricato
- * @param {string} path - Percorso Storage (es: 'avatars/USER_ID')
- * @param {number} maxWidth - Larghezza massima
- * @param {number} maxHeight - Altezza massima
- * @param {number} quality - Qualità JPEG (0-1)
- * @returns {Promise<string>} - URL pubblico immagine su Storage
+ * Comprimi e ridimensiona un'immagine
  */
-export const resizeAndUploadImage = async (
-  file, 
-  path, 
-  maxWidth = IMAGE_COMPRESSION.avatar.maxWidth,
-  maxHeight = IMAGE_COMPRESSION.avatar.maxHeight,
-  quality = IMAGE_COMPRESSION.avatar.quality
+const compressImage = (
+  file,
+  maxWidth = 1200,
+  maxHeight = 1200,
+  quality = 0.8
 ) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height *= maxWidth / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width *= maxHeight / height;
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(resolve, 'image/jpeg', quality);
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
+/**
+ * 🖼️ Ridimensiona e carica immagine su Storage
+ * @returns {Promise<{url: string, path: string}>} URL pubblico e path per eliminazione
+ */
+export const resizeAndUploadImage = async (file, storagePath, maxWidth, maxHeight, quality) => {
   try {
-    // 1. Ridimensiona immagine
-    const resizedBlob = await resizeImageToBlob(file, maxWidth, maxHeight, quality);
-    
-    // 2. Upload su Firebase Storage
+    // 1. Comprimi e ridimensiona
+    const compressedBlob = await compressImage(file, maxWidth, maxHeight, quality);
+
+    // 2. Genera nome file unico con timestamp
     const timestamp = Date.now();
-    const filename = `${timestamp}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
-    const storageRef = ref(storage, `${path}/${filename}`);
-    
-    await uploadBytes(storageRef, resizedBlob, {
-      contentType: 'image/jpeg',
-      cacheControl: 'public, max-age=31536000'
-    });
-    
-    // 3. Ottieni URL pubblico
+    const extension = file.name.split('.').pop() || 'jpg';
+    const fileName = `${timestamp}.${extension}`;
+
+    // 3. Path completo (es: "avatars/userId/1234567890.jpg")
+    const fullPath = `${storagePath}/${fileName}`;
+    const storageRef = ref(storage, fullPath);
+
+    // 4. Upload
+    await uploadBytes(storageRef, compressedBlob);
+
+    // 5. Ottieni URL pubblico
     const downloadURL = await getDownloadURL(storageRef);
-    console.log('✅ Immagine caricata su Storage:', downloadURL);
-    
-    return downloadURL;
+
+    console.log('✅ Immagine caricata:', fullPath);
+
+    // ⭐ IMPORTANTE: Ritorna sia URL che path
+    return {
+      url: downloadURL,
+      path: fullPath  // ← Necessario per eliminazione successiva
+    };
   } catch (error) {
     console.error('❌ Errore upload immagine:', error);
     throw error;
@@ -45,60 +84,25 @@ export const resizeAndUploadImage = async (
 };
 
 /**
- * Ridimensiona immagine e restituisce Blob (per upload Storage)
- * @private
+ * 🗑️ Elimina immagine da Storage dato il path
  */
-const resizeImageToBlob = (file, maxWidth, maxHeight, quality) => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    
-    reader.onload = (e) => {
-      const img = new Image();
-      
-      img.onload = () => {
-        // Calcola nuove dimensioni mantenendo proporzioni
-        let width = img.width;
-        let height = img.height;
-        
-        if (width > height) {
-          if (width > maxWidth) {
-            height = Math.round((height * maxWidth) / width);
-            width = maxWidth;
-          }
-        } else {
-          if (height > maxHeight) {
-            width = Math.round((width * maxHeight) / height);
-            height = maxHeight;
-          }
-        }
-        
-        // Crea canvas per ridimensionare
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-        
-        // Converti in Blob JPEG
-        canvas.toBlob(
-          (blob) => {
-            if (blob) {
-              resolve(blob);
-            } else {
-              reject(new Error('Errore conversione immagine'));
-            }
-          },
-          'image/jpeg',
-          quality
-        );
-      };
-      
-      img.onerror = () => reject(new Error('Errore caricamento immagine'));
-      img.src = e.target.result;
-    };
-    
-    reader.onerror = () => reject(new Error('Errore lettura file'));
-    reader.readAsDataURL(file);
-  });
+export const deleteImageFromStorage = async (imagePath) => {
+  if (!imagePath) {
+    console.warn('⚠️ Path immagine vuoto, skip eliminazione');
+    return;
+  }
+
+  try {
+    const imageRef = ref(storage, imagePath);
+    await deleteObject(imageRef);
+    console.log('✅ Immagine eliminata:', imagePath);
+  } catch (error) {
+    // Se file non esiste, non è un errore critico
+    if (error.code === 'storage/object-not-found') {
+      console.warn('⚠️ Immagine già eliminata:', imagePath);
+      return;
+    }
+    console.error('❌ Errore eliminazione immagine:', error);
+    throw error;
+  }
 };

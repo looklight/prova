@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { ChevronLeft, User, Camera, Loader, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
-import { loadUserProfile, updateUserProfile, resizeAndUploadImage, checkUsernameExists, isValidUsername, updateUserProfileInTrips } from "../services";
+import { loadUserProfile, updateUserProfile, checkUsernameExists, isValidUsername, updateUserProfileInTrips } from "../services";
+import { resizeAndUploadImage, deleteImageFromStorage } from "../services/mediaService";
 import { IMAGE_COMPRESSION } from '../config/imageConfig';
 import Avatar from './Avatar';
 
@@ -33,7 +34,7 @@ const ProfileView = ({ onBack, user, trips = [] }) => {
     loadProfile();
   }, [user]);
 
-  // Handler avatar upload
+  // Handler avatar upload con cleanup automatico
   const handleAvatarUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -41,7 +42,19 @@ const ProfileView = ({ onBack, user, trips = [] }) => {
     try {
       setUploadingAvatar(true);
 
-      const avatarURL = await resizeAndUploadImage(
+      // ⭐ STEP 1: Elimina vecchio avatar se esiste
+      if (profile.avatarPath) {
+        try {
+          await deleteImageFromStorage(profile.avatarPath);
+          console.log('🗑️ Vecchio avatar eliminato');
+        } catch (error) {
+          console.warn('⚠️ Errore eliminazione vecchio avatar:', error);
+          // Procedi comunque con upload nuovo
+        }
+      }
+
+      // ⭐ STEP 2: Carica nuovo avatar
+      const { url: avatarURL, path: avatarPath } = await resizeAndUploadImage(
         file,
         `avatars/${user.uid}`,
         IMAGE_COMPRESSION.avatar.maxWidth,
@@ -49,18 +62,29 @@ const ProfileView = ({ onBack, user, trips = [] }) => {
         IMAGE_COMPRESSION.avatar.quality
       );
 
-      // Aggiorna stato locale
-      setProfile({ ...profile, avatar: avatarURL });
+      // ⭐ STEP 3: Aggiorna stato locale con URL e path
+      setProfile({ 
+        ...profile, 
+        avatar: avatarURL,
+        avatarPath: avatarPath  // ← Salva path per future eliminazioni
+      });
 
-      // Aggiorna profilo utente
-      await updateUserProfile(user.uid, { avatar: avatarURL });
+      // ⭐ STEP 4: Salva su Firestore
+      await updateUserProfile(user.uid, { 
+        avatar: avatarURL,
+        avatarPath: avatarPath  // ← Importante per tracking
+      });
 
-      // 🆕 Aggiorna avatar in tutti i viaggi condivisi
-      await updateUserProfileInTrips(user.uid, { avatar: avatarURL });
+      // ⭐ STEP 5: Sincronizza TUTTI i dati del profilo nei viaggi
+      await updateUserProfileInTrips(user.uid, { 
+        avatar: avatarURL,
+        displayName: profile.displayName,
+        username: profile.username
+      });
 
       console.log('✅ Avatar aggiornato ovunque');
     } catch (error) {
-      console.error('Errore upload avatar:', error);
+      console.error('❌ Errore upload avatar:', error);
       alert('Errore nel caricamento dell\'immagine');
     } finally {
       setUploadingAvatar(false);
@@ -71,12 +95,26 @@ const ProfileView = ({ onBack, user, trips = [] }) => {
     if (!profile.avatar) return;
 
     try {
-      setProfile({ ...profile, avatar: null });
-      await updateUserProfile(user.uid, { avatar: null });
-      await updateUserProfileInTrips(user.uid, { avatar: null });
+      // ⭐ Elimina da Storage se esiste path
+      if (profile.avatarPath) {
+        await deleteImageFromStorage(profile.avatarPath);
+        console.log('🗑️ Avatar eliminato da Storage');
+      }
+
+      // Aggiorna profilo
+      setProfile({ ...profile, avatar: null, avatarPath: null });
+      await updateUserProfile(user.uid, { avatar: null, avatarPath: null });
+      
+      // ⭐ Sincronizza anche displayName/username
+      await updateUserProfileInTrips(user.uid, { 
+        avatar: null,
+        displayName: profile.displayName,
+        username: profile.username
+      });
+      
       console.log('✅ Avatar rimosso ovunque');
     } catch (error) {
-      console.error('Errore rimozione avatar:', error);
+      console.error('❌ Errore rimozione avatar:', error);
       alert('Errore nella rimozione dell\'avatar');
     }
   };
@@ -215,7 +253,6 @@ const ProfileView = ({ onBack, user, trips = [] }) => {
           </div>
         </div>
 
-
         {/* Info App */}
         <div className="bg-white rounded-2xl shadow-sm p-6 mb-4">
           <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
@@ -224,7 +261,6 @@ const ProfileView = ({ onBack, user, trips = [] }) => {
           </h3>
           <div className="space-y-1 text-sm text-gray-600">
             <p>Versione 1.0.0</p>
-
           </div>
         </div>
 
@@ -261,7 +297,7 @@ const ProfileView = ({ onBack, user, trips = [] }) => {
               alert('Errore nel salvataggio');
             }
           }}
-          onRemoveAvatar={handleRemoveAvatar} // 👈 Passiamo la funzione
+          onRemoveAvatar={handleRemoveAvatar}
         />
       )}
     </div>
@@ -275,7 +311,7 @@ const ProfileEditModal = ({ profile, onClose, onSave, userId, onRemoveAvatar }) 
   const [saving, setSaving] = useState(false);
 
   // ⭐ Stati per validazione username
-  const [usernameStatus, setUsernameStatus] = useState('idle'); // 'idle' | 'checking' | 'valid' | 'invalid' | 'taken'
+  const [usernameStatus, setUsernameStatus] = useState('idle');
   const [usernameError, setUsernameError] = useState('');
   const [checkTimeout, setCheckTimeout] = useState(null);
 

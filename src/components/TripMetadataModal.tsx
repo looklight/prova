@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { X, Upload, UserPlus, Crown } from 'lucide-react';
-import { resizeAndUploadImage } from '../services';
+import { resizeAndUploadImage, deleteImageFromStorage } from '../services/mediaService';
 import { IMAGE_COMPRESSION } from '../config/imageConfig';
 import InviteOptionsModal from './InviteOptionsModal';
 import UserProfileModal from './UserProfileModal';
 import Avatar from './Avatar';
+import { normalizeDestination } from '../utils/textUtils';
+import { useAnalytics } from '../hooks/useAnalytics';
 
 interface TripMetadataModalProps {
   isOpen: boolean;
@@ -40,6 +42,7 @@ interface TripMetadataModalProps {
 export interface TripMetadata {
   name: string;
   image: string | null;
+  imagePath?: string | null; // ⭐ Aggiungi path per cleanup
   destinations: string[];
   description: string;
 }
@@ -58,9 +61,11 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
   const [newDestination, setNewDestination] = useState('');
   const [description, setDescription] = useState('');
   const [image, setImage] = useState<string | null>(null);
+  const [imagePath, setImagePath] = useState<string | null>(null); // ⭐ Nuovo state
   const [isUploading, setIsUploading] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [selectedUserProfile, setSelectedUserProfile] = useState<string | null>(null);
+  const analytics = useAnalytics();
 
   // Carica dati iniziali quando il modal si apre
   useEffect(() => {
@@ -69,23 +74,39 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
       setDestinations(initialData.destinations || []);
       setDescription(initialData.description || '');
       setImage(initialData.image || null);
+      setImagePath(initialData.imagePath || null); // ⭐ Carica anche path
     } else if (isOpen && !initialData) {
       // Reset per creazione nuovo viaggio
       setTripName('');
       setDestinations([]);
       setDescription('');
       setImage(null);
+      setImagePath(null); // ⭐ Reset path
     }
   }, [isOpen, initialData]);
 
   const addDestination = () => {
     if (newDestination.trim() && destinations.length < 10) {
-      setDestinations([...destinations, newDestination.trim()]);
+      const normalized = normalizeDestination(newDestination.trim());
+      setDestinations([...destinations, normalized]);
+
+      // 📊 Track aggiunta destinazione (solo in edit mode)
+      if (mode === 'edit' && initialData?.tripId) {
+        analytics.trackDestinationAdded(normalized, initialData.tripId, 'edit');
+      }
+
       setNewDestination('');
     }
   };
 
   const removeDestination = (index: number) => {
+    const removedDest = destinations[index];
+
+    // 📊 Track rimozione destinazione (solo in edit mode)
+    if (mode === 'edit' && initialData?.tripId && removedDest) {
+      analytics.trackDestinationRemoved(removedDest, initialData.tripId);
+    }
+
     setDestinations(destinations.filter((_, i) => i !== index));
   };
 
@@ -98,16 +119,25 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Immagine troppo grande (max 5MB)');
-      return;
-    }
+    // ✅ RIMOSSO: Controllo dimensione file (il resize gestisce tutto)
 
     setIsUploading(true);
     try {
       const tripIdForPath = initialData?.tripId || Date.now();
+
+      // ⭐ STEP 1: Elimina vecchia cover se esiste
+      if (imagePath) {
+        try {
+          await deleteImageFromStorage(imagePath);
+          console.log('🗑️ Vecchia cover eliminata');
+        } catch (error) {
+          console.warn('⚠️ Errore eliminazione vecchia cover:', error);
+        }
+      }
+
+      // ⭐ STEP 2: Carica nuova cover
       const path = `trips/${tripIdForPath}/cover`;
-      const imageURL = await resizeAndUploadImage(
+      const { url: imageURL, path: newImagePath } = await resizeAndUploadImage(
         file,
         path,
         IMAGE_COMPRESSION.tripCover.maxWidth,
@@ -116,8 +146,9 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
       );
 
       setImage(imageURL);
+      setImagePath(newImagePath); // ⭐ Salva nuovo path
     } catch (error) {
-      console.error('Errore caricamento immagine:', error);
+      console.error('❌ Errore caricamento immagine:', error);
       alert('Errore nel caricamento dell\'immagine');
     } finally {
       setIsUploading(false);
@@ -130,11 +161,23 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
     const metadata: TripMetadata = {
       name: finalName,
       image,
+      imagePath, // ⭐ Includi path
       destinations,
       description: description.trim()
     };
 
     onSave(metadata);
+
+    // 📊 Track modifiche metadata (solo in edit mode)
+    if (mode === 'edit' && initialData?.tripId) {
+      analytics.trackTripMetadataUpdated(initialData.tripId, {
+        name: tripName !== initialData.name,
+        image: image !== initialData.image,
+        destinations: JSON.stringify(destinations) !== JSON.stringify(initialData.destinations),
+        description: description !== initialData.description
+      });
+    }
+
     onClose();
   };
 
@@ -166,13 +209,13 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
   } : null;
 
   // Lista membri per UserProfileModal
-  const activeMembers = initialData?.sharing?.members 
+  const activeMembers = initialData?.sharing?.members
     ? Object.entries(initialData.sharing.members)
-        .filter(([_, member]) => member.status === 'active')
-        .map(([userId, member]) => ({
-          userId,
-          ...member
-        }))
+      .filter(([_, member]) => member.status === 'active')
+      .map(([userId, member]) => ({
+        userId,
+        ...member
+      }))
     : [];
 
   return (
@@ -216,9 +259,21 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                       />
                       <button
                         type="button"
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           e.preventDefault();
+                          
+                          // ⭐ Elimina da Storage se esiste path
+                          if (imagePath) {
+                            try {
+                              await deleteImageFromStorage(imagePath);
+                              console.log('🗑️ Cover eliminata');
+                            } catch (error) {
+                              console.warn('⚠️ Errore eliminazione cover:', error);
+                            }
+                          }
+                          
                           setImage(null);
+                          setImagePath(null);
                         }}
                         className="absolute -top-1 -right-1 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 shadow-lg"
                       >
@@ -331,17 +386,16 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                         <div
                           key={userId}
                           onClick={() => setSelectedUserProfile(userId)}
-                          className={`border-2 rounded-lg p-3 transition-all cursor-pointer ${
-                            isCurrentUser 
-                              ? 'border-blue-400 bg-blue-100' 
-                              : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
-                          }`}
+                          className={`border-2 rounded-lg p-3 transition-all cursor-pointer ${isCurrentUser
+                            ? 'border-blue-400 bg-blue-100'
+                            : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
+                            }`}
                         >
                           <div className="flex items-center gap-3">
                             {/* Avatar */}
-                            <Avatar 
-                              src={member.avatar} 
-                              name={member.displayName} 
+                            <Avatar
+                              src={member.avatar}
+                              name={member.displayName}
                               size="md"
                             />
 
@@ -359,7 +413,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                                   </span>
                                 )}
                               </div>
-                              
+
                               {/* Riga 2: Username */}
                               {member.username && (
                                 <p className="text-sm text-gray-500 truncate">@{member.username}</p>
@@ -371,14 +425,14 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                     })
                 ) : (
                   // Modalità create: mostra solo currentUser (cliccabile)
-                  <div 
+                  <div
                     onClick={() => setSelectedUserProfile(currentUser.uid)}
                     className="border-2 border-blue-400 bg-blue-100 rounded-lg p-3 cursor-pointer hover:shadow-sm transition-all"
                   >
                     <div className="flex items-center gap-3">
-                      <Avatar 
-                        src={currentUser.photoURL} 
-                        name={currentUser.displayName} 
+                      <Avatar
+                        src={currentUser.photoURL}
+                        name={currentUser.displayName}
                         size="md"
                       />
                       <div className="flex-1 min-w-0">
@@ -410,7 +464,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                     className="w-full mt-3 px-4 py-2.5 bg-white border-2 border-blue-400 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-semibold text-sm flex items-center justify-center gap-2 shadow-sm"
                   >
                     <UserPlus size={18} />
-                    Invita 
+                    Invita
                   </button>
                 )}
 

@@ -9,9 +9,11 @@ import TripMembersModal from './TripMembersModal';
 import CostSummaryByUserView from './DayDetail/CostSummaryByUserView';
 import Avatar from './Avatar';
 import { calculateTripCost } from "../utils/costsUtils";
+import { useAnalytics } from '../hooks/useAnalytics';
 
 const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExportTrip, onImportTrip, onOpenProfile, currentUser }) => {
   const fileInputRef = useRef(null);
+  const analytics = useAnalytics();
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [exportMenu, setExportMenu] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -103,10 +105,10 @@ const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExp
               <h3 className="text-xl font-bold mb-2">
                 {isShared ? 'Esci dal viaggio' : 'Elimina viaggio'}
               </h3>
-              
+
               {/* Messaggio dinamico */}
               <p className="text-gray-600 mb-6">
-                {isShared 
+                {isShared
                   ? `Vuoi uscire da "${deleteConfirm.name}"? Perderai accesso e dati relativi a questo viaggio.`
                   : `Vuoi eliminare "${deleteConfirm.name}"? Questa azione non può essere annullata.`
                 }
@@ -125,11 +127,10 @@ const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExp
                     onDeleteTrip(deleteConfirm.id);
                     setDeleteConfirm(null);
                   }}
-                  className={`flex-1 py-2 px-4 rounded-full font-medium ${
-                    isShared 
-                      ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                  className={`flex-1 py-2 px-4 rounded-full font-medium ${isShared
+                      ? 'bg-blue-500 text-white hover:bg-blue-600'
                       : 'bg-red-500 text-white hover:bg-red-600'
-                  }`}
+                    }`}
                 >
                   {isShared ? 'Esci' : 'Elimina'}
                 </button>
@@ -238,7 +239,13 @@ const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExp
               >
                 <div
                   className="flex items-start gap-4 cursor-pointer"
-                  onClick={() => onOpenTrip(trip.id)}
+                  onClick={() => {
+                    // 📊 Track apertura viaggio
+                    const memberCount = Object.keys(trip.sharing?.members || {}).length;
+                    analytics.trackTripOpened(trip.id, trip.name, trip.days.length, memberCount);
+
+                    onOpenTrip(trip.id);
+                  }}
                 >
                   {/* Avatar viaggio */}
                   <div className="flex-shrink-0">

@@ -4,6 +4,7 @@ import CalendarView from './CalendarView';
 import DayDetailView from './DayDetail/DayDetailView';
 import { UserPlus } from 'lucide-react';
 import { useBudgetSync } from '../hooks/useBudgetSync';
+import { useAnalytics } from '../hooks/useAnalytics';
 
 const useMediaQuery = (query) => {
   const [matches, setMatches] = useState(() => {
@@ -31,7 +32,8 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
   const [view, setView] = useState('calendar');
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [highlightCategoryId, setHighlightCategoryId] = useState(null);
-  
+  const analytics = useAnalytics();
+
   const isDesktop = useMediaQuery('(min-width: 1024px)');
 
   // 💰 Sincronizzazione automatica budget
@@ -51,7 +53,7 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
   const handleOpenDay = (dayIndex, currentScrollPosition = null, categoryId = null) => {
     setSelectedDayIndex(dayIndex);
     setHighlightCategoryId(categoryId);
-    
+
     if (!isDesktop) {
       setScrollPosition(currentScrollPosition);
       setView('detail');
@@ -86,6 +88,13 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
       setView('calendar');
     }
   }, [isDesktop]);
+
+  // 📊 Track apertura calendario
+  useEffect(() => {
+    if (view === 'calendar' && trip?.id) {
+      analytics.trackCalendarViewOpened(trip.id, trip.days.length);
+    }
+  }, [view, trip?.id, trip?.days.length]);
 
   // ========== RENDERING MOBILE ==========
   if (!isDesktop) {

@@ -14,13 +14,15 @@
 
 import { useState } from 'react';
 import { extractVideoId } from '../components/MediaCards';
+import { uploadImage, deleteImage } from '../storageService';
 
-export const useMediaHandlers = (categoryData, updateCategory) => {
+// ⭐ Aggiungi tripId come parametro
+export const useMediaHandlers = (categoryData, updateCategory, tripId) => {
   const [mediaDialogOpen, setMediaDialogOpen] = useState(null);
   const [linkInput, setLinkInput] = useState('');
   const [linkTitle, setLinkTitle] = useState('');
   const [videoInput, setVideoInput] = useState('');
-  const [videoNote, setVideoNote] = useState(''); // 🆕 Stato per nota video
+  const [videoNote, setVideoNote] = useState('');
   const [noteInput, setNoteInput] = useState('');
   const [editingNote, setEditingNote] = useState(null);
 
@@ -44,8 +46,8 @@ export const useMediaHandlers = (categoryData, updateCategory) => {
 
   const addImage = async (categoryId, file) => {
     try {
-      const { uploadImage } = await import('../storageService');
-      const imageData = await uploadImage(file, categoryData.tripId, categoryId);
+      // ⭐ Usa tripId passato come parametro
+      const imageData = await uploadImage(file, tripId, categoryId);
 
       updateCategory(categoryId, 'images', [
         ...categoryData[categoryId].images,
@@ -67,12 +69,12 @@ export const useMediaHandlers = (categoryData, updateCategory) => {
         { 
           ...videoData, 
           url: videoInput, 
-          note: videoNote.trim() || null, // 🆕 Salva nota se presente
+          note: videoNote.trim() || null,
           id: Date.now() 
         }
       ]);
       setVideoInput('');
-      setVideoNote(''); // 🆕 Reset nota
+      setVideoNote('');
       setMediaDialogOpen(null);
     } else {
       alert('URL non valido. Supportati: Instagram, TikTok, YouTube');
@@ -106,7 +108,6 @@ export const useMediaHandlers = (categoryData, updateCategory) => {
 
     if (mediaType === 'images' && mediaItem?.path) {
       try {
-        const { deleteImage } = await import('../storageService');
         await deleteImage(mediaItem.path);
       } catch (error) {
         console.error('Errore eliminazione immagine da Storage:', error);
@@ -134,7 +135,7 @@ export const useMediaHandlers = (categoryData, updateCategory) => {
     setMediaDialogOpen(null);
     setEditingNote(null);
     setNoteInput('');
-    setVideoNote(''); // 🆕 Reset nota video quando chiude
+    setVideoNote('');
   };
 
   return {
@@ -142,14 +143,14 @@ export const useMediaHandlers = (categoryData, updateCategory) => {
     linkInput,
     linkTitle,
     videoInput,
-    videoNote, // 🆕 Esponi stato
+    videoNote,
     noteInput,
     editingNote,
     setMediaDialogOpen,
     setLinkInput,
     setLinkTitle,
     setVideoInput,
-    setVideoNote, // 🆕 Esponi setter
+    setVideoNote,
     setNoteInput,
     setEditingNote,
     addLink,

@@ -13,6 +13,7 @@ import {
   deleteDoc
 } from 'firebase/firestore';
 import { createLinkInviteAcceptedNotification } from '../notifications/inviteNotifications';
+import { trackInviteLinkGenerated, trackInvitationAccepted } from '../analyticsService';
 
 /**
  * Genera un token univoco per il link invito
@@ -36,19 +37,19 @@ export const generateInviteLink = async (tripId, userId) => {
     // Carica info viaggio
     const tripRef = doc(db, 'trips', String(tripId));
     const tripSnap = await getDoc(tripRef);
-    
+
     if (!tripSnap.exists()) {
       throw new Error('Viaggio non trovato');
     }
-    
+
     const trip = tripSnap.data();
-    
+
     // Verifica che l'utente sia owner
     const userInfo = trip.sharing?.members?.[userId];
     if (!userInfo || userInfo.role !== 'owner') {
       throw new Error('Solo il proprietario può generare link invito');
     }
-    
+
     // Invalida link precedenti per questo viaggio
     const invitesRef = collection(db, 'invites');
     const oldLinksQuery = query(
@@ -57,19 +58,19 @@ export const generateInviteLink = async (tripId, userId) => {
       where('status', '==', 'active')
     );
     const oldLinksSnap = await getDocs(oldLinksQuery);
-    
+
     const batch = [];
     oldLinksSnap.forEach(docSnap => {
       batch.push(updateDoc(docSnap.ref, { status: 'expired' }));
     });
     await Promise.all(batch);
-    
+
     console.log(`🔗 Invalidati ${batch.length} link precedenti`);
-    
+
     // Genera nuovo token
     const token = generateToken();
     const inviteRef = doc(db, 'invites', token);
-    
+
     // Crea invito
     const inviteData = {
       token,
@@ -83,9 +84,12 @@ export const generateInviteLink = async (tripId, userId) => {
       status: 'active',
       usedBy: []
     };
-    
+
     await setDoc(inviteRef, inviteData);
-    
+
+    // 📊 Track generazione link
+    trackInviteLinkGenerated(tripId);
+
     console.log('✅ Link invito generato:', token);
     return token;
   } catch (error) {
@@ -101,22 +105,22 @@ export const getInviteDetails = async (token) => {
   try {
     const inviteRef = doc(db, 'invites', token);
     const inviteSnap = await getDoc(inviteRef);
-    
+
     if (!inviteSnap.exists()) {
       throw new Error('Link invito non valido');
     }
-    
+
     const invite = inviteSnap.data();
-    
+
     // Converti timestamp
     const expiresAt = invite.expiresAt?.toDate?.() ?? new Date(invite.expiresAt);
     const createdAt = invite.createdAt?.toDate?.() ?? new Date(invite.createdAt);
-    
+
     // Verifica scadenza
     if (expiresAt < new Date() || invite.status !== 'active') {
       throw new Error('Link invito scaduto');
     }
-    
+
     return {
       ...invite,
       expiresAt,
@@ -138,11 +142,11 @@ export const acceptInviteLink = async (token, userId, userProfile) => {
     // Valida token
     const invite = await getInviteDetails(token);
     console.log('✅ STEP 1: Token valido', invite);
-    
+
     console.log('🔍 STEP 2: Verifica se utente già membro...');
     const tripRef = doc(db, 'trips', invite.tripId);
     const tripSnap = await getDoc(tripRef);
-    
+
     if (!tripSnap.exists()) {
       // Viaggio eliminato, rimuovi invito orfano
       console.log('🗑️ Viaggio non trovato, elimino invito orfano...');
@@ -150,27 +154,27 @@ export const acceptInviteLink = async (token, userId, userProfile) => {
       await deleteDoc(inviteRef);
       throw new Error('Questo viaggio non esiste più');
     }
-    
+
     const trip = tripSnap.data();
-    
+
     // ⭐ CONTROLLO CRITICO: Verifica se utente già membro
     if (trip.sharing?.memberIds?.includes(userId)) {
       const memberInfo = trip.sharing.members?.[userId];
-      
+
       if (memberInfo?.role === 'owner') {
         throw new Error('Sei già il proprietario di questo viaggio');
       }
-      
+
       if (memberInfo?.status === 'active') {
         throw new Error('Sei già membro di questo viaggio');
       }
-      
+
       // Se status è "removed", può ri-entrare
       console.log('ℹ️ Utente era membro rimosso, può rientrare');
     }
-    
+
     console.log('✅ STEP 2: Utente non è membro, può entrare');
-    
+
     console.log('🔍 STEP 3: Preparazione update...');
     const updateData = {
       'sharing.memberIds': arrayUnion(userId),
@@ -186,13 +190,13 @@ export const acceptInviteLink = async (token, userId, userProfile) => {
       },
       'updatedAt': new Date()
     };
-    
+
     console.log('✅ STEP 3: Dati preparati');
     console.log('🔍 STEP 4: Esecuzione updateDoc...');
-    
+
     await updateDoc(tripRef, updateData);
     console.log('✅ STEP 4: Update completato!');
-    
+
     // Aggiorna invito (tracking utilizzo + dettagli)
     console.log('🔍 STEP 5: Aggiornamento tracking invito...');
     const inviteRef = doc(db, 'invites', token);
@@ -205,9 +209,9 @@ export const acceptInviteLink = async (token, userId, userProfile) => {
         username: userProfile.username || null
       }
     });
-    
+
     console.log('✅ STEP 5: Tracking completato!');
-    
+
     // Crea notifica per owner
     console.log('🔍 STEP 6: Creazione notifica per owner...');
     await createLinkInviteAcceptedNotification(
@@ -218,7 +222,11 @@ export const acceptInviteLink = async (token, userId, userProfile) => {
     );
     console.log('✅ STEP 6: Notifica creata!');
     console.log(`✅ Invito accettato tramite link: ${userProfile.username || userProfile.displayName}`);
-    
+
+    // 📊 Track accettazione invito
+    const newMemberCount = Object.keys(trip.sharing?.members || {}).length + 1;
+    trackInvitationAccepted(invite.tripId, invite.tripName, 'link', newMemberCount);
+
     return {
       tripId: invite.tripId,
       tripName: invite.tripName
@@ -242,24 +250,24 @@ export const getActiveInviteLink = async (tripId) => {
       where('tripId', '==', String(tripId)),
       where('status', '==', 'active')
     );
-    
+
     const snapshot = await getDocs(q);
-    
+
     if (snapshot.empty) {
       return null;
     }
-    
+
     // Prendi il primo (dovrebbe essercene solo uno)
     const invite = snapshot.docs[0].data();
     const expiresAt = invite.expiresAt?.toDate?.() ?? new Date(invite.expiresAt);
-    
+
     // Verifica scadenza
     if (expiresAt < new Date()) {
       // Invalida se scaduto
       await updateDoc(snapshot.docs[0].ref, { status: 'expired' });
       return null;
     }
-    
+
     return {
       ...invite,
       expiresAt,
@@ -296,15 +304,15 @@ export const getInviteLinkStats = async (token) => {
   try {
     const inviteRef = doc(db, 'invites', token);
     const inviteSnap = await getDoc(inviteRef);
-    
+
     if (!inviteSnap.exists()) {
       return null;
     }
-    
+
     const invite = inviteSnap.data();
     const usedBy = invite.usedBy || [];
     const usageDetails = invite.usageDetails || {};
-    
+
     // Costruisci array con dettagli utenti
     const users = usedBy.map(userId => {
       const details = usageDetails[userId] || {};
@@ -321,7 +329,7 @@ export const getInviteLinkStats = async (token) => {
       if (!b.acceptedAt) return -1;
       return b.acceptedAt - a.acceptedAt;
     });
-    
+
     return {
       totalUses: usedBy.length,
       users
