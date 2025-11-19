@@ -1,6 +1,6 @@
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { storage } from './firebase';
-import { IMAGE_COMPRESSION } from './config/imageConfig';
+import { storage } from '../firebase';
+import { IMAGE_COMPRESSION } from '../config/imageConfig';
 
 /**
  * Comprimi e ridimensiona un'immagine

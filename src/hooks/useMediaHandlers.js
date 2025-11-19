@@ -14,7 +14,7 @@
 
 import { useState } from 'react';
 import { extractVideoId } from '../components/MediaCards';
-import { uploadImage, deleteImage } from '../storageService';
+import { uploadImage, deleteImage } from '../services/storageService';
 
 // ⭐ Aggiungi tripId come parametro
 export const useMediaHandlers = (categoryData, updateCategory, tripId) => {

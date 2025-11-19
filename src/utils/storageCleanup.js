@@ -1,6 +1,6 @@
 // utils/storageCleanup.js
 
-import { deleteImage } from '../storageService';
+import { deleteImage } from '../services/storageService';
 
 /**
  * 🔧 Estrae il path Storage da un URL Firebase Storage
