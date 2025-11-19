@@ -13,7 +13,6 @@ const Avatar: React.FC<AvatarProps> = ({
   size = 'md',
   className = '' 
 }) => {
-  // Dimensioni predefinite
   const sizeClasses = {
     xs: 'w-6 h-6 text-xs',
     sm: 'w-10 h-10 text-sm',
@@ -23,13 +22,12 @@ const Avatar: React.FC<AvatarProps> = ({
     '2xl': 'w-32 h-32 text-4xl'
   };
 
-  // Estrai iniziale (prima lettera del nome)
   const getInitial = (name: string) => {
     if (!name || name.trim() === '') return '?';
     return name.trim()[0].toUpperCase();
   };
 
-  // Genera colore basato sul nome (consistente per stesso nome)
+  // ⭐ MIGLIORATO: Algoritmo hash più robusto
   const getColorFromName = (name: string) => {
     const colors = [
       'from-blue-500 to-purple-500',
@@ -43,14 +41,20 @@ const Avatar: React.FC<AvatarProps> = ({
       'from-violet-500 to-purple-500',
       'from-emerald-500 to-green-500'
     ];
-    
-    // Hash semplice del nome
+
+    // ⭐ Hash migliorato: considera posizione + carattere
     let hash = 0;
     for (let i = 0; i < name.length; i++) {
-      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+      const char = name.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
     }
-    
-    return colors[Math.abs(hash) % colors.length];
+
+    // ⭐ Assicura sempre positivo con >>> 0 (unsigned right shift)
+    const positiveHash = hash >>> 0;
+    const index = positiveHash % colors.length;
+
+    return colors[index];
   };
 
   const initial = getInitial(name);
