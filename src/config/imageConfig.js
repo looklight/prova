@@ -6,8 +6,8 @@
 export const IMAGE_COMPRESSION = {
   // Avatar profilo utente
   avatar: {
-    maxWidth: 150,
-    maxHeight: 150,
+    maxWidth: 250,
+    maxHeight: 250,
     quality: 0.75
   },
   
@@ -22,7 +22,7 @@ export const IMAGE_COMPRESSION = {
   cellImage: {
     maxWidth: 1200,
     maxHeight: 1200,
-    quality: 0.75
+    quality: 0.8
   }
 };
 
