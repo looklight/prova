@@ -8,6 +8,7 @@ import { setAnalyticsUserId, updateUserAnalyticsProperties } from "../services/a
 import { useAnalytics } from "../hooks/useAnalytics";
 import { isSeriousTrip, getUserEngagementLevel } from "../utils/analyticsHelpers";
 import { calculateTripCost } from "../utils/costsUtils";
+import { exportTripAsJSON, importTrip } from '../services/exportService';
 
 const TravelPlannerApp = ({ user }) => {
   const [currentView, setCurrentView] = useState('home');
@@ -43,19 +44,17 @@ const TravelPlannerApp = ({ user }) => {
   useEffect(() => {
     if (!user) return;
 
-    console.time('📝 Load Profile'); // ← Misura tempo
+    console.time('📝 Load Profile');
 
     const loadProfile = async () => {
       try {
         const profile = await loadUserProfile(user.uid, user.email);
         setUserProfile(profile);
-        // 📊 Imposta User ID per analytics
         setAnalyticsUserId(user.uid);
         console.timeEnd('📝 Load Profile');
         console.log('✅ Profilo caricato:', profile.displayName);
       } catch (error) {
         console.error('❌ Errore caricamento profilo:', error);
-        // Fallback ai dati Auth
         setUserProfile({
           displayName: user.displayName || 'Utente',
           username: null,
@@ -73,7 +72,7 @@ const TravelPlannerApp = ({ user }) => {
   useEffect(() => {
     if (!user?.uid) return;
 
-    console.time('📦 Load Trips'); // ← Misura tempo
+    console.time('📦 Load Trips');
     console.log('🔄 Inizializzazione listener real-time...');
 
     const unsubscribe = subscribeToUserTrips(
@@ -83,11 +82,11 @@ const TravelPlannerApp = ({ user }) => {
         console.log('🔥 Viaggi aggiornati:', updatedTrips.length);
 
         setTrips(updatedTrips);
-        setLoading(false); // ← Mostra UI appena arrivano i viaggi
+        setLoading(false);
       },
       (error) => {
         console.error('❌ Errore listener viaggi:', error);
-        setLoading(false); // ← Mostra UI anche in caso di errore
+        setLoading(false);
         alert('Errore nella sincronizzazione dei viaggi');
       }
     );
@@ -135,12 +134,8 @@ const TravelPlannerApp = ({ user }) => {
   const updateCurrentTrip = async (updates) => {
     try {
       console.log('💾 Salvataggio modifiche...');
-
-      // Salva su Firestore in background
       await updateTrip(user.uid, currentTripId, updates);
-
       console.log('✅ Modifiche salvate su Firestore');
-
     } catch (error) {
       console.error('❌ Errore aggiornamento viaggio:', error);
       alert('Errore nel salvataggio delle modifiche');
@@ -151,6 +146,18 @@ const TravelPlannerApp = ({ user }) => {
     try {
       const finalName = metadata?.name || 'Nuovo Viaggio';
 
+      // 🆕 Crea 3 giorni di default invece di 1
+      const startDate = new Date();
+      const days = Array.from({ length: 3 }, (_, i) => {
+        const date = new Date(startDate);
+        date.setDate(startDate.getDate() + i);
+        return {
+          id: Date.now() + i,
+          date,
+          number: i + 1
+        };
+      });
+
       const newTrip = {
         id: Date.now(),
         name: finalName,
@@ -158,19 +165,19 @@ const TravelPlannerApp = ({ user }) => {
         metadata: {
           name: finalName,
           image: metadata?.image || null,
+          imagePath: metadata?.imagePath || null,
           destinations: metadata?.destinations || [],
           description: metadata?.description || ''
         },
         startDate: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),
-        days: [{ id: Date.now(), date: new Date(), number: 1 }],
+        days: days,
         data: {}
       };
 
       console.log('💾 Creazione nuovo viaggio...');
 
-      // 🚀 OTTIMIZZAZIONE: Usa profilo se disponibile, altrimenti Auth
       const ownerProfile = userProfile ? {
         uid: user.uid,
         displayName: userProfile.displayName,
@@ -184,16 +191,11 @@ const TravelPlannerApp = ({ user }) => {
       };
 
       await createTrip(newTrip, ownerProfile);
-
-      // 📊 Track creazione viaggio
       analytics.trackTripCreated(newTrip);
-
       console.log('✅ Viaggio creato');
 
-      // 🚀 OTTIMIZZAZIONE: Apri subito il viaggio (UI ottimistica)
       setCurrentTripId(newTrip.id);
       setCurrentView('trip');
-
     } catch (error) {
       console.error('❌ Errore creazione viaggio:', error);
       alert('Errore nella creazione del viaggio');
@@ -203,7 +205,6 @@ const TravelPlannerApp = ({ user }) => {
   const deleteTripHandler = async (tripId) => {
     try {
       console.log('🗑️ Eliminazione viaggio...');
-      // 📊 Track eliminazione
       const trip = trips.find(t => t.id === tripId);
       if (trip) {
         const memberCount = Object.keys(trip.sharing?.members || {}).length;
@@ -223,134 +224,73 @@ const TravelPlannerApp = ({ user }) => {
     setCurrentView('trip');
   };
 
-  const exportTrip = (tripId) => {
-    const trip = trips.find(t => t.id === tripId);
-    if (!trip) return;
-
-    const exportData = {
-      version: "1.0",
-      trip: {
-        name: trip.name,
-        image: trip.image,
-        startDate: trip.startDate.toISOString(),
-        days: trip.days.map(day => ({
-          number: day.number,
-          date: day.date.toISOString(),
-          categories: {}
-        }))
+  // 🆕 Export base (senza media)
+  const exportTripBase = (tripId) => {
+    try {
+      const trip = trips.find(t => t.id === tripId);
+      if (!trip) {
+        throw new Error('Viaggio non trovato');
       }
-    };
 
-    const categoryIds = ['base', 'pernottamento', 'attivita1', 'attivita2', 'attivita3',
-      'spostamenti1', 'spostamenti2', 'ristori1', 'ristori2', 'note'];
-
-    trip.days.forEach((day, dayIndex) => {
-      categoryIds.forEach(catId => {
-        const data = trip.data[`${day.id}-${catId}`];
-        if (data && (data.title || data.cost || data.notes)) {
-          exportData.trip.days[dayIndex].categories[catId] = data;
-        }
-      });
-    });
-
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${trip.name.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    // 📊 Track export
-    const totalCost = calculateTripCost(trip);
-    analytics.trackTripExported(tripId, trip.name, trip.days.length, totalCost);
+      exportTripAsJSON(trip, false); // ← Senza media
+      
+      const totalCost = calculateTripCost(trip);
+      analytics.trackTripExported(tripId, trip.name, trip.days.length, totalCost);
+    } catch (error) {
+      console.error('❌ Errore export:', error);
+      alert('Errore nell\'esportazione del viaggio');
+    }
   };
 
-  const importTrip = async (file) => {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const importData = JSON.parse(e.target.result);
-
-        if (!importData.trip || !importData.trip.days) {
-          alert('❌ File non valido!');
-          return;
-        }
-
-        let tripName = importData.trip.name;
-        let counter = 2;
-        while (trips.some(t => t.name === tripName)) {
-          tripName = `${importData.trip.name} (${counter})`;
-          counter++;
-        }
-
-        const newTrip = {
-          id: Date.now(),
-          name: tripName,
-          image: importData.trip.image || null,
-          startDate: new Date(importData.trip.startDate),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          days: importData.trip.days.map(day => ({
-            id: Date.now() + Math.random(),
-            date: new Date(day.date),
-            number: day.number
-          })),
-          data: {}
-        };
-
-        importData.trip.days.forEach((day, dayIndex) => {
-          const newDayId = newTrip.days[dayIndex].id;
-
-          if (day.categories) {
-            Object.keys(day.categories).forEach(catId => {
-              const categoryData = day.categories[catId];
-              newTrip.data[`${newDayId}-${catId}`] = {
-                title: categoryData.title || '',
-                cost: categoryData.cost || '',
-                notes: categoryData.notes || '',
-                bookingStatus: categoryData.bookingStatus || 'na',
-                transportMode: categoryData.transportMode || 'none',
-                links: categoryData.links || [],
-                images: categoryData.images || [],
-                videos: categoryData.videos || [],
-                mediaNotes: categoryData.mediaNotes || []
-              };
-            });
-          }
-        });
-
-        const ownerProfile = userProfile ? {
-          uid: user.uid,
-          displayName: userProfile.displayName,
-          username: userProfile.username,
-          avatar: userProfile.avatar
-        } : {
-          uid: user.uid,
-          displayName: user.displayName || 'Utente',
-          username: null,
-          avatar: user.photoURL
-        };
-
-        await createTrip(newTrip, ownerProfile);
-
-        // 📊 Track import
-        const categoriesWithData = Object.keys(importData.trip.days[0]?.categories || {}).length;
-        analytics.trackTripImported(tripName, newTrip.days.length, categoriesWithData);
-
-        console.log('✅ Viaggio importato');
-        alert(`✅ Viaggio "${tripName}" importato con successo!`);
-      } catch (error) {
-        console.error('❌ Errore import:', error);
-        alert('❌ Errore durante l\'importazione!');
+  // 🆕 Export con media
+  const exportTripWithMedia = (tripId) => {
+    try {
+      const trip = trips.find(t => t.id === tripId);
+      if (!trip) {
+        throw new Error('Viaggio non trovato');
       }
-    };
-    reader.readAsText(file);
+
+      exportTripAsJSON(trip, true); // ← Con media
+      
+      const totalCost = calculateTripCost(trip);
+      analytics.trackTripExported(tripId, trip.name, trip.days.length, totalCost);
+    } catch (error) {
+      console.error('❌ Errore export:', error);
+      alert('Errore nell\'esportazione del viaggio');
+    }
+  };
+
+  // Import
+  const importTripHandler = async (file) => {
+    try {
+      const newTrip = await importTrip(file);
+
+      const ownerProfile = userProfile ? {
+        uid: user.uid,
+        displayName: userProfile.displayName,
+        username: userProfile.username,
+        avatar: userProfile.avatar
+      } : {
+        uid: user.uid,
+        displayName: user.displayName || 'Utente',
+        username: null,
+        avatar: user.photoURL
+      };
+
+      await createTrip(newTrip, ownerProfile);
+
+      const categoriesWithData = Object.keys(newTrip.data || {}).length;
+      analytics.trackTripImported(newTrip.name, newTrip.days.length, categoriesWithData);
+
+      console.log('✅ Viaggio importato:', newTrip.name);
+      alert(`✅ Viaggio "${newTrip.name}" importato con successo!`);
+    } catch (error) {
+      console.error('❌ Errore import:', error);
+      alert('❌ Errore durante l\'importazione. Verifica che il file sia valido.');
+    }
   };
 
   // 🚀 OTTIMIZZAZIONE 4: Progressive loading - mostra UI appena possibile
-  // Mostra loading SOLO se non abbiamo né viaggi né profilo
   if (loading && trips.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -388,8 +328,9 @@ const TravelPlannerApp = ({ user }) => {
       onCreateNew={createNewTrip}
       onOpenTrip={openTrip}
       onDeleteTrip={deleteTripHandler}
-      onExportTrip={exportTrip}
-      onImportTrip={importTrip}
+      onExportTripBase={exportTripBase}
+      onExportTripWithMedia={exportTripWithMedia}
+      onImportTrip={importTripHandler}
       onOpenProfile={() => setCurrentView('profile')}
       currentUser={userProps}
     />;
@@ -399,7 +340,6 @@ const TravelPlannerApp = ({ user }) => {
     return (
       <ProfileView
         onBack={async () => {
-          // 🆕 Ricarica profilo quando torni alla home
           try {
             const profile = await loadUserProfile(user.uid, user.email);
             setUserProfile(profile);

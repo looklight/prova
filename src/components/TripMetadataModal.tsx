@@ -42,7 +42,7 @@ interface TripMetadataModalProps {
 export interface TripMetadata {
   name: string;
   image: string | null;
-  imagePath?: string | null; // ⭐ Aggiungi path per cleanup
+  imagePath?: string | null;
   destinations: string[];
   description: string;
 }
@@ -61,7 +61,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
   const [newDestination, setNewDestination] = useState('');
   const [description, setDescription] = useState('');
   const [image, setImage] = useState<string | null>(null);
-  const [imagePath, setImagePath] = useState<string | null>(null); // ⭐ Nuovo state
+  const [imagePath, setImagePath] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [selectedUserProfile, setSelectedUserProfile] = useState<string | null>(null);
@@ -74,14 +74,14 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
       setDestinations(initialData.destinations || []);
       setDescription(initialData.description || '');
       setImage(initialData.image || null);
-      setImagePath(initialData.imagePath || null); // ⭐ Carica anche path
+      setImagePath(initialData.imagePath || null);
     } else if (isOpen && !initialData) {
       // Reset per creazione nuovo viaggio
       setTripName('');
       setDestinations([]);
       setDescription('');
       setImage(null);
-      setImagePath(null); // ⭐ Reset path
+      setImagePath(null);
     }
   }, [isOpen, initialData]);
 
@@ -119,8 +119,6 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
       return;
     }
 
-    // ✅ RIMOSSO: Controllo dimensione file (il resize gestisce tutto)
-
     setIsUploading(true);
     try {
       const tripIdForPath = initialData?.tripId || Date.now();
@@ -146,7 +144,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
       );
 
       setImage(imageURL);
-      setImagePath(newImagePath); // ⭐ Salva nuovo path
+      setImagePath(newImagePath);
     } catch (error) {
       console.error('❌ Errore caricamento immagine:', error);
       alert('Errore nel caricamento dell\'immagine');
@@ -161,7 +159,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
     const metadata: TripMetadata = {
       name: finalName,
       image,
-      imagePath, // ⭐ Includi path
+      imagePath,
       destinations,
       description: description.trim()
     };
@@ -362,117 +360,122 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
             </div>
 
             {/* PERSONE CHE ORGANIZZANO */}
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-5 border-2 border-blue-200">
-              <label className="block text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <span>👥</span>
-                <span>Chi organizza questo viaggio</span>
+            <div>
+              {/* 🆕 LABEL FUORI DAL BOX - Stile uniforme */}
+              <label className="block text-sm font-semibold text-gray-700 mb-3">
+                👥 Chi organizza questo viaggio
               </label>
 
-              {/* LISTA MEMBRI - UNIFORMATA E CLICCABILE */}
-              <div className="space-y-2">
-                {mode === 'edit' && initialData?.sharing?.members ? (
-                  // Modalità edit: mostra tutti i membri
-                  Object.entries(initialData.sharing.members)
-                    .filter(([_, member]) => member.status === 'active')
-                    .sort((a, b) => {
-                      if (a[1].role === 'owner') return -1;
-                      if (b[1].role === 'owner') return 1;
-                      return 0;
-                    })
-                    .map(([userId, member]) => {
-                      const isCurrentUser = userId === currentUser.uid;
+              {/* BOX AZZURRO - Senza titolo interno */}
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-5 border-2 border-blue-200">
+                {/* LISTA MEMBRI */}
+                <div className="space-y-2">
+                  {mode === 'edit' && initialData?.sharing?.members ? (
+                    // Modalità edit: mostra tutti i membri
+                    Object.entries(initialData.sharing.members)
+                      .filter(([_, member]) => member.status === 'active')
+                      .sort((a, b) => {
+                        if (a[1].role === 'owner') return -1;
+                        if (b[1].role === 'owner') return 1;
+                        return 0;
+                      })
+                      .map(([userId, member]) => {
+                        const isCurrentUser = userId === currentUser.uid;
 
-                      return (
-                        <div
-                          key={userId}
-                          onClick={() => setSelectedUserProfile(userId)}
-                          className={`border-2 rounded-lg p-3 transition-all cursor-pointer ${isCurrentUser
-                            ? 'border-blue-400 bg-blue-100'
-                            : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
-                            }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            {/* Avatar */}
-                            <Avatar
-                              src={member.avatar}
-                              name={member.displayName}
-                              size="md"
-                            />
+                        return (
+                          <div
+                            key={userId}
+                            onClick={() => setSelectedUserProfile(userId)}
+                            className={`border-2 rounded-lg p-3 transition-all cursor-pointer ${isCurrentUser
+                              ? 'border-blue-400 bg-blue-100'
+                              : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
+                              }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              {/* Avatar */}
+                              <Avatar
+                                src={member.avatar}
+                                name={member.displayName}
+                                size="md"
+                              />
 
-                            {/* Info */}
-                            <div className="flex-1 min-w-0">
-                              {/* Riga 1: Nome + Badge Owner inline */}
-                              <div className="flex items-center gap-2 mb-0.5">
-                                <p className="font-semibold text-gray-900 truncate">
-                                  {member.displayName}
-                                </p>
-                                {member.role === 'owner' && (
-                                  <span className="flex-shrink-0 px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full flex items-center gap-1">
-                                    <Crown size={12} />
-                                    Owner
-                                  </span>
+                              {/* Info */}
+                              <div className="flex-1 min-w-0">
+                                {/* Riga 1: Nome + Badge Owner inline */}
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <p className="font-semibold text-gray-900 truncate">
+                                    {member.displayName}
+                                  </p>
+                                  {member.role === 'owner' && (
+                                    <span className="flex-shrink-0 px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full flex items-center gap-1">
+                                      <Crown size={12} />
+                                      Owner
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Riga 2: Username */}
+                                {member.username && (
+                                  <p className="text-sm text-gray-500 truncate">@{member.username}</p>
                                 )}
                               </div>
-
-                              {/* Riga 2: Username */}
-                              {member.username && (
-                                <p className="text-sm text-gray-500 truncate">@{member.username}</p>
-                              )}
                             </div>
                           </div>
+                        );
+                      })
+                  ) : (
+                    // Modalità create: mostra solo currentUser (cliccabile)
+                    <div
+                      onClick={() => setSelectedUserProfile(currentUser.uid)}
+                      className="border-2 border-blue-400 bg-blue-100 rounded-lg p-3 cursor-pointer hover:shadow-sm transition-all"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Avatar
+                          src={currentUser.photoURL}
+                          name={currentUser.displayName}
+                          size="md"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <p className="font-semibold text-gray-900 truncate">
+                              {currentUser.displayName}
+                            </p>
+                            <span className="flex-shrink-0 px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full flex items-center gap-1">
+                              <Crown size={12} />
+                              Owner
+                            </span>
+                          </div>
+                          {currentUser.username && (
+                            <p className="text-sm text-gray-500 truncate">@{currentUser.username}</p>
+                          )}
                         </div>
-                      );
-                    })
-                ) : (
-                  // Modalità create: mostra solo currentUser (cliccabile)
-                  <div
-                    onClick={() => setSelectedUserProfile(currentUser.uid)}
-                    className="border-2 border-blue-400 bg-blue-100 rounded-lg p-3 cursor-pointer hover:shadow-sm transition-all"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Avatar
-                        src={currentUser.photoURL}
-                        name={currentUser.displayName}
-                        size="md"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <p className="font-semibold text-gray-900 truncate">
-                            {currentUser.displayName}
-                          </p>
-                          <span className="flex-shrink-0 px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full flex items-center gap-1">
-                            <Crown size={12} />
-                            Owner
-                          </span>
-                        </div>
-                        {currentUser.username && (
-                          <p className="text-sm text-gray-500 truncate">@{currentUser.username}</p>
-                        )}
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
+
+                {/* Pulsante Invita (solo in edit E solo se owner) */}
+                {mode === 'edit' &&
+                  tripForInvite &&
+                  initialData?.sharing?.members?.[currentUser.uid]?.role === 'owner' && (
+                    <button
+                      type="button"
+                      onClick={() => setShowInviteModal(true)}
+                      className="w-full mt-3 px-4 py-2.5 bg-white border-2 border-blue-400 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-semibold text-sm flex items-center justify-center gap-2 shadow-sm"
+                    >
+                      <UserPlus size={18} />
+                      Invita
+                    </button>
+                  )}
               </div>
 
-              {/* Pulsante Invita (solo in edit E solo se owner) */}
-              {mode === 'edit' &&
-                tripForInvite &&
-                initialData?.sharing?.members?.[currentUser.uid]?.role === 'owner' && (
-                  <button
-                    type="button"
-                    onClick={() => setShowInviteModal(true)}
-                    className="w-full mt-3 px-4 py-2.5 bg-white border-2 border-blue-400 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-semibold text-sm flex items-center justify-center gap-2 shadow-sm"
-                  >
-                    <UserPlus size={18} />
-                    Invita
-                  </button>
-                )}
-
-              {/* Messaggio in creazione */}
+              {/* 🆕 INFO BOX - Solo in modalità create */}
               {mode === 'create' && (
-                <p className="text-xs text-gray-500 mt-3 italic">
-                  💡 Potrai invitare collaboratori dopo aver creato il viaggio
-                </p>
+                <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    💡 Dopo la creazione potrai invitare altri collaboratori e modificare date e durata con il pulsante ✎
+                  </p>
+                </div>
               )}
             </div>
 

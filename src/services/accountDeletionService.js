@@ -61,8 +61,10 @@ export const reauthenticateUser = async (password) => {
  */
 const deleteUserNotifications = async (userId) => {
   try {
-    const notificationsRef = collection(db, 'users', userId, 'notifications');
-    const snapshot = await getDocs(notificationsRef);
+    // Query sulla collection principale filtrando per userId
+    const notificationsRef = collection(db, 'notifications');
+    const q = query(notificationsRef, where('userId', '==', userId));
+    const snapshot = await getDocs(q);
     
     if (snapshot.empty) {
       console.log('✅ Nessuna notifica da eliminare');

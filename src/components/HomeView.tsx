@@ -10,12 +10,24 @@ import CostSummaryByUserView from './DayDetail/CostSummaryByUserView';
 import Avatar from './Avatar';
 import { calculateTripCost } from "../utils/costsUtils";
 import { useAnalytics } from '../hooks/useAnalytics';
+import ExportModal from './ExportModal';
 
-const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExportTrip, onImportTrip, onOpenProfile, currentUser }) => {
+const HomeView = ({
+  trips,
+  loading,
+  onCreateNew,
+  onOpenTrip,
+  onDeleteTrip,
+  onExportTripBase,
+  onExportTripWithMedia,
+  onImportTrip,
+  onOpenProfile,
+  currentUser
+}) => {
   const fileInputRef = useRef(null);
   const analytics = useAnalytics();
   const [deleteConfirm, setDeleteConfirm] = useState(null);
-  const [exportMenu, setExportMenu] = useState(null);
+  const [exportModalTrip, setExportModalTrip] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(null);
   const [selectedTripForSummary, setSelectedTripForSummary] = useState(null);
@@ -128,8 +140,8 @@ const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExp
                     setDeleteConfirm(null);
                   }}
                   className={`flex-1 py-2 px-4 rounded-full font-medium ${isShared
-                      ? 'bg-blue-500 text-white hover:bg-blue-600'
-                      : 'bg-red-500 text-white hover:bg-red-600'
+                    ? 'bg-blue-500 text-white hover:bg-blue-600'
+                    : 'bg-red-500 text-white hover:bg-red-600'
                     }`}
                 >
                   {isShared ? 'Esci' : 'Elimina'}
@@ -140,34 +152,12 @@ const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExp
         );
       })()}
 
-      {exportMenu && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
-            <h3 className="text-xl font-bold mb-2">Esporta viaggio</h3>
-            <p className="text-gray-600 mb-6">
-              Vuoi esportare "{exportMenu.name}"?
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setExportMenu(null)}
-                className="flex-1 py-2 px-4 bg-gray-200 text-gray-700 rounded-full font-medium hover:bg-gray-300"
-              >
-                Annulla
-              </button>
-              <button
-                onClick={() => {
-                  onExportTrip(exportMenu.id);
-                  setExportMenu(null);
-                }}
-                className="flex-1 py-2 px-4 bg-blue-500 text-white rounded-full font-medium hover:bg-blue-600 flex items-center justify-center gap-2"
-              >
-                <Download size={20} />
-                Esporta
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ExportModal
+        trip={exportModalTrip}
+        onClose={() => setExportModalTrip(null)}
+        onExportBase={() => onExportTripBase(exportModalTrip.id)}
+        onExportWithMedia={() => onExportTripWithMedia(exportModalTrip.id)}
+      />
 
       <div className="bg-white px-4 py-6 shadow-sm">
         <div className="flex items-center justify-between">
@@ -313,7 +303,7 @@ const HomeView = ({ trips, loading, onCreateNew, onOpenTrip, onDeleteTrip, onExp
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setExportMenu({ id: trip.id, name: trip.name });
+                          setExportModalTrip(trip);
                         }}
                         className="p-2 text-blue-500 hover:bg-blue-50 rounded-full transition-colors"
                         title="Esporta"
