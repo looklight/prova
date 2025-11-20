@@ -77,7 +77,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
 
           {/* Hint */}
           <p className="text-xs text-gray-400 text-center mt-4">
-            Entrambi escludono costi e partecipanti
+            Entrambi escludono costi e partecipanti, è possibile scaricare il report dei costi dal Riepilogo Spese
           </p>
         </div>
       </div>

@@ -555,7 +555,7 @@ const CostSummaryByUserView: React.FC<CostSummaryByUserViewProps> = ({
             {sortedUserBreakdown.length === 0 && historicalUsers.length === 0 && (
               <div className="text-center py-12 text-gray-400">
                 <p className="text-lg mb-2">💸</p>
-                <p>Nessuna spesa registrata ancora.</p>
+                <p>Nessun utente ha ancora registrato spese.</p>
               </div>
             )}
           </div>
