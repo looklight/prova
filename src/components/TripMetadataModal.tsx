@@ -473,7 +473,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
               {mode === 'create' && (
                 <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
                   <p className="text-xs text-gray-600 leading-relaxed">
-                    💡 Dopo la creazione potrai invitare altri collaboratori e modificare date e durata con il pulsante ✎
+                    💡 Dopo aver creato il viaggio potrai invitare altri collaboratori e con il pulsante ✎ potrai modificare data di partenza e durata. 
                   </p>
                 </div>
               )}
