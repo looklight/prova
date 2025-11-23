@@ -312,7 +312,7 @@ const DayCell: React.FC<DayCellProps> = ({
             ) : (
               // Vista COMPRESSA: Solo numero
               <div className="text-xs font-medium text-gray-700">
-                {otherExpensesData.count}
+                ({otherExpensesData.count})
               </div>
             )
           ) : category.id === 'note' ? (
