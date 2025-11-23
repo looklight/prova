@@ -4,6 +4,7 @@ import TravelPlannerApp from "./components/TravelPlanner.tsx";
 import AuthPage from "./components/AuthPage.tsx";
 import InviteHandler from "./components/InviteHandler.tsx";
 import CookieBanner from "./components/Legal/CookieBanner.tsx";
+import LoadingScreen from "./components/LoadingScreen.tsx";
 import { PrivacyPage, TermsPage, CookiePage } from "./pages/LegalPages.tsx";
 import { auth } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -74,13 +75,9 @@ function AppContent() {
     return () => unsubscribe();
   }, [navigate]);
 
-  // Mostra loading mentre verifica l'auth
+  // ✅ Mostra LoadingScreen elegante invece del testo generico
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
-        <div className="text-white text-xl">Caricamento...</div>
-      </div>
-    );
+    return <LoadingScreen message="Inizializzazione..." />;
   }
 
   return (

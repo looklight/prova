@@ -1,12 +1,106 @@
 <!DOCTYPE html>
 <html lang="it">
-  <head>
-    <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Travel Planner</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Look Travel - Pianificatore Viaggi</title>
+  
+  <!-- 🚀 PRECONNECT: Firebase & Analytics -->
+  <link rel="preconnect" href="https://firebasestorage.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+  
+  <!-- 🎨 INLINE CRITICAL CSS: Previene FOUC -->
+  <style>
+    /* Reset base e font system */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+        sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    
+    /* Loader iniziale - identico a LoadingScreen */
+    #initial-loader {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(to bottom right, #60a5fa, #a78bfa);
+      z-index: 9999;
+      transition: opacity 0.3s ease-out;
+    }
+    
+    #initial-loader.fade-out {
+      opacity: 0;
+      pointer-events: none;
+    }
+    
+    .loader-spinner {
+      width: 64px;
+      height: 64px;
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    /* Nasconde il contenuto fino al mount di React */
+    #root:empty {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- 🎨 LOADER INIZIALE: Mostra immediatamente durante il caricamento -->
+  <div id="initial-loader">
+    <div class="loader-spinner"></div>
+  </div>
+  
+  <!-- ⚛️ ROOT: React monta qui -->
+  <div id="root"></div>
+  
+  <!-- 🚀 SCRIPT: Rimuove loader quando React è pronto -->
+  <script>
+    // Nasconde il loader quando il DOM è caricato
+    window.addEventListener('DOMContentLoaded', () => {
+      // Aspetta che React monti
+      const checkReactMount = setInterval(() => {
+        const root = document.getElementById('root');
+        if (root && root.children.length > 0) {
+          const loader = document.getElementById('initial-loader');
+          if (loader) {
+            loader.classList.add('fade-out');
+            setTimeout(() => loader.remove(), 300);
+          }
+          clearInterval(checkReactMount);
+        }
+      }, 50);
+      
+      // Fallback: rimuovi comunque dopo 5 secondi
+      setTimeout(() => {
+        const loader = document.getElementById('initial-loader');
+        if (loader) {
+          loader.classList.add('fade-out');
+          setTimeout(() => loader.remove(), 300);
+        }
+        clearInterval(checkReactMount);
+      }, 5000);
+    });
+  </script>
+  
+  <!-- ⚛️ REACT APP -->
+  <script type="module" src="/src/main.jsx"></script>
+</body>
 </html>

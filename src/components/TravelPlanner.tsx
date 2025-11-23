@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import HomeView from './HomeView';
 import TripView from './TripView';
 import { ProfileView } from './Profile';
+import LoadingScreen from './LoadingScreen';
 import { CATEGORIES } from './constants';
 import { subscribeToUserTrips, createTrip, updateTrip, deleteTripForUser, loadUserProfile } from "../services";
 import { setAnalyticsUserId, updateUserAnalyticsProperties } from "../services/analyticsService";
@@ -290,19 +291,9 @@ const TravelPlannerApp = ({ user }) => {
     }
   };
 
-  // 🚀 OTTIMIZZAZIONE 4: Progressive loading - mostra UI appena possibile
+  // ✅ Mostra LoadingScreen semplice (solo timeline)
   if (loading && trips.length === 0) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-xl text-gray-600 mb-2">Caricamento...</div>
-          <div className="text-sm text-gray-400">
-            {!userProfile && '📝 Caricamento profilo...'}
-            {!trips.length && '📦 Caricamento viaggi...'}
-          </div>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Caricamento" />;
   }
 
   // 🚀 OTTIMIZZAZIONE 5: Usa profilo base se non ancora caricato
