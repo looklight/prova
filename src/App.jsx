@@ -77,7 +77,7 @@ function AppContent() {
 
   // ✅ Mostra LoadingScreen elegante invece del testo generico
   if (loading) {
-    return <LoadingScreen message="Caricamento" />;
+    return <LoadingScreen message="Caricamento..." />;
   }
 
   return (

@@ -54,3 +54,9 @@ export * from './mediaService';
 
 // Profile service
 export * from './profileService';
+
+// 📦 Funzioni archiviazione (aggiunte per sistema archivio)
+export {
+  archiveTrip,
+  unarchiveTrip
+} from './profileService';

@@ -9,7 +9,9 @@ import {
   where,
   limit,
   collection, 
-  writeBatch
+  writeBatch,
+  arrayUnion,
+  arrayRemove
 } from 'firebase/firestore';
 
 // ============= GESTIONE USERNAME UNIVOCI =============
@@ -149,7 +151,8 @@ export const loadUserProfile = async (userId, userEmail) => {
         avatar: null,
         bio: '',
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        archivedTripIds: [] // 📦 Array per viaggi archiviati
       };
       
       await setDoc(profileRef, newProfile);
@@ -309,6 +312,52 @@ export const updateUserProfileInTrips = async (userId, updates) => {
     console.log(`✅ Profilo aggiornato in ${snapshot.size} viaggi`);
   } catch (error) {
     console.error('❌ Errore aggiornamento profilo nei viaggi:', error);
+    throw error;
+  }
+};
+
+// ============= 📦 FUNZIONI ARCHIVIAZIONE VIAGGI =============
+
+/**
+ * 📦 Archivia un viaggio per l'utente
+ * Aggiunge l'ID del viaggio all'array archivedTripIds nel profilo
+ * @param {string} userId - ID utente
+ * @param {string|number} tripId - ID del viaggio da archiviare
+ */
+export const archiveTrip = async (userId, tripId) => {
+  try {
+    const profileRef = doc(db, 'users', userId, 'profile', 'info');
+    
+    await setDoc(profileRef, {
+      archivedTripIds: arrayUnion(String(tripId)),
+      updatedAt: new Date()
+    }, { merge: true });
+    
+    console.log(`📦 Viaggio ${tripId} archiviato per utente ${userId}`);
+  } catch (error) {
+    console.error('❌ Errore archiviazione viaggio:', error);
+    throw error;
+  }
+};
+
+/**
+ * ↩️ Disarchivia un viaggio per l'utente
+ * Rimuove l'ID del viaggio dall'array archivedTripIds nel profilo
+ * @param {string} userId - ID utente
+ * @param {string|number} tripId - ID del viaggio da disarchiviare
+ */
+export const unarchiveTrip = async (userId, tripId) => {
+  try {
+    const profileRef = doc(db, 'users', userId, 'profile', 'info');
+    
+    await setDoc(profileRef, {
+      archivedTripIds: arrayRemove(String(tripId)),
+      updatedAt: new Date()
+    }, { merge: true });
+    
+    console.log(`↩️ Viaggio ${tripId} disarchiviato per utente ${userId}`);
+  } catch (error) {
+    console.error('❌ Errore disarchiviazione viaggio:', error);
     throw error;
   }
 };

@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { MapPin, Plus, Upload, Download, Trash2 } from 'lucide-react';
+import { MapPin, Plus, Upload, Download, Trash2, Archive, Undo2, ChevronDown, ChevronUp } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import TripMetadataModal from './TripMetadataModal';
@@ -9,6 +9,7 @@ import TripMembersModal from './TripMembersModal';
 import CostSummaryByUserView from './DayDetail/CostSummaryByUserView';
 import Avatar from './Avatar';
 import { calculateTripCost } from "../utils/costsUtils";
+import { canArchiveTrip } from "../utils/archiveValidation";
 import { useAnalytics } from '../hooks/useAnalytics';
 import ExportModal from './ExportModal';
 
@@ -22,15 +23,21 @@ const HomeView = ({
   onExportTripWithMedia,
   onImportTrip,
   onOpenProfile,
-  currentUser
+  onArchiveTrip,
+  onUnarchiveTrip,
+  currentUser,
+  archivedTripIds = []
 }) => {
   const fileInputRef = useRef(null);
   const analytics = useAnalytics();
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [archiveConfirm, setArchiveConfirm] = useState(null);
+  const [unarchiveConfirm, setUnarchiveConfirm] = useState(null);
   const [exportModalTrip, setExportModalTrip] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(null);
   const [selectedTripForSummary, setSelectedTripForSummary] = useState(null);
+  const [isArchiveExpanded, setIsArchiveExpanded] = useState(false);
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
@@ -54,6 +61,10 @@ const HomeView = ({
       }))
       .filter(member => member.status === 'active');
   };
+
+  // 📦 Separa viaggi attivi da archiviati
+  const activeTrips = trips.filter(trip => !archivedTripIds.includes(String(trip.id)));
+  const archivedTrips = trips.filter(trip => archivedTripIds.includes(String(trip.id)));
 
   // 🆕 Se c'è un viaggio selezionato per il riepilogo, mostralo
   if (selectedTripForSummary) {
@@ -152,6 +163,64 @@ const HomeView = ({
         );
       })()}
 
+      {/* 📦 Modal Conferma Archiviazione */}
+      {archiveConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+            <h3 className="text-xl font-bold mb-2">Archivia viaggio</h3>
+            <p className="text-gray-600 mb-6">
+              Vuoi archiviare "{archiveConfirm.name}"? Potrai sempre disarchiviarlo in seguito.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setArchiveConfirm(null)}
+                className="flex-1 py-2 px-4 bg-gray-200 text-gray-700 rounded-full font-medium hover:bg-gray-300"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={() => {
+                  onArchiveTrip(archiveConfirm.id);
+                  setArchiveConfirm(null);
+                }}
+                className="flex-1 py-2 px-4 bg-blue-500 text-white rounded-full font-medium hover:bg-blue-600"
+              >
+                Archivia
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ↩️ Modal Conferma Disarchiviazione */}
+      {unarchiveConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+            <h3 className="text-xl font-bold mb-2">Disarchivia viaggio</h3>
+            <p className="text-gray-600 mb-6">
+              Vuoi riportare "{unarchiveConfirm.name}" nei viaggi attivi?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setUnarchiveConfirm(null)}
+                className="flex-1 py-2 px-4 bg-gray-200 text-gray-700 rounded-full font-medium hover:bg-gray-300"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={() => {
+                  onUnarchiveTrip(unarchiveConfirm.id);
+                  setUnarchiveConfirm(null);
+                }}
+                className="flex-1 py-2 px-4 bg-blue-500 text-white rounded-full font-medium hover:bg-blue-600"
+              >
+                Disarchivia
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ExportModal
         trip={exportModalTrip}
         onClose={() => setExportModalTrip(null)}
@@ -217,10 +286,12 @@ const HomeView = ({
           className="hidden"
         />
 
-        <div className="space-y-3">
-          {trips.map((trip) => {
+        {/* 📍 SEZIONE VIAGGI ATTIVI */}
+        <div className="space-y-3 mb-6">
+          {activeTrips.map((trip) => {
             const members = getTripMembers(trip);
             const tripCost = calculateTripCost(trip);
+            const isArchivable = canArchiveTrip(trip);
 
             return (
               <div
@@ -258,9 +329,27 @@ const HomeView = ({
                     <p className="text-sm text-gray-500">
                       {trip.days.length} {trip.days.length === 1 ? 'giorno' : 'giorni'}
                     </p>
-                    <p className="text-xs text-gray-400">
-                      {trip.startDate.toLocaleDateString('it-IT')}
-                    </p>
+                    
+                    {/* Data + Badge Archivia */}
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs text-gray-400">
+                        {trip.startDate.toLocaleDateString('it-IT')}
+                      </p>
+                      
+                      {/* 📦 Badge Archivia - Solo se archiviabile */}
+                      {isArchivable && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setArchiveConfirm({ id: trip.id, name: trip.name });
+                          }}
+                          className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-xs font-medium hover:bg-blue-100 transition-colors"
+                          title="Archivia viaggio"
+                        >
+                          Archivia
+                        </button>
+                      )}
+                    </div>
 
                     {/* Avatar membri - Solo gli avatar sono cliccabili */}
                     <div className="mt-2">
@@ -329,6 +418,143 @@ const HomeView = ({
             );
           })}
         </div>
+
+        {/* 📦 SEZIONE VIAGGI ARCHIVIATI */}
+        {archivedTrips.length > 0 && (
+          <div className="mb-6">
+            {/* Header espandibile */}
+            <button
+              onClick={() => setIsArchiveExpanded(!isArchiveExpanded)}
+              className="w-full flex items-center justify-between p-4 bg-white rounded-xl shadow hover:shadow-md transition-shadow mb-3"
+            >
+              <div className="flex items-center gap-2">
+                <Archive size={20} className="text-gray-500" />
+                <span className="font-semibold text-gray-700">
+                  Archiviati ({archivedTrips.length})
+                </span>
+              </div>
+              {isArchiveExpanded ? (
+                <ChevronUp size={20} className="text-gray-500" />
+              ) : (
+                <ChevronDown size={20} className="text-gray-500" />
+              )}
+            </button>
+
+            {/* Lista viaggi archiviati */}
+            {isArchiveExpanded && (
+              <div className="space-y-3">
+                {archivedTrips.map((trip) => {
+                  const members = getTripMembers(trip);
+                  const tripCost = calculateTripCost(trip);
+
+                  return (
+                    <div
+                      key={trip.id}
+                      className="bg-white rounded-xl shadow hover:shadow-md transition-shadow p-4 opacity-90"
+                    >
+                      <div
+                        className="flex items-start gap-4 cursor-pointer"
+                        onClick={() => {
+                          const memberCount = Object.keys(trip.sharing?.members || {}).length;
+                          analytics.trackTripOpened(trip.id, trip.name, trip.days.length, memberCount);
+                          onOpenTrip(trip.id);
+                        }}
+                      >
+                        {/* Avatar viaggio */}
+                        <div className="flex-shrink-0">
+                          {trip.image ? (
+                            <img
+                              src={trip.image}
+                              alt={trip.name}
+                              className="w-16 h-16 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 flex items-center justify-center">
+                              <MapPin size={28} className="text-white" />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Info viaggio */}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-lg font-semibold truncate">{trip.name}</h3>
+                          <p className="text-sm text-gray-500">
+                            {trip.days.length} {trip.days.length === 1 ? 'giorno' : 'giorni'}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            {trip.startDate.toLocaleDateString('it-IT')}
+                          </p>
+
+                          {/* Avatar membri */}
+                          <div className="mt-2">
+                            <MembersAvatarStack
+                              members={members}
+                              maxVisible={3}
+                              size="sm"
+                              onClick={(e) => {
+                                e?.stopPropagation();
+                                setShowMembersModal(trip);
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* COLONNA DESTRA: Costo + Export + Disarchivia */}
+                        <div
+                          className="flex-shrink-0"
+                          style={{ width: '44px' }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex flex-col gap-2 items-end">
+                            {/* Riga 1: Costo */}
+                            <div className="h-5 flex items-center justify-end pr-2">
+                              {tripCost > 0 && (
+                                <span
+                                  className="text-sm text-gray-400 cursor-pointer hover:text-blue-500 hover:underline transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedTripForSummary(trip);
+                                  }}
+                                  title="Vedi riepilogo costi"
+                                >
+                                  {Math.round(tripCost)}€
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Riga 2: Bottone Download */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExportModalTrip(trip);
+                              }}
+                              className="p-2 text-blue-500 hover:bg-blue-50 rounded-full transition-colors"
+                              title="Esporta"
+                            >
+                              <Download size={20} />
+                            </button>
+
+                            {/* Riga 3: Bottone Disarchivia (al posto di Elimina) */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setUnarchiveConfirm({ id: trip.id, name: trip.name });
+                              }}
+                              className="p-2 text-amber-500 hover:bg-amber-50 rounded-full transition-colors"
+                              title="Disarchivia"
+                            >
+                              <Undo2 size={20} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {trips.length === 0 && !loading && (
           <div className="text-center py-12 text-gray-400">
