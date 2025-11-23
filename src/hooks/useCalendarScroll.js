@@ -9,6 +9,8 @@
  * - Centra automaticamente il giorno target nel viewport
  * - Gestisce stato isScrolled per animazioni UI
  * - Ritarda inizializzazione per evitare flash visivi
+ * 
+ * ✅ FIX: Resetta justMounted anche al primo caricamento per animazioni fluide
  */
 
 import { useEffect, useRef } from 'react';
@@ -62,7 +64,11 @@ export const useCalendarScroll = ({
         if (onScrollComplete) onScrollComplete();
         
         setTimeout(() => setJustMounted(false), 500);
+        return;
       }
+
+      setTimeout(() => setJustMounted(false), 500);
+      
     }, 50);
     
     return () => clearTimeout(timer);
