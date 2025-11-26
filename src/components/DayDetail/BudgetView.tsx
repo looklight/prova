@@ -170,6 +170,7 @@ const BudgetView: React.FC<BudgetViewProps> = ({ trip, onUpdateTrip, isDesktop =
         const { total: spent } = calculateCategoryGroupCost(trip, groupKey);
         const budget = editMode ? (parseFloat(editValues[groupKey]) || 0) : (budgets[groupKey] || 0);
         const percentageUsed = budget > 0 ? (spent / budget) * 100 : 0;
+        const perDay = numberOfDays > 0 ? budget / numberOfDays : 0;
 
         return (
           <div 
@@ -178,25 +179,38 @@ const BudgetView: React.FC<BudgetViewProps> = ({ trip, onUpdateTrip, isDesktop =
               editMode ? 'ring-2 ring-blue-200' : ''
             }`}
           >
-            {/* Riga 1: Icon + Label + Budget/Input */}
+            {/* Riga 1: Icon + Label + €/gg + Budget/Input */}
             <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">{CATEGORY_ICONS[groupKey]}</span>
-                <h3 className="font-semibold text-gray-800 text-sm">{CATEGORY_LABELS[groupKey]}</h3>
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <span className="text-xl flex-shrink-0">{CATEGORY_ICONS[groupKey]}</span>
+                <h3 className="font-semibold text-gray-800 text-sm truncate">{CATEGORY_LABELS[groupKey]}</h3>
               </div>
               
-              {editMode ? (
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  value={editValues[groupKey] || ''}
-                  onChange={(e) => handleChange(groupKey, e.target.value)}
-                  className="w-20 px-2 py-1 border-2 border-blue-400 rounded-lg text-sm font-semibold text-right focus:outline-none focus:border-blue-500"
-                  placeholder="0"
-                />
-              ) : (
-                <span className="text-lg font-bold text-gray-800">{Math.round(budget)}€</span>
-              )}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="text-xs text-gray-500 leading-tight">
+                  <div className="flex">
+                    <span className="w-7 text-right mr-0.5">{Math.round(perDay)}</span>
+                    <span>€/gg</span>
+                  </div>
+                  <div className="flex">
+                    <span className="w-7 text-right mr-0.5">{Math.round(perDay / (activeMembers || 1))}</span>
+                    <span>€/gg/pers</span>
+                  </div>
+                </div>
+                
+                {editMode ? (
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={editValues[groupKey] || ''}
+                    onChange={(e) => handleChange(groupKey, e.target.value)}
+                    className="w-20 px-2 py-1 border-2 border-blue-400 rounded-lg text-sm font-semibold text-right focus:outline-none focus:border-blue-500"
+                    placeholder="0"
+                  />
+                ) : (
+                  <span className="text-lg font-bold text-gray-800 w-16 text-right">{Math.round(budget)}€</span>
+                )}
+              </div>
             </div>
 
             {/* Riga 2: Barra + Percentuale inline */}
