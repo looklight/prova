@@ -422,9 +422,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                       placeholderText="Quando parti?"
                       className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors text-sm cursor-pointer"
                       wrapperClassName="w-full"
-                      popperPlacement="bottom-start"
-                      readOnly
-                      inputMode="none"
+                      withPortal
                     />
                   </div>
 
@@ -445,9 +443,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                           : 'border-gray-200 cursor-pointer'
                         }`}
                       wrapperClassName="w-full"
-                      popperPlacement="bottom-end"
-                      readOnly
-                      inputMode="none"
+                      withPortal
                     />
                   </div>
                 </div>
