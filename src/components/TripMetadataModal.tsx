@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Upload, UserPlus, Crown, Calendar } from 'lucide-react';
+import { X, Upload, UserPlus, Crown, Calendar, HelpCircle } from 'lucide-react';
 import { DayPicker, DateRange } from 'react-day-picker';
 import { it } from 'date-fns/locale';
 import 'react-day-picker/dist/style.css';
@@ -63,6 +63,27 @@ export interface TripMetadata {
   };
 }
 
+// Componente Help Box riutilizzabile
+const HelpBox: React.FC<{ text: string; isOpen: boolean; onToggle: () => void }> = ({ text, isOpen, onToggle }) => (
+  <>
+    <button
+      type="button"
+      onClick={onToggle}
+      className="p-1 text-gray-400 hover:text-blue-500 transition-colors"
+      title="Aiuto"
+    >
+      <HelpCircle size={16} />
+    </button>
+    {isOpen && (
+      <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-100">
+        <p className="text-xs text-gray-600 leading-relaxed">
+          💡 {text}
+        </p>
+      </div>
+    )}
+  </>
+);
+
 const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
   isOpen,
   onClose,
@@ -87,7 +108,15 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
   const calendarRef = useRef<HTMLDivElement>(null);
   const calendarButtonRef = useRef<HTMLButtonElement>(null);
   const [preferredCurrencies, setPreferredCurrencies] = useState<Record<string, any>>({});
+  
+  // State per help boxes
+  const [showHelp, setShowHelp] = useState<Record<string, boolean>>({});
+  
   const analytics = useAnalytics();
+
+  const toggleHelp = (section: string) => {
+    setShowHelp(prev => ({ ...prev, [section]: !prev[section] }));
+  };
 
   // Rileva desktop/mobile
   useEffect(() => {
@@ -129,6 +158,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
       setDateRange(undefined);
       setShowCalendar(false);
       setPreferredCurrencies(initialData.currency?.preferred || {});
+      setShowHelp({});
     } else if (isOpen && !initialData) {
       setTripName('');
       setDestinations([]);
@@ -138,6 +168,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
       setDateRange(undefined);
       setShowCalendar(false);
       setPreferredCurrencies({});
+      setShowHelp({});
     }
   }, [isOpen, initialData]);
 
@@ -379,9 +410,19 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
 
             {/* DESTINAZIONI */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
-                🌍 Destinazioni
-              </label>
+              <div className="flex items-center gap-1 mb-3">
+                <label className="text-sm font-semibold text-gray-700">
+                  🌍 Destinazioni
+                </label>
+                <button
+                  type="button"
+                  onClick={() => toggleHelp('destinations')}
+                  className="p-1 text-gray-400 hover:text-blue-500 transition-colors"
+                  title="Aiuto"
+                >
+                  <HelpCircle size={16} />
+                </button>
+              </div>
 
               {destinations.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-3">
@@ -427,15 +468,33 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                   ⚠️ Massimo 10 destinazioni
                 </p>
               )}
+
+              {showHelp['destinations'] && (
+                <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    💡 Aggiungi le città o i luoghi che visiterai, saranno inserite dentro al viaggio e potrai ottimizzare l'itinerario.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* 📅 PERIODO DEL VIAGGIO - Solo in modalità create */}
             {mode === 'create' && (
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <label className="text-sm font-semibold text-gray-700">
-                    📅 Durata del viaggio
-                  </label>
+                  <div className="flex items-center gap-1">
+                    <label className="text-sm font-semibold text-gray-700">
+                      📅 Durata del viaggio
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => toggleHelp('duration')}
+                      className="p-1 text-gray-400 hover:text-blue-500 transition-colors"
+                      title="Aiuto"
+                    >
+                      <HelpCircle size={16} />
+                    </button>
+                  </div>
                   {daysDiff !== null && (
                     <span className={`text-xs font-semibold ${isValidRange ? 'text-blue-500' : 'text-red-500'}`}>
                       {isValidRange ? `${daysDiff} giorni` : daysDiff > 90 ? 'Max 90 giorni' : 'Date non valide'}
@@ -574,20 +633,31 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                   </div>
                 )}
 
-                {/* Info box */}
-                <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                  <p className="text-xs text-gray-600 leading-relaxed">
-                    💡 Potrai modificare le date e la durata del viaggio anche in seguito con il pulsante ✎
-                  </p>
-                </div>
+                {showHelp['duration'] && (
+                  <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                    <p className="text-xs text-gray-600 leading-relaxed">
+                      💡 Potrai modificare le date e la durata del viaggio anche in seguito con il pulsante ✎
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
             {/* PERSONE CHE ORGANIZZANO */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
-                👥 Chi organizza questo viaggio
-              </label>
+              <div className="flex items-center gap-1 mb-3">
+                <label className="text-sm font-semibold text-gray-700">
+                  👥 Chi organizza questo viaggio
+                </label>
+                <button
+                  type="button"
+                  onClick={() => toggleHelp('organizers')}
+                  className="p-1 text-gray-400 hover:text-blue-500 transition-colors"
+                  title="Aiuto"
+                >
+                  <HelpCircle size={16} />
+                </button>
+              </div>
 
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-5 border-2 border-blue-200">
                 <div className="space-y-2">
@@ -683,10 +753,12 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                   )}
               </div>
 
-              {mode === 'create' && (
+              {showHelp['organizers'] && (
                 <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
                   <p className="text-xs text-gray-600 leading-relaxed">
-                    💡 Dopo aver creato il viaggio potrai invitare altri collaboratori direttamente dal Menu del Viaggio.
+                    💡 {mode === 'create' 
+                      ? 'Dopo aver creato il viaggio potrai invitare altri collaboratori direttamente dal Menu del Viaggio.'
+                      : 'Clicca su un partecipante per vedere il suo profilo. Solo l\'owner può invitare nuovi membri.'}
                   </p>
                 </div>
               )}
@@ -696,6 +768,8 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
             <CurrencySelector
               preferredCurrencies={preferredCurrencies}
               onChange={setPreferredCurrencies}
+              showHelp={showHelp['currencies']}
+              onToggleHelp={() => toggleHelp('currencies')}
             />
 
             {/* DESCRIZIONE */}

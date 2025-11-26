@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Search, Loader2, RefreshCw } from 'lucide-react';
+import { X, Search, Loader2, RefreshCw, HelpCircle } from 'lucide-react';
 import { currencies, searchCurrencies, getCurrencyByCode } from '../utils/currencyData';
 import { getExchangeRate, formatRate } from '../services/currencyService';
 
@@ -18,8 +18,10 @@ import { getExchangeRate, formatRate } from '../services/currencyService';
  * @param {Object} props
  * @param {Object.<string, PreferredCurrency>} props.preferredCurrencies - Valute già aggiunte
  * @param {function} props.onChange - Callback quando cambiano le valute
+ * @param {boolean} props.showHelp - Se mostrare l'help box
+ * @param {function} props.onToggleHelp - Callback per toggle help
  */
-const CurrencySelector = ({ preferredCurrencies = {}, onChange }) => {
+const CurrencySelector = ({ preferredCurrencies = {}, onChange, showHelp = false, onToggleHelp }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -120,9 +122,21 @@ const CurrencySelector = ({ preferredCurrencies = {}, onChange }) => {
 
   return (
     <div>
-      <label className="block text-sm font-semibold text-gray-700 mb-3">
-        💱 Valute del viaggio
-      </label>
+      <div className="flex items-center gap-1 mb-3">
+        <label className="text-sm font-semibold text-gray-700">
+          💱 Valute del viaggio
+        </label>
+        {onToggleHelp && (
+          <button
+            type="button"
+            onClick={onToggleHelp}
+            className="p-1 text-gray-400 hover:text-blue-500 transition-colors"
+            title="Aiuto"
+          >
+            <HelpCircle size={16} />
+          </button>
+        )}
+      </div>
 
       <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-5 border-2 border-amber-200">
         
@@ -236,15 +250,17 @@ const CurrencySelector = ({ preferredCurrencies = {}, onChange }) => {
             ⚠️ {error}
           </p>
         )}
+      </div>
 
-        {/* Info box */}
-        <div className="mt-4 p-3 bg-white/60 rounded-lg border border-amber-100">
+      {/* Help box - SOTTO il box principale */}
+      {showHelp && (
+        <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
           <p className="text-xs text-gray-600 leading-relaxed">
             💡 Aggiungi le valute locali per convertire facilmente le spese durante il viaggio. 
             I tassi vengono aggiornati automaticamente dalla BCE.
           </p>
         </div>
-      </div>
+      )}
     </div>
   );
 };
