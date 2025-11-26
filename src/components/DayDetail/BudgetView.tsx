@@ -94,19 +94,40 @@ const BudgetView: React.FC<BudgetViewProps> = ({ trip, onUpdateTrip, isDesktop =
     <div className={`${isDesktop ? 'space-y-3' : 'space-y-4'}`}>
       {/* Header con totale - Versione compatta Opzione A */}
       <div className="bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-xl shadow-lg p-4">
-        {/* Riga 1: Base identica alle altre tab */}
+        {/* Riga 1: Budget + €/gg e info viaggio */}
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-baseline gap-2">
-            <span className="text-xs opacity-75">Budget</span>
-            <span className="text-3xl font-bold">{Math.round(totalBudget)}€</span>
+          <div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-xs opacity-75">Budget</span>
+              <span className="text-3xl font-bold">{Math.round(totalBudget)}€</span>
+            </div>
+            <div className="text-xs opacity-75">
+              {Math.round(totalBudget / (numberOfDays || 1))}€/gg
+              {activeMembers > 1 && ` • ${Math.round(totalBudget / (numberOfDays || 1) / activeMembers)}€/gg/pers`}
+            </div>
           </div>
           <div className="text-sm opacity-90">
             {activeMembers} {activeMembers === 1 ? 'pers' : 'pers'} • {numberOfDays} {numberOfDays === 1 ? 'gg' : 'gg'}
           </div>
         </div>
         
-        {/* Riga 2: Speso vs Rimangono */}
-        <div className="flex justify-between text-xs opacity-90 mb-2">
+        {/* Riga 2: Percentuale sopra barra */}
+        <p className="text-center text-xs opacity-75 mb-1">
+          {percentageSpent.toFixed(0)}% utilizzato
+        </p>
+        
+        {/* Riga 3: Barra progresso */}
+        <div className="w-full bg-white/20 rounded-full h-2 mb-2">
+          <div
+            className={`h-2 rounded-full transition-all ${
+              percentageSpent > 100 ? 'bg-red-300' : percentageSpent > 90 ? 'bg-yellow-300' : 'bg-white'
+            }`}
+            style={{ width: `${Math.min(percentageSpent, 100)}%` }}
+          />
+        </div>
+        
+        {/* Riga 4: Speso vs Rimangono sotto barra */}
+        <div className="flex justify-between text-xs opacity-90">
           <span>Speso: {Math.round(totalSpent)}€</span>
           <span>
             {remaining >= 0 ? (
@@ -115,21 +136,6 @@ const BudgetView: React.FC<BudgetViewProps> = ({ trip, onUpdateTrip, isDesktop =
               <>⚠️ Sforato di {Math.round(Math.abs(remaining))}€</>
             )}
           </span>
-        </div>
-        
-        {/* Riga 3: Barra progresso + Percentuale */}
-        <div className="space-y-1">
-          <div className="w-full bg-white/20 rounded-full h-2">
-            <div
-              className={`h-2 rounded-full transition-all ${
-                percentageSpent > 100 ? 'bg-red-300' : percentageSpent > 90 ? 'bg-yellow-300' : 'bg-white'
-              }`}
-              style={{ width: `${Math.min(percentageSpent, 100)}%` }}
-            />
-          </div>
-          <p className="text-center text-xs opacity-75">
-            {percentageSpent.toFixed(0)}% utilizzato
-          </p>
         </div>
       </div>
 
