@@ -472,7 +472,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                 </div>
 
                 {/* Errore se date non valide */}
-                {startDate && endDate && new Date(endDate) < new Date(startDate) && (
+                {startDate && endDate && startDate.length === 10 && endDate.length === 10 && new Date(endDate) < new Date(startDate) && (
                   <p className="text-xs text-red-500 mt-2">
                     ⚠️ La data di ritorno deve essere uguale o successiva alla partenza
                   </p>
