@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Upload, UserPlus, Crown, Calendar } from 'lucide-react';
 import { DayPicker, DateRange } from 'react-day-picker';
 import { it } from 'date-fns/locale';
@@ -72,7 +72,39 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
   const [selectedUserProfile, setSelectedUserProfile] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(typeof window !== 'undefined' && window.innerWidth >= 768);
+  const calendarRef = useRef<HTMLDivElement>(null);
+  const calendarButtonRef = useRef<HTMLButtonElement>(null);
   const analytics = useAnalytics();
+
+  // Rileva desktop/mobile
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth >= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Click fuori dal calendario lo chiude e salva
+  useEffect(() => {
+    if (!showCalendar) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      const isOutsideCalendar = calendarRef.current && !calendarRef.current.contains(target);
+      const isOutsideButton = calendarButtonRef.current && !calendarButtonRef.current.contains(target);
+      
+      if (isOutsideCalendar && isOutsideButton) {
+        // Se c'è solo data inizio, imposta fine = inizio
+        if (dateRange?.from && !dateRange?.to) {
+          setDateRange({ from: dateRange.from, to: dateRange.from });
+        }
+        setShowCalendar(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showCalendar, dateRange]);
 
   // Carica dati iniziali quando il modal si apre
   useEffect(() => {
@@ -396,6 +428,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
 
                 {/* Date selector button */}
                 <button
+                  ref={calendarButtonRef}
                   type="button"
                   onClick={() => setShowCalendar(!showCalendar)}
                   className={`w-full px-4 py-3 border-2 rounded-xl flex items-center justify-between transition-colors ${
@@ -423,113 +456,97 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                   </span>
                 </button>
 
-                {/* Calendar Overlay */}
+                {/* Calendar */}
                 {showCalendar && (
-                  <>
-                    {/* Backdrop - click fuori chiude e salva */}
-                    <div 
-                      className="fixed inset-0 z-10"
-                      onClick={() => {
-                        // Se c'è solo data inizio, imposta fine = inizio
-                        if (dateRange?.from && !dateRange?.to) {
-                          setDateRange({ from: dateRange.from, to: dateRange.from });
-                        }
-                        setShowCalendar(false);
-                      }}
-                    />
-                    
-                    <div className="relative z-20 mt-3 border-2 border-gray-200 rounded-xl p-4 bg-white shadow-lg">
-                      <style>{`
-                        .rdp {
-                          --rdp-cell-size: 40px;
-                          --rdp-accent-color: #3b82f6;
-                          --rdp-background-color: #dbeafe;
-                          margin: 0 auto;
-                        }
-                        .rdp-month {
-                          width: 100%;
-                        }
-                        .rdp-table {
-                          width: 100%;
-                          max-width: none;
-                        }
-                        .rdp-head_cell {
-                          font-weight: 600;
-                          color: #6b7280;
-                          font-size: 0.875rem;
-                        }
-                        .rdp-cell {
-                          padding: 2px;
-                        }
-                        .rdp-day {
-                          border-radius: 50%;
-                          font-size: 0.9rem;
-                        }
-                        .rdp-day_selected {
-                          background-color: #3b82f6 !important;
-                          color: white !important;
-                          font-weight: 600;
-                        }
-                        .rdp-day_range_middle {
-                          background-color: #dbeafe !important;
-                          color: #1e40af !important;
-                          border-radius: 50%;
-                        }
-                        .rdp-day_range_start,
-                        .rdp-day_range_end {
-                          border-radius: 50% !important;
-                        }
-                        .rdp-day_today:not(.rdp-day_selected):not(.rdp-day_range_middle) {
-                          border: 2px solid #3b82f6;
-                          font-weight: 600;
-                        }
-                        .rdp-nav_button {
-                          color: #3b82f6;
-                        }
-                        .rdp-caption_label {
-                          font-size: 1.1rem;
-                          font-weight: 600;
-                          color: #1f2937;
-                        }
-                        @media (max-width: 768px) {
-                          .rdp {
-                            --rdp-cell-size: 36px;
-                          }
-                          .rdp-day {
-                            font-size: 0.8rem;
-                          }
-                        }
-                      `}</style>
+                  <div ref={calendarRef} className="mt-3 border-2 border-gray-200 rounded-xl p-4 bg-white shadow-lg overflow-hidden">
+                    <style>{`
+                      .travel-calendar {
+                        --rdp-accent-color: #3b82f6;
+                        --rdp-accent-background-color: #dbeafe;
+                      }
+                      .travel-calendar .rdp-months {
+                        display: flex !important;
+                        flex-direction: row !important;
+                        flex-wrap: nowrap !important;
+                        gap: 2rem;
+                        justify-content: center;
+                      }
+                      .travel-calendar-desktop {
+                        transform: scale(0.75);
+                        transform-origin: top center;
+                        margin-bottom: -80px;
+                      }
+                      .travel-calendar .rdp-month_caption {
+                        padding-bottom: 0.5rem;
+                        margin-bottom: 0.5rem;
+                        border-bottom: 1px solid #e5e7eb;
+                      }
+                      .travel-calendar .rdp-caption_label {
+                        font-size: 0.95rem;
+                        font-weight: 600;
+                        color: #1f2937;
+                      }
+                      .travel-calendar .rdp-weekday {
+                        font-size: 0.75rem;
+                        font-weight: 600;
+                        color: #6b7280;
+                      }
+                      .travel-calendar .rdp-day_button {
+                        border-radius: 50%;
+                      }
+                      .travel-calendar .rdp-selected .rdp-day_button {
+                        background-color: #3b82f6;
+                        color: white;
+                        font-weight: 600;
+                      }
+                      .travel-calendar .rdp-range_middle .rdp-day_button {
+                        background-color: #dbeafe;
+                        color: #1e40af;
+                        border-radius: 50%;
+                      }
+                      .travel-calendar .rdp-today:not(.rdp-selected) .rdp-day_button {
+                        border: 2px solid #3b82f6;
+                        font-weight: 600;
+                      }
+                      .travel-calendar .rdp-button_previous,
+                      .travel-calendar .rdp-button_next {
+                        color: #3b82f6;
+                      }
+                      .travel-calendar .rdp-disabled .rdp-day_button {
+                        color: #d1d5db;
+                      }
+                    `}</style>
+                    <div className={`flex justify-center ${isDesktop ? 'travel-calendar-desktop' : ''}`}>
                       <DayPicker
+                        className="travel-calendar"
                         mode="range"
                         selected={dateRange}
                         onSelect={setDateRange}
                         locale={it}
-                        numberOfMonths={1}
+                        numberOfMonths={isDesktop ? 2 : 1}
                         disabled={{ before: new Date() }}
-                        fromDate={new Date()}
                       />
-                      
-                      {/* Quick info */}
-                      <div className="mt-3 pt-3 border-t border-gray-100 text-center">
-                        {!dateRange?.from && (
-                          <p className="text-sm text-gray-500">👆 Tocca per selezionare la data di partenza</p>
-                        )}
-                        {dateRange?.from && !dateRange?.to && (
-                          <p className="text-sm text-blue-600">👆 Ora seleziona la data di ritorno</p>
-                        )}
-                        {dateRange?.from && dateRange?.to && (
-                          <button
-                            type="button"
-                            onClick={() => setDateRange(undefined)}
-                            className="text-sm text-red-500 hover:text-red-600"
-                          >
-                            ✕ Cancella date
-                          </button>
-                        )}
-                      </div>
                     </div>
-                  </>
+                    
+                    {/* Quick info */}
+                    <div className="pt-3 border-t border-gray-100 text-center">
+                      {!dateRange?.from && (
+                        <p className="text-sm text-gray-500">Seleziona la data di partenza</p>
+                      )}
+                      {dateRange?.from && !dateRange?.to && (
+                        <p className="text-sm text-blue-600">Seleziona la data di ritorno</p>
+                      )}
+                      {dateRange?.from && dateRange?.to && (
+                        <button
+                          type="button"
+                          onClick={() => setDateRange(undefined)}
+                          className="text-sm text-red-500 hover:text-red-600"
+                        >
+                          ✕ Cancella date
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 )}
 
                 {/* Info box */}
