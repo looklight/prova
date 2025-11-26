@@ -468,7 +468,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                         display: flex !important;
                         flex-direction: row !important;
                         flex-wrap: nowrap !important;
-                        gap: 2rem;
+                        gap: 1rem;
                         justify-content: center;
                       }
                       .travel-calendar-desktop {
@@ -537,13 +537,22 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                         <p className="text-sm text-blue-600">Seleziona la data di ritorno</p>
                       )}
                       {dateRange?.from && dateRange?.to && (
-                        <button
-                          type="button"
-                          onClick={() => setDateRange(undefined)}
-                          className="text-sm text-red-500 hover:text-red-600"
-                        >
-                          ✕ Cancella date
-                        </button>
+                        <div className="flex justify-around">
+                          <button
+                            type="button"
+                            onClick={() => setDateRange(undefined)}
+                            className="text-sm text-red-500 hover:text-red-600"
+                          >
+                            ✕ Cancella date
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShowCalendar(false)}
+                            className="text-sm text-blue-500 hover:text-blue-700"
+                          >
+                            ✓ Conferma
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
