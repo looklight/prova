@@ -1,3 +1,27 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Ingrandisci calendario react-datepicker */
+.react-datepicker {
+  font-size: 1.1rem !important;
+}
+
+.react-datepicker__header {
+  padding-top: 12px !important;
+}
+
+.react-datepicker__day-name,
+.react-datepicker__day {
+  width: 2.5rem !important;
+  line-height: 2.5rem !important;
+  margin: 0.2rem !important;
+}
+
+.react-datepicker__current-month {
+  font-size: 1.2rem !important;
+}
+
+.react-datepicker__navigation {
+  top: 12px !important;
+}

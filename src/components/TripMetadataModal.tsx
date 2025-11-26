@@ -413,7 +413,6 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                       selected={startDate}
                       onChange={(date: Date | null) => {
                         setStartDate(date);
-                        // Se endDate è prima di startDate, resettala
                         if (date && endDate && endDate < date) {
                           setEndDate(null);
                         }
@@ -424,6 +423,8 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                       className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors text-sm cursor-pointer"
                       wrapperClassName="w-full"
                       popperPlacement="bottom-start"
+                      readOnly
+                      onFocus={(e) => e.target.blur()}
                     />
                   </div>
 
@@ -439,13 +440,14 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                       placeholderText="Quando torni?"
                       minDate={startDate || undefined}
                       disabled={!startDate}
-                      className={`w-full px-3 py-2 border-2 rounded-lg focus:border-blue-500 focus:outline-none transition-colors text-sm ${
-                        !startDate 
-                          ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed' 
+                      className={`w-full px-3 py-2 border-2 rounded-lg focus:border-blue-500 focus:outline-none transition-colors text-sm ${!startDate
+                          ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
                           : 'border-gray-200 cursor-pointer'
-                      }`}
+                        }`}
                       wrapperClassName="w-full"
                       popperPlacement="bottom-end"
+                      readOnly
+                      onFocus={(e) => e.target.blur()}
                     />
                   </div>
                 </div>
