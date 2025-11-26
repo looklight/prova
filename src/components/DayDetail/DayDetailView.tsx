@@ -327,6 +327,8 @@ const DayDetailView = ({
     }
   }, [trip?.id, currentDay?.number, isDesktop]);
 
+  console.log('🧳 trip.currency:', trip.currency);
+
   if (showFullSummary) {
     return (
       <CostSummaryByUserView
@@ -503,6 +505,7 @@ const DayDetailView = ({
             ? categoryData[costBreakdownModal.categoryId]?.participantsUpdatedAt || null
             : otherExpenses.find(e => e.id === costBreakdownModal.expenseId)?.participantsUpdatedAt || null
         }
+        preferredCurrencies={trip.currency?.preferred || {}}
         onClose={() => setCostBreakdownModal({ isOpen: false, categoryId: null, expenseId: null })}
         onConfirm={handleConfirmBreakdown}
       />

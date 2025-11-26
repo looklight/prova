@@ -9,6 +9,7 @@ import InviteOptionsModal from './InviteOptionsModal';
 import UserProfileModal from './Profile/UserProfileModal';
 import Avatar from './Avatar';
 import { normalizeDestination } from '../utils/textUtils';
+import CurrencySelector from './CurrencySelector';
 import { useAnalytics } from '../hooks/useAnalytics';
 
 interface TripMetadataModalProps {
@@ -50,6 +51,16 @@ export interface TripMetadata {
   description: string;
   startDate?: Date;
   endDate?: Date;
+  currency?: {
+    preferred: Record<string, {
+      code: string;
+      name: string;
+      symbol: string;
+      flag: string;
+      rate: number;
+      lastUpdated: string;
+    }>;
+  };
 }
 
 const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
@@ -75,6 +86,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
   const [isDesktop, setIsDesktop] = useState(typeof window !== 'undefined' && window.innerWidth >= 768);
   const calendarRef = useRef<HTMLDivElement>(null);
   const calendarButtonRef = useRef<HTMLButtonElement>(null);
+  const [preferredCurrencies, setPreferredCurrencies] = useState<Record<string, any>>({});
   const analytics = useAnalytics();
 
   // Rileva desktop/mobile
@@ -92,7 +104,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
       const target = event.target as Node;
       const isOutsideCalendar = calendarRef.current && !calendarRef.current.contains(target);
       const isOutsideButton = calendarButtonRef.current && !calendarButtonRef.current.contains(target);
-      
+
       if (isOutsideCalendar && isOutsideButton) {
         // Se c'è solo data inizio, imposta fine = inizio
         if (dateRange?.from && !dateRange?.to) {
@@ -116,6 +128,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
       setImagePath(initialData.imagePath || null);
       setDateRange(undefined);
       setShowCalendar(false);
+      setPreferredCurrencies(initialData.currency?.preferred || {});
     } else if (isOpen && !initialData) {
       setTripName('');
       setDestinations([]);
@@ -124,6 +137,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
       setImagePath(null);
       setDateRange(undefined);
       setShowCalendar(false);
+      setPreferredCurrencies({});
     }
   }, [isOpen, initialData]);
 
@@ -201,7 +215,10 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
       destinations,
       description: description.trim(),
       ...(mode === 'create' && dateRange?.from && { startDate: dateRange.from }),
-      ...(mode === 'create' && dateRange?.to && { endDate: dateRange.to })
+      ...(mode === 'create' && dateRange?.to && { endDate: dateRange.to }),
+      ...(Object.keys(preferredCurrencies).length > 0 && {
+        currency: { preferred: preferredCurrencies }
+      })
     };
 
     onSave(metadata);
@@ -431,11 +448,10 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                   ref={calendarButtonRef}
                   type="button"
                   onClick={() => setShowCalendar(!showCalendar)}
-                  className={`w-full px-4 py-3 border-2 rounded-xl flex items-center justify-between transition-colors ${
-                    showCalendar 
-                      ? 'border-blue-500 bg-blue-50' 
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
+                  className={`w-full px-4 py-3 border-2 rounded-xl flex items-center justify-between transition-colors ${showCalendar
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <Calendar size={20} className={showCalendar ? 'text-blue-500' : 'text-gray-400'} />
@@ -527,7 +543,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                         disabled={{ before: new Date() }}
                       />
                     </div>
-                    
+
                     {/* Quick info */}
                     <div className="pt-3 border-t border-gray-100 text-center">
                       {!dateRange?.from && (
@@ -675,6 +691,12 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                 </div>
               )}
             </div>
+
+            {/* 💱 VALUTE DEL VIAGGIO */}
+            <CurrencySelector
+              preferredCurrencies={preferredCurrencies}
+              onChange={setPreferredCurrencies}
+            />
 
             {/* DESCRIZIONE */}
             <div>

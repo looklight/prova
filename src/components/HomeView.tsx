@@ -21,6 +21,7 @@ const HomeView = ({
   onDeleteTrip,
   onExportTripBase,
   onExportTripWithMedia,
+  onExportTripCSV, // 📋 Nuovo: export CSV
   onImportTrip,
   onOpenProfile,
   onArchiveTrip,
@@ -221,11 +222,13 @@ const HomeView = ({
         </div>
       )}
 
+      {/* 📋 ExportModal con supporto CSV */}
       <ExportModal
         trip={exportModalTrip}
         onClose={() => setExportModalTrip(null)}
         onExportBase={() => onExportTripBase(exportModalTrip.id)}
         onExportWithMedia={() => onExportTripWithMedia(exportModalTrip.id)}
+        onExportCSV={onExportTripCSV ? () => onExportTripCSV(exportModalTrip.id) : undefined}
       />
 
       <div className="bg-white px-4 py-6 shadow-sm">

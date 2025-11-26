@@ -17,7 +17,7 @@ import { setAnalyticsUserId, updateUserAnalyticsProperties } from "../services/a
 import { useAnalytics } from "../hooks/useAnalytics";
 import { isSeriousTrip, getUserEngagementLevel } from "../utils/analyticsHelpers";
 import { calculateTripCost } from "../utils/costsUtils";
-import { exportTripAsJSON, importTrip } from '../services/exportService';
+import { exportTripAsJSON, exportTripAsCSV, importTrip } from '../services/exportService';
 
 const TravelPlannerApp = ({ user }) => {
   const [currentView, setCurrentView] = useState('home');
@@ -53,14 +53,14 @@ const TravelPlannerApp = ({ user }) => {
   useEffect(() => {
     if (!user) return;
 
-    console.time('🔍 Load Profile');
+    console.time('🔑 Load Profile');
 
     const loadProfile = async () => {
       try {
         const profile = await loadUserProfile(user.uid, user.email);
         setUserProfile(profile);
         setAnalyticsUserId(user.uid);
-        console.timeEnd('🔍 Load Profile');
+        console.timeEnd('🔑 Load Profile');
         console.log('✅ Profilo caricato:', profile.displayName);
       } catch (error) {
         console.error('❌ Errore caricamento profilo:', error);
@@ -71,7 +71,7 @@ const TravelPlannerApp = ({ user }) => {
           email: user.email,
           archivedTripIds: [] // 📦 Fallback array vuoto
         });
-        console.timeEnd('🔍 Load Profile');
+        console.timeEnd('🔑 Load Profile');
       }
     };
 
@@ -89,7 +89,7 @@ const TravelPlannerApp = ({ user }) => {
       user.uid,
       (updatedTrips) => {
         console.timeEnd('📦 Load Trips');
-        console.log('🔥 Viaggi aggiornati:', updatedTrips.length);
+        console.log('📥 Viaggi aggiornati:', updatedTrips.length);
 
         setTrips(updatedTrips);
         setLoading(false);
@@ -319,6 +319,25 @@ const TravelPlannerApp = ({ user }) => {
     }
   };
 
+  // 📋 Export CSV itinerario
+  const exportTripCSV = (tripId) => {
+    try {
+      const trip = trips.find(t => t.id === tripId);
+      if (!trip) {
+        throw new Error('Viaggio non trovato');
+      }
+
+      exportTripAsCSV(trip);
+      
+      const totalCost = calculateTripCost(trip);
+      analytics.trackTripExported(tripId, trip.name, trip.days.length, totalCost);
+      console.log('✅ CSV esportato');
+    } catch (error) {
+      console.error('❌ Errore export CSV:', error);
+      alert('Errore nell\'esportazione CSV del viaggio');
+    }
+  };
+
   // Import
   const importTripHandler = async (file) => {
     try {
@@ -382,6 +401,7 @@ const TravelPlannerApp = ({ user }) => {
       onUnarchiveTrip={unarchiveTripHandler}
       onExportTripBase={exportTripBase}
       onExportTripWithMedia={exportTripWithMedia}
+      onExportTripCSV={exportTripCSV}
       onImportTrip={importTripHandler}
       onOpenProfile={() => setCurrentView('profile')}
       currentUser={userProps}

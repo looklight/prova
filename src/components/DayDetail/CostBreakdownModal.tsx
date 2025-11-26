@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus } from 'lucide-react';
+import { X, Plus, ArrowRightLeft } from 'lucide-react';
 import Avatar from '../Avatar';
+import CurrencyConvertModal from './CurrencyConvertModal';
 
 interface BreakdownEntry {
   id: number;
@@ -18,6 +19,7 @@ interface CostBreakdownModalProps {
   existingBreakdown: Array<{ userId: string; amount: number }> | null;
   existingParticipants?: string[] | null;
   existingParticipantsUpdatedAt?: any | null;  // 🆕 Timestamp (Date o Firestore Timestamp)
+  preferredCurrencies?: Record<string, any>;
   onClose: () => void;
   onConfirm: (breakdown: Array<{ userId: string; amount: number }> | 'RESET_ALL', participants: string[] | null) => void;
 }
@@ -32,12 +34,16 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
   existingBreakdown,
   existingParticipants,
   existingParticipantsUpdatedAt,
+  preferredCurrencies = {},
   onClose,
   onConfirm
 }) => {
   const [entries, setEntries] = useState<BreakdownEntry[]>([]);
   const [nextId, setNextId] = useState(2);
   const [participants, setParticipants] = useState<Set<string>>(new Set());
+  const [showConvertModal, setShowConvertModal] = useState(false);
+  const [convertingEntryId, setConvertingEntryId] = useState<number | null>(null);
+  const [liveConvertedAmount, setLiveConvertedAmount] = useState<number>(0);
 
   // Helper per convertire Firestore Timestamp in Date
   const toDate = (timestamp: any): Date | null => {
@@ -92,7 +98,7 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
               console.log(`🆕 [CostBreakdown] Auto-include ${member.displayName}:`, {
                 addedAt: memberAddedAt.toISOString(),
                 participantsUpdated: participantsUpdatedDate.toISOString(),
-                diff: `${Math.round((memberAddedAt - participantsUpdatedDate) / 1000)}s dopo`
+                diff: `${Math.round((memberAddedAt.getTime() - participantsUpdatedDate.getTime()) / 1000)}s dopo`
               });
               newMembers.push(member.uid);
             } else {
@@ -253,6 +259,29 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
     }
   };
 
+  // 💱 Conversione valuta
+  const handleConvertClick = (entryId: number) => {
+    setConvertingEntryId(entryId);
+    setLiveConvertedAmount(0);
+    setShowConvertModal(true);
+  };
+
+  // Callback live: aggiorna il campo mentre l'utente digita
+  const handleLiveAmountChange = (amountInEUR: number) => {
+    setLiveConvertedAmount(amountInEUR);
+    if (convertingEntryId !== null && amountInEUR > 0) {
+      updateEntry(convertingEntryId, 'amount', amountInEUR.toFixed(2));
+    }
+  };
+
+  const handleConvertClose = () => {
+    setShowConvertModal(false);
+    setConvertingEntryId(null);
+    setLiveConvertedAmount(0);
+  };
+
+  const hasPreferredCurrencies = Object.keys(preferredCurrencies).length > 0;
+
   const getMember = (userId: string) => {
     return tripMembers.find(m => m.uid === userId);
   };
@@ -353,22 +382,35 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Input Importo */}
-                  <div className="relative" style={{ width: '100px' }}>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      value={entry.amount}
-                      onChange={(e) => updateEntry(entry.id, 'amount', e.target.value)}
-                      placeholder="0"
-                      className={`w-full px-3 py-2.5 pr-7 border rounded-lg text-sm text-center ${!isParticipant ? 'bg-gray-50 text-gray-400' : ''
-                        }`}
-                      disabled={!isParticipant}
-                      onWheel={(e) => e.currentTarget.blur()}
-                    />
-                    <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm pointer-events-none">
-                      €
-                    </span>
+                  {/* Input Importo + Converti */}
+                  <div className="flex items-center gap-1">
+                    <div className="relative" style={{ width: '100px' }}>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        value={entry.amount}
+                        onChange={(e) => updateEntry(entry.id, 'amount', e.target.value)}
+                        placeholder="0"
+                        className={`w-full px-3 py-2.5 pr-7 border rounded-lg text-sm text-center ${!isParticipant ? 'bg-gray-50 text-gray-400' : ''
+                          }`}
+                        disabled={!isParticipant}
+                        onWheel={(e) => e.currentTarget.blur()}
+                      />
+                      <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm pointer-events-none">
+                        €
+                      </span>
+                    </div>
+
+                    {/* Bottone Converti */}
+                    {hasPreferredCurrencies && isParticipant && (
+                      <button
+                        onClick={() => handleConvertClick(entry.id)}
+                        className="w-9 h-9 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors"
+                        title="Converti valuta"
+                      >
+                        <ArrowRightLeft size={16} />
+                      </button>
+                    )}
                   </div>
 
                   {/* Bottone Rimuovi */}
@@ -468,6 +510,14 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Modal Conversione Valuta */}
+      <CurrencyConvertModal
+        isOpen={showConvertModal}
+        onClose={handleConvertClose}
+        onAmountChange={handleLiveAmountChange}
+        preferredCurrencies={preferredCurrencies}
+      />
     </div>
   );
 };

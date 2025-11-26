@@ -6,13 +6,15 @@ interface ExportModalProps {
   onClose: () => void;
   onExportBase: () => void;
   onExportWithMedia: () => void;
+  onExportCSV?: () => void; // 📋 Nuovo: export CSV
 }
 
 const ExportModal: React.FC<ExportModalProps> = ({
   trip,
   onClose,
   onExportBase,
-  onExportWithMedia
+  onExportWithMedia,
+  onExportCSV
 }) => {
   if (!trip) return null;
 
@@ -79,6 +81,22 @@ const ExportModal: React.FC<ExportModalProps> = ({
           <p className="text-xs text-gray-400 text-center mt-4">
             Entrambi escludono costi e partecipanti, è possibile scaricare il report dei costi dal Riepilogo Spese
           </p>
+
+          {/* 📋 Link CSV discreto */}
+          {onExportCSV && (
+            <p className="text-xs text-gray-400 text-center mt-3">
+              Puoi anche scaricarlo in{' '}
+              <button
+                onClick={() => {
+                  onExportCSV();
+                  onClose();
+                }}
+                className="text-blue-500 hover:text-blue-600 hover:underline font-medium"
+              >
+                CSV
+              </button>
+            </p>
+          )}
         </div>
       </div>
     </div>

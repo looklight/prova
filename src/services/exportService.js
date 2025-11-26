@@ -1,15 +1,19 @@
 /**
  * 🎯 Export/Import Service
  * 
- * Gestisce esportazione e importazione viaggi in formato JSON.
+ * Gestisce esportazione e importazione viaggi in formato JSON e CSV.
  * Export include: struttura, titoli, note, link, video, immagini (URL)
  * Export esclude: costi, membri, breakdown (dati sensibili)
  */
 
+import {
+  escapeCSV,
+  formatDateIT,
+  CSV_BOM
+} from '../utils/csvHelpers';
+
 /**
  * Sanitizza dati viaggio per export (rimuove info sensibili)
- * @param {Object} trip - Viaggio da sanitizzare
- * @param {Boolean} includeMedia - Se true include immagini/video/link, altrimenti no
  */
 const sanitizeTripData = (trip, includeMedia = true) => {
   const sanitized = {
@@ -28,7 +32,6 @@ const sanitizeTripData = (trip, includeMedia = true) => {
         categories: {}
       };
 
-      // Copia dati categorie (senza costi e breakdown)
       Object.keys(trip.data || {}).forEach(key => {
         if (key.startsWith(`${day.id}-`)) {
           const categoryId = key.split('-')[1];
@@ -36,9 +39,7 @@ const sanitizeTripData = (trip, includeMedia = true) => {
 
           if (!cellData) return;
 
-          // ✅ Includi solo: titoli, note, (opzionalmente media)
           if (categoryId === 'otherExpenses') {
-            // Altre spese: solo titoli e media
             if (Array.isArray(cellData)) {
               dayData.categories[categoryId] = cellData.map(expense => ({
                 title: expense.title || '',
@@ -51,7 +52,6 @@ const sanitizeTripData = (trip, includeMedia = true) => {
               }));
             }
           } else if (categoryId !== 'base') {
-            // Categorie standard
             dayData.categories[categoryId] = {
               title: cellData.title || '',
               notes: cellData.notes || '',
@@ -75,8 +75,6 @@ const sanitizeTripData = (trip, includeMedia = true) => {
 
 /**
  * 📄 Esporta viaggio come JSON
- * @param {Object} trip - Viaggio da esportare
- * @param {Boolean} includeMedia - Se true include immagini/video/link
  */
 export const exportTripAsJSON = (trip, includeMedia = true) => {
   try {
@@ -89,7 +87,6 @@ export const exportTripAsJSON = (trip, includeMedia = true) => {
       trip: sanitizedTrip
     };
 
-    // Crea blob e download
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { 
       type: 'application/json' 
     });
@@ -97,7 +94,6 @@ export const exportTripAsJSON = (trip, includeMedia = true) => {
     const a = document.createElement('a');
     a.href = url;
     
-    // Nome file diverso in base al tipo
     const suffix = includeMedia ? 'completo' : 'base';
     a.download = `${sanitizedTrip.name.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${suffix}.json`;
     
@@ -115,6 +111,94 @@ export const exportTripAsJSON = (trip, includeMedia = true) => {
 };
 
 /**
+ * 📋 Esporta viaggio come CSV (struttura a matrice: giorni in colonna, categorie in riga)
+ */
+export const exportTripAsCSV = (trip) => {
+  try {
+    const tripName = trip.metadata?.name || trip.name || 'Viaggio';
+    const rows = [];
+
+    // Riga 1: intestazione giorni
+    const headerGiorni = [''].concat(trip.days.map(day => `Giorno ${day.number}`));
+    rows.push(headerGiorni.join(';'));
+
+    // Riga 2: date
+    const headerDate = [''].concat(trip.days.map(day => formatDateIT(day.date)));
+    rows.push(headerDate.join(';'));
+
+    // Riga Luogo (base)
+    const luogoRow = ['Luogo'].concat(trip.days.map(day => {
+      const baseKey = `${day.id}-base`;
+      return escapeCSV(trip.data[baseKey]?.title || '');
+    }));
+    rows.push(luogoRow.join(';'));
+
+    // Categorie in ordine
+    const categories = [
+      { id: 'pernottamento', label: 'Pernottamento' },
+      { id: 'attivita1', label: 'Attività 1' },
+      { id: 'attivita2', label: 'Attività 2' },
+      { id: 'attivita3', label: 'Attività 3' },
+      { id: 'spostamenti1', label: 'Spostamenti 1' },
+      { id: 'spostamenti2', label: 'Spostamenti 2' },
+      { id: 'ristori1', label: 'Ristori 1' },
+      { id: 'ristori2', label: 'Ristori 2' }
+    ];
+
+    // Genera riga per ogni categoria
+    categories.forEach(cat => {
+      const row = [cat.label].concat(trip.days.map(day => {
+        const key = `${day.id}-${cat.id}`;
+        const cellData = trip.data[key];
+        return escapeCSV(cellData?.title || '');
+      }));
+      rows.push(row.join(';'));
+    });
+
+    // Righe per "Altre Spese" (possono essere multiple per giorno)
+    const maxOtherExpenses = Math.max(
+      ...trip.days.map(day => {
+        const key = `${day.id}-otherExpenses`;
+        const data = trip.data[key];
+        return Array.isArray(data) ? data.length : 0;
+      }),
+      0
+    );
+
+    for (let i = 0; i < maxOtherExpenses; i++) {
+      const row = [`Altre Spese ${i + 1}`].concat(trip.days.map(day => {
+        const key = `${day.id}-otherExpenses`;
+        const data = trip.data[key];
+        if (Array.isArray(data) && data[i]) {
+          return escapeCSV(data[i].title || '');
+        }
+        return '';
+      }));
+      rows.push(row.join(';'));
+    }
+
+    const csvContent = rows.join('\n');
+
+    const blob = new Blob([CSV_BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${tripName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-itinerario.csv`;
+    
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    console.log('✅ CSV itinerario esportato:', tripName);
+    return true;
+  } catch (error) {
+    console.error('❌ Errore export CSV:', error);
+    throw error;
+  }
+};
+
+/**
  * 📥 Importa viaggio da file JSON
  */
 export const importTrip = async (file) => {
@@ -125,19 +209,13 @@ export const importTrip = async (file) => {
       try {
         const importData = JSON.parse(e.target.result);
 
-        // Verifica versione
         if (!importData.version) {
           throw new Error('File non valido: versione mancante');
         }
 
-        // Supporta sia v1.0 (vecchio) che v2.0 (nuovo)
         let tripData;
         
-        if (importData.version === '1.0') {
-          // Backward compatibility con vecchio formato
-          tripData = importData.trip;
-        } else if (importData.version === '2.0') {
-          // Nuovo formato
+        if (importData.version === '1.0' || importData.version === '2.0') {
           tripData = importData.trip;
         } else {
           throw new Error(`Versione non supportata: ${importData.version}`);
@@ -147,7 +225,6 @@ export const importTrip = async (file) => {
           throw new Error('File non valido: dati viaggio mancanti');
         }
 
-        // Crea struttura viaggio per createTrip
         const newTrip = {
           id: Date.now(),
           name: tripData.name || tripData.metadata?.name || 'Viaggio Importato',
@@ -169,7 +246,6 @@ export const importTrip = async (file) => {
           data: {}
         };
 
-        // Ricostruisci data structure
         tripData.days.forEach((day, dayIndex) => {
           const newDayId = newTrip.days[dayIndex].id;
 
@@ -179,11 +255,10 @@ export const importTrip = async (file) => {
               const key = `${newDayId}-${categoryId}`;
 
               if (categoryId === 'otherExpenses' && Array.isArray(categoryData)) {
-                // Altre spese
                 newTrip.data[key] = categoryData.map((expense, idx) => ({
                   id: expense.id || Date.now() + idx,
                   title: expense.title || '',
-                  cost: '', // ← Non importa costi
+                  cost: '',
                   notes: expense.notes || '',
                   links: expense.links || [],
                   images: expense.images || [],
@@ -195,10 +270,9 @@ export const importTrip = async (file) => {
                   participants: null
                 }));
               } else if (categoryId !== 'base') {
-                // Categorie standard
                 newTrip.data[key] = {
                   title: categoryData.title || '',
-                  cost: '', // ← Non importa costi
+                  cost: '',
                   notes: categoryData.notes || '',
                   links: categoryData.links || [],
                   images: categoryData.images || [],

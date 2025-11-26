@@ -152,6 +152,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         metadata: metadata,
         name: metadata.name,
         image: metadata.image,
+        currency: metadata.currency,  // 🆕 Salva le valute
         updatedAt: new Date()
       });
       setShowMetadataModal(false);
