@@ -10,6 +10,7 @@ interface MediaDialogProps {
   videoNote: string;
   noteInput: string;
   editingNote: any;
+  isNoteEditing: boolean;
   onClose: () => void;
   onLinkInputChange: (value: string) => void;
   onLinkTitleChange: (value: string) => void;
@@ -17,6 +18,7 @@ interface MediaDialogProps {
   onVideoNoteChange: (value: string) => void;
   onNoteInputChange: (value: string) => void;
   onSubmit: () => void;
+  onStartNoteEditing: () => void;
 }
 
 const MediaDialog: React.FC<MediaDialogProps> = ({
@@ -29,13 +31,15 @@ const MediaDialog: React.FC<MediaDialogProps> = ({
   videoNote,
   noteInput,
   editingNote,
+  isNoteEditing,
   onClose,
   onLinkInputChange,
   onLinkTitleChange,
   onVideoInputChange,
   onVideoNoteChange,
   onNoteInputChange,
-  onSubmit
+  onSubmit,
+  onStartNoteEditing
 }) => {
   // 🔒 Blocca scroll quando il modal è aperto
   useEffect(() => {
@@ -146,28 +150,52 @@ const MediaDialog: React.FC<MediaDialogProps> = ({
         
         {type === 'note' && (
           <>
-            <h3 className="text-lg font-bold mb-4">{editingNote ? 'Modifica Nota' : 'Aggiungi Nota'}</h3>
-            <textarea
-              value={noteInput}
-              onChange={(e) => onNoteInputChange(e.target.value)}
-              placeholder="Scrivi una nota..."
-              className="w-full px-4 py-3 border rounded-lg mb-4 h-64 resize-none"
-              autoFocus
-            />
-            <div className="flex gap-2">
-              <button
-                onClick={onClose}
-                className="flex-1 px-4 py-3 bg-gray-100 rounded-lg font-medium"
-              >
-                Annulla
-              </button>
-              <button
-                onClick={onSubmit}
-                className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-lg font-medium"
-              >
-                {editingNote ? 'Salva' : 'Aggiungi'}
-              </button>
-            </div>
+            <h3 className="text-lg font-bold mb-4">📝 Nota</h3>
+            {editingNote && !isNoteEditing ? (
+              <>
+                <div className="w-full px-4 py-3 border rounded-lg mb-4 h-64 overflow-y-auto bg-gray-50 text-sm text-gray-700 whitespace-pre-wrap">
+                  {noteInput}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={onClose}
+                    className="flex-1 px-4 py-3 bg-gray-100 rounded-lg font-medium"
+                  >
+                    Chiudi
+                  </button>
+                  <button
+                    onClick={onStartNoteEditing}
+                    className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-lg font-medium"
+                  >
+                    Modifica
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <textarea
+                  value={noteInput}
+                  onChange={(e) => onNoteInputChange(e.target.value)}
+                  placeholder="Scrivi una nota..."
+                  className="w-full px-4 py-3 border rounded-lg mb-4 h-64 resize-none"
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={onClose}
+                    className="flex-1 px-4 py-3 bg-gray-100 rounded-lg font-medium"
+                  >
+                    Annulla
+                  </button>
+                  <button
+                    onClick={onSubmit}
+                    className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-lg font-medium"
+                  >
+                    {editingNote ? 'Salva' : 'Aggiungi'}
+                  </button>
+                </div>
+              </>
+            )}
           </>
         )}
       </div>

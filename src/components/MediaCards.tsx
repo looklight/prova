@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import { X, Instagram, Youtube } from 'lucide-react';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 
 
@@ -40,7 +40,7 @@ export const ExternalLinkIcon = ({ size = 24 }) => (
 export const extractVideoId = (url) => {
   const patterns = [
     { regex: /instagram\.com\/(p|reel|tv)\/([A-Za-z0-9_-]+)/, platform: 'instagram', idIndex: 2 },
-    { regex: /tiktok\.com\/.*\/video\/(\d+)/, platform: 'tiktok', idIndex: 1 },
+    { regex: /(?:vm\.tiktok\.com|tiktok\.com\/.*\/video)\/([A-Za-z0-9_-]+)/, platform: 'tiktok', idIndex: 1 },
     { regex: /(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]+)/, platform: 'youtube', idIndex: 1 }
   ];
 
@@ -48,7 +48,7 @@ export const extractVideoId = (url) => {
     const match = url.match(pattern.regex);
     if (match) return { platform: pattern.platform, id: match[pattern.idIndex] };
   }
-  
+
   return null;
 };
 
@@ -57,7 +57,7 @@ export const ImageModal = ({ image, onClose }) => {
   if (!image) return null;
 
   return (
-    <div 
+    <div
       className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50"
       onClick={onClose}
     >
@@ -74,8 +74,8 @@ export const ImageModal = ({ image, onClose }) => {
             wrapperStyle={{ width: '100%', height: '100%' }}
             contentStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
-            <img 
-              src={image.url} 
+            <img
+              src={image.url}
               alt={image.name}
               className="max-w-full max-h-full object-contain"
               onClick={(e) => e.stopPropagation()}
@@ -83,8 +83,8 @@ export const ImageModal = ({ image, onClose }) => {
             />
           </TransformComponent>
         </TransformWrapper>
-        
-        <button 
+
+        <button
           onClick={onClose}
           className="absolute top-4 right-4 p-2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-full text-white backdrop-blur-sm transition-all z-10"
           aria-label="Chiudi"
@@ -109,9 +109,9 @@ export const LinkCard = ({ link, onRemove }) => {
   };
 
   return (
-    <a 
-      href={link.url} 
-      target="_blank" 
+    <a
+      href={link.url}
+      target="_blank"
       rel="noopener noreferrer"
       className="relative flex flex-col bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-3 w-full aspect-square overflow-hidden border border-blue-100 hover:shadow-md transition-all group cursor-pointer"
     >
@@ -124,7 +124,7 @@ export const LinkCard = ({ link, onRemove }) => {
 
       {/* Titolo usa quasi tutto lo spazio */}
       <div className="flex-1 overflow-hidden pb-4">
-        <div 
+        <div
           className="text-xs text-gray-800 font-medium group-hover:text-blue-600 group-hover:underline"
           style={{
             display: '-webkit-box',
@@ -145,7 +145,7 @@ export const LinkCard = ({ link, onRemove }) => {
       </div>
 
       {/* Pulsante rimozione - X senza sfondo, sempre visibile mobile, hover desktop */}
-      <button 
+      <button
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -164,31 +164,31 @@ export const ImageCard = ({ image, onRemove }) => {
 
   return (
     <>
-      <div 
+      <div
         className="relative w-full aspect-square rounded-lg overflow-hidden bg-gray-100 cursor-pointer hover:opacity-90 transition-opacity group"
         onClick={() => setShowModal(true)}
       >
         <img src={image.url} alt={image.name} className="w-full h-full object-cover" />
-        
+
         {/* Pulsante rimozione - X senza sfondo, sempre visibile mobile, hover desktop */}
-        <button 
+        <button
           onClick={(e) => {
             e.stopPropagation();
             onRemove();
           }}
           className="absolute top-1 right-1 text-white hover:text-gray-200 transition-colors md:opacity-0 md:group-hover:opacity-100"
-          style={{ 
+          style={{
             textShadow: '0 0 4px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.6)' // Shadow forte per visibilità
           }}
         >
           <X size={14} />
         </button>
       </div>
-      
+
       {showModal && (
-        <ImageModal 
-          image={image} 
-          onClose={() => setShowModal(false)} 
+        <ImageModal
+          image={image}
+          onClose={() => setShowModal(false)}
         />
       )}
     </>
@@ -196,13 +196,13 @@ export const ImageCard = ({ image, onRemove }) => {
 };
 
 export const NoteCard = ({ note, onRemove, onClick }) => (
-  <div 
+  <div
     onClick={onClick}
     className="relative flex flex-col bg-amber-50 rounded-lg p-3 cursor-pointer hover:bg-amber-100 transition-colors w-full aspect-square overflow-hidden group"
   >
     {/* Contenuto nota */}
     <div className="flex-1 overflow-hidden pb-4">
-      <p 
+      <p
         className="text-xs text-gray-700 whitespace-pre-wrap"
         style={{
           display: '-webkit-box',
@@ -223,7 +223,7 @@ export const NoteCard = ({ note, onRemove, onClick }) => (
     </div>
 
     {/* Pulsante rimozione - X senza sfondo, sempre visibile mobile, hover desktop */}
-    <button 
+    <button
       onClick={(e) => {
         e.stopPropagation();
         onRemove();
@@ -239,35 +239,35 @@ export const VideoEmbed = ({ video, onRemove }) => {
   const platforms = {
     instagram: {
       bg: 'bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400',
-      icon: '📷',
+      icon: <Instagram size={18} className="text-white" />,
       name: 'Instagram',
       textColor: 'text-white',
-      iconColor: 'rgba(255, 255, 255, 0.6)' // 🆕 Colore icona link
+      iconColor: 'rgba(255, 255, 255, 0.6)'
     },
     tiktok: {
       bg: 'bg-black',
-      icon: '🎵',
+      icon: <span className="text-lg leading-none">🎵</span>,
       name: 'TikTok',
       textColor: 'text-white',
-      iconColor: 'rgba(255, 255, 255, 0.6)' // 🆕 Colore icona link
+      iconColor: 'rgba(255, 255, 255, 0.6)'
     },
     youtube: {
       bg: 'bg-red-600',
-      icon: '▶️',
+      icon: <Youtube size={18} className="text-white" />,
       name: 'YouTube',
       textColor: 'text-white',
-      iconColor: 'rgba(255, 255, 255, 0.6)' // 🆕 Colore icona link
+      iconColor: 'rgba(255, 255, 255, 0.6)'
     }
   };
 
   const platform = platforms[video.platform];
   const hasNote = video.note && video.note.trim() !== '';
-  
+
   return (
     <div className={`relative w-full aspect-square rounded-lg overflow-hidden ${platform.bg} hover:shadow-md transition-all group cursor-pointer`}>
       {/* Sezione video - 50% se c'è nota, altrimenti 100% */}
       <div className={`w-full ${hasNote ? 'h-1/2' : 'h-full'} flex items-center justify-center`}>
-        <a 
+        <a
           href={video.url}
           target="_blank"
           rel="noopener noreferrer"
@@ -275,7 +275,7 @@ export const VideoEmbed = ({ video, onRemove }) => {
         >
           {/* Emoji più piccola + nome su stessa riga compatta */}
           <div className="flex items-center gap-1.5">
-            <span className="text-lg leading-none">{platform.icon}</span>
+            {platform.icon}
             <span className="text-xs font-semibold leading-tight">{platform.name}</span>
           </div>
         </a>
@@ -284,7 +284,7 @@ export const VideoEmbed = ({ video, onRemove }) => {
       {/* Sezione nota - 50% in basso se presente, max 3 righe con ... */}
       {hasNote && (
         <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-white bg-opacity-95 px-2 py-1 flex items-start overflow-hidden">
-          <p 
+          <p
             className="text-xs text-gray-800 w-full"
             style={{
               display: '-webkit-box',
@@ -307,7 +307,7 @@ export const VideoEmbed = ({ video, onRemove }) => {
       </div>
 
       {/* Pulsante rimozione - X senza sfondo, sempre visibile mobile, hover desktop */}
-      <button 
+      <button
         onClick={onRemove}
         className={`absolute top-1 right-1 ${platform.textColor} hover:opacity-80 transition-opacity md:opacity-0 md:group-hover:opacity-100`}
       >

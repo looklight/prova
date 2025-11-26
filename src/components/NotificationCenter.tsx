@@ -2,13 +2,13 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Bell, Check, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
-import { 
-  subscribeToNotifications, 
+import {
+  subscribeToNotifications,
   markAllAsRead,
   deleteNotification,
   cleanupOldNotifications
 } from '../services/notifications';
-import { 
+import {
   subscribeToPendingInvitations,
   acceptInvitation,
   rejectInvitation,
@@ -19,18 +19,18 @@ import Avatar from './Avatar';
 const getTimeAgo = (date) => {
   const seconds = Math.floor((new Date() - date) / 1000);
   const intervals = {
-    anno: 31536000,
-    mese: 2592000,
-    settimana: 604800,
-    giorno: 86400,
-    ora: 3600,
-    minuto: 60
+    anno: { singular: 'anno', plural: 'anni', seconds: 31536000 },
+    mese: { singular: 'mese', plural: 'mesi', seconds: 2592000 },
+    settimana: { singular: 'settimana', plural: 'settimane', seconds: 604800 },
+    giorno: { singular: 'giorno', plural: 'giorni', seconds: 86400 },
+    ora: { singular: 'ora', plural: 'ore', seconds: 3600 },
+    minuto: { singular: 'minuto', plural: 'minuti', seconds: 60 }
   };
-  
-  for (const [name, secondsInInterval] of Object.entries(intervals)) {
+
+  for (const [, { singular, plural, seconds: secondsInInterval }] of Object.entries(intervals)) {
     const interval = Math.floor(seconds / secondsInInterval);
     if (interval >= 1) {
-      return `${interval} ${name}${interval > 1 ? (name === 'mese' ? 'i' : name === 'ora' ? 'e' : 'i') : ''} fa`;
+      return `${interval} ${interval === 1 ? singular : plural} fa`;
     }
   }
   return 'ora';
@@ -49,13 +49,13 @@ export default function NotificationCenter({ userProfile }) {
   const [invitations, setInvitations] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [processing, setProcessing] = useState({});
-  
+
   const dropdownRef = useRef(null);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       setCurrentUser(user);
-      
+
       if (user?.uid) {
         await Promise.all([
           cleanupOldNotifications(user.uid),
@@ -90,8 +90,8 @@ export default function NotificationCenter({ userProfile }) {
       (invites) => {
         const now = new Date();
         const valid = invites.filter(inv => {
-          const expiresAt = inv.expiresAt instanceof Date 
-            ? inv.expiresAt 
+          const expiresAt = inv.expiresAt instanceof Date
+            ? inv.expiresAt
             : inv.expiresAt?.toDate?.() || new Date(inv.expiresAt);
           return expiresAt > now;
         });
@@ -137,7 +137,7 @@ export default function NotificationCenter({ userProfile }) {
 
   const handleDismissNotification = async (notificationId, event) => {
     event.stopPropagation();
-    
+
     try {
       await deleteNotification(notificationId);
     } catch (error) {
@@ -147,7 +147,7 @@ export default function NotificationCenter({ userProfile }) {
 
   const handleAcceptInvite = async (invitation) => {
     setProcessing(prev => ({ ...prev, [invitation.id]: 'accepting' }));
-    
+
     try {
       await acceptInvitation(
         invitation.id,
@@ -174,7 +174,7 @@ export default function NotificationCenter({ userProfile }) {
 
   const handleRejectInvite = async (invitation) => {
     setProcessing(prev => ({ ...prev, [invitation.id]: 'rejecting' }));
-    
+
     try {
       await rejectInvitation(invitation.id, invitation.tripId, currentUser.uid);
     } catch (error) {
@@ -199,7 +199,7 @@ export default function NotificationCenter({ userProfile }) {
         className="relative p-2 hover:bg-gray-100 rounded-full transition-colors"
       >
         <Bell size={24} className="text-gray-700" />
-        
+
         {totalBadge > 0 && (
           <span className="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
             {totalBadge > 9 ? '9+' : totalBadge}
@@ -210,7 +210,7 @@ export default function NotificationCenter({ userProfile }) {
       {/* Dropdown */}
       {showDropdown && (
         <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-20 max-h-96 overflow-hidden flex flex-col">
-          
+
           {/* Header */}
           <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
             <span className="text-sm font-semibold text-gray-900">
@@ -229,19 +229,19 @@ export default function NotificationCenter({ userProfile }) {
             {invitations.map((invite) => {
               const isProcessing = processing[invite.id];
               const daysLeft = getDaysUntilExpiry(invite.expiresAt);
-              
+
               return (
                 <div
                   key={invite.id}
                   className="p-4 border-b border-gray-100 bg-amber-50"
                 >
                   <div className="flex items-start gap-3 mb-3">
-                    <Avatar 
-                      src={null} 
-                      name={invite.invitedByDisplayName || 'Utente'} 
+                    <Avatar
+                      src={null}
+                      name={invite.invitedByDisplayName || 'Utente'}
                       size="sm"
                     />
-                    
+
                     <div className="flex-1">
                       <p className="text-sm text-gray-900">
                         <span className="font-medium">{invite.invitedByDisplayName}</span>
@@ -256,7 +256,7 @@ export default function NotificationCenter({ userProfile }) {
                       </p>
                     </div>
                   </div>
-                  
+
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleAcceptInvite(invite)}
@@ -272,7 +272,7 @@ export default function NotificationCenter({ userProfile }) {
                         </>
                       )}
                     </button>
-                    
+
                     <button
                       onClick={() => handleRejectInvite(invite)}
                       disabled={!!isProcessing}
@@ -294,21 +294,20 @@ export default function NotificationCenter({ userProfile }) {
             ) : (
               notifications.map((item) => {
                 const isUnread = !item.read;
-                
+
                 return (
                   <div
                     key={item.id}
                     onClick={() => handleNotificationClick(item)}
-                    className={`p-4 border-b border-gray-100 cursor-pointer transition-colors flex items-start gap-3 ${
-                      isUnread ? 'bg-blue-50' : 'bg-white hover:bg-gray-50'
-                    }`}
+                    className={`p-4 border-b border-gray-100 cursor-pointer transition-colors flex items-start gap-3 ${isUnread ? 'bg-blue-50' : 'bg-white hover:bg-gray-50'
+                      }`}
                   >
-                    <Avatar 
-                      src={item.actorAvatar} 
-                      name={item.actorName || 'Utente'} 
+                    <Avatar
+                      src={item.actorAvatar}
+                      name={item.actorName || 'Utente'}
                       size="sm"
                     />
-                    
+
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-gray-900">
                         <span className="font-medium">{item.actorName}</span>
@@ -319,7 +318,7 @@ export default function NotificationCenter({ userProfile }) {
                         {getTimeAgo(item.createdAt)}
                       </p>
                     </div>
-                    
+
                     <button
                       onClick={(e) => handleDismissNotification(item.id, e)}
                       className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors flex-shrink-0"

@@ -156,9 +156,20 @@ const TravelPlannerApp = ({ user }) => {
     try {
       const finalName = metadata?.name || 'Nuovo Viaggio';
 
-      // 🆕 Crea 3 giorni di default invece di 1
-      const startDate = new Date();
-      const days = Array.from({ length: 3 }, (_, i) => {
+      // 📅 Usa date dal metadata se presenti, altrimenti default 3 giorni da oggi
+      const startDate = metadata?.startDate || new Date();
+      const endDate = metadata?.endDate || null;
+
+      // Calcola numero giorni
+      let dayCount = 3; // default
+      if (metadata?.startDate && metadata?.endDate) {
+        const diffTime = metadata.endDate.getTime() - metadata.startDate.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+        // Cap tra 1 e 90 giorni per sicurezza
+        dayCount = Math.min(Math.max(diffDays, 1), 90);
+      }
+
+      const days = Array.from({ length: dayCount }, (_, i) => {
         const date = new Date(startDate);
         date.setDate(startDate.getDate() + i);
         return {
@@ -179,7 +190,7 @@ const TravelPlannerApp = ({ user }) => {
           destinations: metadata?.destinations || [],
           description: metadata?.description || ''
         },
-        startDate: new Date(),
+        startDate: startDate,
         createdAt: new Date(),
         updatedAt: new Date(),
         days: days,

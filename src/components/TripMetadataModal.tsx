@@ -45,6 +45,8 @@ export interface TripMetadata {
   imagePath?: string | null;
   destinations: string[];
   description: string;
+  startDate?: Date;
+  endDate?: Date;
 }
 
 const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
@@ -65,6 +67,8 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [selectedUserProfile, setSelectedUserProfile] = useState<string | null>(null);
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
   const analytics = useAnalytics();
 
   // Carica dati iniziali quando il modal si apre
@@ -75,6 +79,9 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
       setDescription(initialData.description || '');
       setImage(initialData.image || null);
       setImagePath(initialData.imagePath || null);
+      // Reset date in edit mode (non usate)
+      setStartDate('');
+      setEndDate('');
     } else if (isOpen && !initialData) {
       // Reset per creazione nuovo viaggio
       setTripName('');
@@ -82,6 +89,8 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
       setDescription('');
       setImage(null);
       setImagePath(null);
+      setStartDate('');
+      setEndDate('');
     }
   }, [isOpen, initialData]);
 
@@ -156,12 +165,18 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
   const handleSave = () => {
     const finalName = tripName.trim() || 'Nuovo Viaggio';
 
+    // Converti stringhe date in oggetti Date (solo se valorizzate)
+    const parsedStartDate = startDate ? new Date(startDate + 'T00:00:00') : undefined;
+    const parsedEndDate = endDate ? new Date(endDate + 'T00:00:00') : undefined;
+
     const metadata: TripMetadata = {
       name: finalName,
       image,
       imagePath,
       destinations,
-      description: description.trim()
+      description: description.trim(),
+      ...(mode === 'create' && parsedStartDate && { startDate: parsedStartDate }),
+      ...(mode === 'create' && parsedEndDate && { endDate: parsedEndDate })
     };
 
     onSave(metadata);
@@ -238,60 +253,66 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
           <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
 
             {/* IMMAGINE COPERTINA - Cerchio centrato */}
-            <div className="flex flex-col items-center">
-              <input
-                type="file"
-                id="image-upload"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-              />
-              <label htmlFor="image-upload" className="cursor-pointer">
-                <div className="relative">
-                  {image ? (
-                    <div className="relative">
+            <div className="relative">
+              {/* Bottone Rimuovi - in alto a destra, appare solo se c'è immagine */}
+              {image && (
+                <div className="absolute top-0 right-0">
+                  <button
+                    type="button"
+                    onClick={async (e) => {
+                      e.preventDefault();
+
+                      // ⭐ Elimina da Storage se esiste path
+                      if (imagePath) {
+                        try {
+                          await deleteImageFromStorage(imagePath);
+                          console.log('🗑️ Cover eliminata');
+                        } catch (error) {
+                          console.warn('⚠️ Errore eliminazione cover:', error);
+                        }
+                      }
+
+                      setImage(null);
+                      setImagePath(null);
+                    }}
+                    className="text-[10px] text-gray-500 hover:text-red-500 transition-colors"
+                  >
+                    Rimuovi immagine
+                  </button>
+                </div>
+              )}
+
+              <div className="flex flex-col items-center">
+                <input
+                  type="file"
+                  id="image-upload"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+                <label htmlFor="image-upload" className="cursor-pointer">
+                  <div className="relative">
+                    {image ? (
                       <img
                         src={image}
                         alt="Viaggio"
                         className="w-32 h-32 rounded-full object-cover border-4 border-gray-200 shadow-lg"
                       />
-                      <button
-                        type="button"
-                        onClick={async (e) => {
-                          e.preventDefault();
-
-                          // ⭐ Elimina da Storage se esiste path
-                          if (imagePath) {
-                            try {
-                              await deleteImageFromStorage(imagePath);
-                              console.log('🗑️ Cover eliminata');
-                            } catch (error) {
-                              console.warn('⚠️ Errore eliminazione cover:', error);
-                            }
-                          }
-
-                          setImage(null);
-                          setImagePath(null);
-                        }}
-                        className="absolute -top-1 -right-1 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 shadow-lg"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="w-32 h-32 rounded-full border-2 border-dashed border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50 transition-all flex flex-col items-center justify-center">
-                      {isUploading ? (
-                        <div className="text-xs text-gray-500">Caricamento...</div>
-                      ) : (
-                        <>
-                          <Upload size={28} className="text-gray-400 mb-1" />
-                          <p className="text-[10px] text-gray-500">Carica foto</p>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </label>
+                    ) : (
+                      <div className="w-32 h-32 rounded-full border-2 border-dashed border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50 transition-all flex flex-col items-center justify-center">
+                        {isUploading ? (
+                          <div className="text-xs text-gray-500">Caricamento...</div>
+                        ) : (
+                          <>
+                            <Upload size={28} className="text-gray-400 mb-1" />
+                            <p className="text-[10px] text-gray-500">Carica foto</p>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </label>
+              </div>
             </div>
 
             {/* NOME VIAGGIO */}
@@ -358,6 +379,91 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                 </p>
               )}
             </div>
+
+            {/* 📅 PERIODO DEL VIAGGIO - Solo in modalità create */}
+            {mode === 'create' && (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="text-sm font-semibold text-gray-700">
+                    📅 Durata del viaggio
+                  </label>
+                  {startDate && endDate && (() => {
+                    const start = new Date(startDate);
+                    const end = new Date(endDate);
+                    const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                    const isValid = diffDays > 0 && diffDays <= 90;
+
+                    return (
+                      <span className={`text-xs font-semibold ${isValid ? 'text-blue-400' : 'text-red-500'}`}>
+                        {isValid ? `${diffDays} giorni` : diffDays > 90 ? 'Max 90 giorni' : 'Date non valide'}
+                      </span>
+                    );
+                  })()}
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Data inizio */}
+                  <div className="flex-1 min-w-[140px] relative">
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      onKeyDown={(e) => e.preventDefault()}
+                      id="startDateInput"
+                      className={`w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors text-sm cursor-pointer ${!startDate ? 'absolute opacity-0 pointer-events-none' : ''}`}
+                    />
+                    {!startDate && (
+                      <div
+                        onClick={() => document.getElementById('startDateInput')?.showPicker()}
+                        className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm text-gray-400 cursor-pointer hover:border-gray-300 transition-colors"
+                      >
+                        Quando parti?
+                      </div>
+                    )}
+                  </div>
+
+                  <span className="text-gray-400 font-medium">→</span>
+
+                  {/* Data fine */}
+                  <div className="flex-1 min-w-[140px] relative">
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      onKeyDown={(e) => e.preventDefault()}
+                      min={startDate || undefined}
+                      id="endDateInput"
+                      className={`w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors text-sm cursor-pointer ${!endDate ? 'absolute opacity-0 pointer-events-none' : ''}`}
+                    />
+                    {!endDate && (
+                      <div
+                        onClick={() => startDate && document.getElementById('endDateInput')?.showPicker()}
+                        className={`w-full px-3 py-2 border-2 rounded-lg text-sm transition-colors ${startDate
+                          ? 'border-gray-200 text-gray-400 cursor-pointer hover:border-gray-300'
+                          : 'border-gray-100 text-gray-300 cursor-not-allowed bg-gray-50'
+                          }`}
+                      >
+                        Quando torni?
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Errore se date non valide */}
+                {startDate && endDate && new Date(endDate) < new Date(startDate) && (
+                  <p className="text-xs text-red-500 mt-2">
+                    ⚠️ La data di ritorno deve essere uguale o successiva alla partenza
+                  </p>
+                )}
+
+                {/* Info box */}
+                <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    💡 Potrai modificare le date e la durata del viaggio anche in seguito con il pulsante ✎
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* PERSONE CHE ORGANIZZANO */}
             <div>
@@ -474,8 +580,6 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                 <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
                   <p className="text-xs text-gray-600 leading-relaxed">
                     💡 Dopo aver creato il viaggio potrai invitare altri collaboratori direttamente dal Menu del Viaggio.
-                    <br />
-                    💡 Con il pulsante ✎ potrai modificare la durata e la data di partenza.
                   </p>
                 </div>
               )}

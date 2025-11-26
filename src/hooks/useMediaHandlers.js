@@ -25,6 +25,7 @@ export const useMediaHandlers = (categoryData, updateCategory, tripId) => {
   const [videoNote, setVideoNote] = useState('');
   const [noteInput, setNoteInput] = useState('');
   const [editingNote, setEditingNote] = useState(null);
+  const [isNoteEditing, setIsNoteEditing] = useState(false);
 
   const addLink = (categoryId) => {
     if (!linkInput.trim()) return;
@@ -134,6 +135,7 @@ export const useMediaHandlers = (categoryData, updateCategory, tripId) => {
   const handleMediaDialogClose = () => {
     setMediaDialogOpen(null);
     setEditingNote(null);
+    setIsNoteEditing(false);
     setNoteInput('');
     setVideoNote('');
   };
@@ -146,6 +148,7 @@ export const useMediaHandlers = (categoryData, updateCategory, tripId) => {
     videoNote,
     noteInput,
     editingNote,
+    isNoteEditing,
     setMediaDialogOpen,
     setLinkInput,
     setLinkTitle,
@@ -153,6 +156,7 @@ export const useMediaHandlers = (categoryData, updateCategory, tripId) => {
     setVideoNote,
     setNoteInput,
     setEditingNote,
+    setIsNoteEditing,
     addLink,
     addImage,
     addVideo,

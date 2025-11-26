@@ -466,6 +466,7 @@ const DayDetailView = ({
         videoNote={mediaHandlers.videoNote}
         noteInput={mediaHandlers.noteInput}
         editingNote={mediaHandlers.editingNote}
+        isNoteEditing={mediaHandlers.isNoteEditing}
         onClose={mediaHandlers.handleMediaDialogClose}
         onLinkInputChange={mediaHandlers.setLinkInput}
         onLinkTitleChange={mediaHandlers.setLinkTitle}
@@ -473,6 +474,7 @@ const DayDetailView = ({
         onVideoNoteChange={mediaHandlers.setVideoNote}
         onNoteInputChange={mediaHandlers.setNoteInput}
         onSubmit={() => mediaHandlers.handleMediaDialogSubmit(mediaHandlers.mediaDialogOpen?.categoryId)}
+        onStartNoteEditing={() => mediaHandlers.setIsNoteEditing(true)}
       />
 
       <CostBreakdownModal
