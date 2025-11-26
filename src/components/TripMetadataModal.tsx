@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Upload, UserPlus, Crown } from 'lucide-react';
-import DatePicker, { registerLocale } from 'react-datepicker';
+import { X, Upload, UserPlus, Crown, Calendar } from 'lucide-react';
+import { DayPicker, DateRange } from 'react-day-picker';
 import { it } from 'date-fns/locale';
+import 'react-day-picker/dist/style.css';
 import { resizeAndUploadImage, deleteImageFromStorage } from '../services/mediaService';
 import { IMAGE_COMPRESSION } from '../config/imageConfig';
 import InviteOptionsModal from './InviteOptionsModal';
@@ -9,9 +10,6 @@ import UserProfileModal from './Profile/UserProfileModal';
 import Avatar from './Avatar';
 import { normalizeDestination } from '../utils/textUtils';
 import { useAnalytics } from '../hooks/useAnalytics';
-
-// Registra locale italiano
-registerLocale('it', it);
 
 interface TripMetadataModalProps {
   isOpen: boolean;
@@ -72,8 +70,8 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [selectedUserProfile, setSelectedUserProfile] = useState<string | null>(null);
-  const [startDate, setStartDate] = useState<Date | null>(null);
-  const [endDate, setEndDate] = useState<Date | null>(null);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [showCalendar, setShowCalendar] = useState(false);
   const analytics = useAnalytics();
 
   // Carica dati iniziali quando il modal si apre
@@ -84,18 +82,16 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
       setDescription(initialData.description || '');
       setImage(initialData.image || null);
       setImagePath(initialData.imagePath || null);
-      // Reset date in edit mode (non usate)
-      setStartDate(null);
-      setEndDate(null);
+      setDateRange(undefined);
+      setShowCalendar(false);
     } else if (isOpen && !initialData) {
-      // Reset per creazione nuovo viaggio
       setTripName('');
       setDestinations([]);
       setDescription('');
       setImage(null);
       setImagePath(null);
-      setStartDate(null);
-      setEndDate(null);
+      setDateRange(undefined);
+      setShowCalendar(false);
     }
   }, [isOpen, initialData]);
 
@@ -104,7 +100,6 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
       const normalized = normalizeDestination(newDestination.trim());
       setDestinations([...destinations, normalized]);
 
-      // 📊 Track aggiunta destinazione (solo in edit mode)
       if (mode === 'edit' && initialData?.tripId) {
         analytics.trackDestinationAdded(normalized, initialData.tripId, 'edit');
       }
@@ -116,7 +111,6 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
   const removeDestination = (index: number) => {
     const removedDest = destinations[index];
 
-    // 📊 Track rimozione destinazione (solo in edit mode)
     if (mode === 'edit' && initialData?.tripId && removedDest) {
       analytics.trackDestinationRemoved(removedDest, initialData.tripId);
     }
@@ -137,7 +131,6 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
     try {
       const tripIdForPath = initialData?.tripId || Date.now();
 
-      // ⭐ STEP 1: Elimina vecchia cover se esiste
       if (imagePath) {
         try {
           await deleteImageFromStorage(imagePath);
@@ -147,7 +140,6 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
         }
       }
 
-      // ⭐ STEP 2: Carica nuova cover
       const path = `trips/${tripIdForPath}/cover`;
       const { url: imageURL, path: newImagePath } = await resizeAndUploadImage(
         file,
@@ -176,13 +168,12 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
       imagePath,
       destinations,
       description: description.trim(),
-      ...(mode === 'create' && startDate && { startDate }),
-      ...(mode === 'create' && endDate && { endDate })
+      ...(mode === 'create' && dateRange?.from && { startDate: dateRange.from }),
+      ...(mode === 'create' && dateRange?.to && { endDate: dateRange.to })
     };
 
     onSave(metadata);
 
-    // 📊 Track modifiche metadata (solo in edit mode)
     if (mode === 'edit' && initialData?.tripId) {
       analytics.trackTripMetadataUpdated(initialData.tripId, {
         name: tripName !== initialData.name,
@@ -204,8 +195,8 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
 
   // Calcola numero giorni
   const getDaysDiff = () => {
-    if (!startDate || !endDate) return null;
-    const diffTime = endDate.getTime() - startDate.getTime();
+    if (!dateRange?.from || !dateRange?.to) return null;
+    const diffTime = dateRange.to.getTime() - dateRange.from.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
     return diffDays;
   };
@@ -213,9 +204,13 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
   const daysDiff = getDaysDiff();
   const isValidRange = daysDiff !== null && daysDiff > 0 && daysDiff <= 90;
 
+  // Formatta data per display
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+
   if (!isOpen) return null;
 
-  // Crea oggetto trip per InviteOptionsModal
   const tripForInvite = initialData?.tripId ? {
     id: initialData.tripId,
     name: tripName || initialData.name || 'Viaggio',
@@ -233,7 +228,6 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
     }
   } : null;
 
-  // Lista membri per UserProfileModal
   const activeMembers = initialData?.sharing?.members
     ? Object.entries(initialData.sharing.members)
       .filter(([_, member]) => member.status === 'active')
@@ -264,17 +258,14 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
           {/* CONTENT - Scrollable */}
           <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
 
-            {/* IMMAGINE COPERTINA - Cerchio centrato */}
+            {/* IMMAGINE COPERTINA */}
             <div className="relative">
-              {/* Bottone Rimuovi - in alto a destra, appare solo se c'è immagine */}
               {image && (
                 <div className="absolute top-0 right-0">
                   <button
                     type="button"
                     onClick={async (e) => {
                       e.preventDefault();
-
-                      // ⭐ Elimina da Storage se esiste path
                       if (imagePath) {
                         try {
                           await deleteImageFromStorage(imagePath);
@@ -283,7 +274,6 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                           console.warn('⚠️ Errore eliminazione cover:', error);
                         }
                       }
-
                       setImage(null);
                       setImagePath(null);
                     }}
@@ -338,13 +328,12 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
               />
             </div>
 
-            {/* DESTINAZIONI/TAPPE */}
+            {/* DESTINAZIONI */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-3">
                 🌍 Destinazioni
               </label>
 
-              {/* Lista destinazioni */}
               {destinations.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-3">
                   {destinations.map((dest, index) => (
@@ -365,7 +354,6 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                 </div>
               )}
 
-              {/* Input nuova destinazione */}
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -400,61 +388,148 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                     📅 Durata del viaggio
                   </label>
                   {daysDiff !== null && (
-                    <span className={`text-xs font-semibold ${isValidRange ? 'text-blue-400' : 'text-red-500'}`}>
+                    <span className={`text-xs font-semibold ${isValidRange ? 'text-blue-500' : 'text-red-500'}`}>
                       {isValidRange ? `${daysDiff} giorni` : daysDiff > 90 ? 'Max 90 giorni' : 'Date non valide'}
                     </span>
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
-                  {/* Data inizio */}
-                  <div className="flex-1 min-w-[120px] max-w-[45%]">
-                    <DatePicker
-                      selected={startDate}
-                      onChange={(date: Date | null) => {
-                        setStartDate(date);
-                        if (date && endDate && endDate < date) {
-                          setEndDate(null);
+                {/* Date selector button */}
+                <button
+                  type="button"
+                  onClick={() => setShowCalendar(!showCalendar)}
+                  className={`w-full px-4 py-3 border-2 rounded-xl flex items-center justify-between transition-colors ${
+                    showCalendar 
+                      ? 'border-blue-500 bg-blue-50' 
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Calendar size={20} className={showCalendar ? 'text-blue-500' : 'text-gray-400'} />
+                    <span className={dateRange?.from ? 'text-gray-900' : 'text-gray-400'}>
+                      {dateRange?.from ? (
+                        dateRange.to ? (
+                          `${formatDate(dateRange.from)} → ${formatDate(dateRange.to)}`
+                        ) : (
+                          `${formatDate(dateRange.from)} → Seleziona ritorno`
+                        )
+                      ) : (
+                        'Seleziona le date del viaggio'
+                      )}
+                    </span>
+                  </div>
+                  <span className={`text-sm transition-transform ${showCalendar ? 'rotate-180' : ''}`}>
+                    ▼
+                  </span>
+                </button>
+
+                {/* Calendar Overlay */}
+                {showCalendar && (
+                  <>
+                    {/* Backdrop - click fuori chiude e salva */}
+                    <div 
+                      className="fixed inset-0 z-10"
+                      onClick={() => {
+                        // Se c'è solo data inizio, imposta fine = inizio
+                        if (dateRange?.from && !dateRange?.to) {
+                          setDateRange({ from: dateRange.from, to: dateRange.from });
                         }
+                        setShowCalendar(false);
                       }}
-                      dateFormat="d MMM yyyy"
-                      locale="it"
-                      placeholderText="Quando parti?"
-                      className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors text-sm cursor-pointer"
-                      wrapperClassName="w-full"
-                      withPortal
-                      readOnly
                     />
-                  </div>
-
-                  <span className="text-gray-400 font-medium flex-shrink-0">→</span>
-
-                  {/* Data fine */}
-                  <div className="flex-1 min-w-[120px] max-w-[45%]">
-                    <DatePicker
-                      selected={endDate}
-                      onChange={(date: Date | null) => setEndDate(date)}
-                      dateFormat="d MMM yyyy"
-                      locale="it"
-                      placeholderText="Quando torni?"
-                      minDate={startDate || undefined}
-                      disabled={!startDate}
-                      className={`w-full px-3 py-2 border-2 rounded-lg focus:border-blue-500 focus:outline-none transition-colors text-sm ${!startDate
-                        ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
-                        : 'border-gray-200 cursor-pointer'
-                        }`}
-                      wrapperClassName="w-full"
-                      withPortal
-                      readOnly
-                    />
-                  </div>
-                </div>
-
-                {/* Errore se date non valide */}
-                {startDate && endDate && endDate < startDate && (
-                  <p className="text-xs text-red-500 mt-2">
-                    ⚠️ La data di ritorno deve essere uguale o successiva alla partenza
-                  </p>
+                    
+                    <div className="relative z-20 mt-3 border-2 border-gray-200 rounded-xl p-4 bg-white shadow-lg">
+                      <style>{`
+                        .rdp {
+                          --rdp-cell-size: 40px;
+                          --rdp-accent-color: #3b82f6;
+                          --rdp-background-color: #dbeafe;
+                          margin: 0 auto;
+                        }
+                        .rdp-month {
+                          width: 100%;
+                        }
+                        .rdp-table {
+                          width: 100%;
+                          max-width: none;
+                        }
+                        .rdp-head_cell {
+                          font-weight: 600;
+                          color: #6b7280;
+                          font-size: 0.875rem;
+                        }
+                        .rdp-cell {
+                          padding: 2px;
+                        }
+                        .rdp-day {
+                          border-radius: 50%;
+                          font-size: 0.9rem;
+                        }
+                        .rdp-day_selected {
+                          background-color: #3b82f6 !important;
+                          color: white !important;
+                          font-weight: 600;
+                        }
+                        .rdp-day_range_middle {
+                          background-color: #dbeafe !important;
+                          color: #1e40af !important;
+                          border-radius: 50%;
+                        }
+                        .rdp-day_range_start,
+                        .rdp-day_range_end {
+                          border-radius: 50% !important;
+                        }
+                        .rdp-day_today:not(.rdp-day_selected):not(.rdp-day_range_middle) {
+                          border: 2px solid #3b82f6;
+                          font-weight: 600;
+                        }
+                        .rdp-nav_button {
+                          color: #3b82f6;
+                        }
+                        .rdp-caption_label {
+                          font-size: 1.1rem;
+                          font-weight: 600;
+                          color: #1f2937;
+                        }
+                        @media (max-width: 768px) {
+                          .rdp {
+                            --rdp-cell-size: 36px;
+                          }
+                          .rdp-day {
+                            font-size: 0.8rem;
+                          }
+                        }
+                      `}</style>
+                      <DayPicker
+                        mode="range"
+                        selected={dateRange}
+                        onSelect={setDateRange}
+                        locale={it}
+                        numberOfMonths={1}
+                        disabled={{ before: new Date() }}
+                        fromDate={new Date()}
+                      />
+                      
+                      {/* Quick info */}
+                      <div className="mt-3 pt-3 border-t border-gray-100 text-center">
+                        {!dateRange?.from && (
+                          <p className="text-sm text-gray-500">👆 Tocca per selezionare la data di partenza</p>
+                        )}
+                        {dateRange?.from && !dateRange?.to && (
+                          <p className="text-sm text-blue-600">👆 Ora seleziona la data di ritorno</p>
+                        )}
+                        {dateRange?.from && dateRange?.to && (
+                          <button
+                            type="button"
+                            onClick={() => setDateRange(undefined)}
+                            className="text-sm text-red-500 hover:text-red-600"
+                          >
+                            ✕ Cancella date
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </>
                 )}
 
                 {/* Info box */}
@@ -468,17 +543,13 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
 
             {/* PERSONE CHE ORGANIZZANO */}
             <div>
-              {/* 🆕 LABEL FUORI DAL BOX - Stile uniforme */}
               <label className="block text-sm font-semibold text-gray-700 mb-3">
                 👥 Chi organizza questo viaggio
               </label>
 
-              {/* BOX AZZURRO - Senza titolo interno */}
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-5 border-2 border-blue-200">
-                {/* LISTA MEMBRI */}
                 <div className="space-y-2">
                   {mode === 'edit' && initialData?.sharing?.members ? (
-                    // Modalità edit: mostra tutti i membri
                     Object.entries(initialData.sharing.members)
                       .filter(([_, member]) => member.status === 'active')
                       .sort((a, b) => {
@@ -499,16 +570,13 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                               }`}
                           >
                             <div className="flex items-center gap-3">
-                              {/* Avatar */}
                               <Avatar
                                 src={member.avatar}
                                 name={member.displayName}
                                 size="md"
                               />
 
-                              {/* Info */}
                               <div className="flex-1 min-w-0">
-                                {/* Riga 1: Nome + Badge Owner inline */}
                                 <div className="flex items-center gap-2 mb-0.5">
                                   <p className="font-semibold text-gray-900 truncate">
                                     {member.displayName}
@@ -521,7 +589,6 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                                   )}
                                 </div>
 
-                                {/* Riga 2: Username */}
                                 {member.username && (
                                   <p className="text-sm text-gray-500 truncate">@{member.username}</p>
                                 )}
@@ -531,7 +598,6 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                         );
                       })
                   ) : (
-                    // Modalità create: mostra solo currentUser (cliccabile)
                     <div
                       onClick={() => setSelectedUserProfile(currentUser.uid)}
                       className="border-2 border-blue-400 bg-blue-100 rounded-lg p-3 cursor-pointer hover:shadow-sm transition-all"
@@ -561,7 +627,6 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                   )}
                 </div>
 
-                {/* Pulsante Invita (solo in edit E solo se owner) */}
                 {mode === 'edit' &&
                   tripForInvite &&
                   initialData?.sharing?.members?.[currentUser.uid]?.role === 'owner' && (
@@ -576,7 +641,6 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                   )}
               </div>
 
-              {/* 🆕 INFO BOX - Solo in modalità create */}
               {mode === 'create' && (
                 <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
                   <p className="text-xs text-gray-600 leading-relaxed">
@@ -627,7 +691,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
         </div>
       </div>
 
-      {/* Modal Invita Membri Unificato */}
+      {/* Modal Invita Membri */}
       {mode === 'edit' && tripForInvite && (
         <InviteOptionsModal
           isOpen={showInviteModal}
