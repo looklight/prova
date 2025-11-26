@@ -71,6 +71,25 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
   const [endDate, setEndDate] = useState<string>('');
   const analytics = useAnalytics();
 
+  // 🔒 Blocca scroll body quando il modal è aperto
+  useEffect(() => {
+    if (isOpen) {
+      const scrollY = window.scrollY;
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+      document.body.style.overflow = 'hidden';
+
+      return () => {
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.width = '';
+        document.body.style.overflow = '';
+        window.scrollTo(0, scrollY);
+      };
+    }
+  }, [isOpen]);
+
   // Carica dati iniziali quando il modal si apre
   useEffect(() => {
     if (isOpen && initialData) {
@@ -233,8 +252,15 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-hidden">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div
+        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-hidden"
+        style={{ touchAction: 'none' }}
+      >
+        <div
+          className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
+          style={{ touchAction: 'pan-y' }}
+          onClick={(e) => e.stopPropagation()}
+        >
 
           {/* HEADER */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
