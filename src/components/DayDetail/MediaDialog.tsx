@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface MediaDialogProps {
   isOpen: boolean;
@@ -41,6 +41,20 @@ const MediaDialog: React.FC<MediaDialogProps> = ({
   onSubmit,
   onStartNoteEditing
 }) => {
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  // 🎬 Animazione entrata
+  useEffect(() => {
+    if (isOpen) {
+      // Piccolo delay per triggerare l'animazione CSS
+      requestAnimationFrame(() => {
+        setIsAnimating(true);
+      });
+    } else {
+      setIsAnimating(false);
+    }
+  }, [isOpen]);
+
   // 🔒 Blocca scroll quando il modal è aperto
   useEffect(() => {
     if (isOpen) {
@@ -70,11 +84,11 @@ const MediaDialog: React.FC<MediaDialogProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-end z-50" 
+      className={`fixed inset-0 flex items-end z-50 transition-colors duration-300 ${isAnimating ? 'bg-black bg-opacity-50' : 'bg-transparent'}`}
       onClick={onClose}
     >
       <div 
-        className={`bg-white rounded-t-3xl w-full p-6 ${isDesktop ? 'max-w-md' : 'max-w-[430px]'} mx-auto`} 
+        className={`bg-white rounded-t-3xl w-full p-6 ${isDesktop ? 'max-w-md' : 'max-w-[430px]'} mx-auto transition-transform duration-300 ease-out ${isAnimating ? 'translate-y-0' : 'translate-y-full'}`}
         onClick={(e) => e.stopPropagation()}
       >
         {type === 'link' && (
