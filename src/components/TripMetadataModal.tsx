@@ -437,10 +437,15 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                   <span className="text-gray-400 font-medium flex-shrink-0">→</span>
 
                   {/* Data fine */}
+                  {/* Data fine */}
                   <div 
                     className={`flex-1 min-w-[120px] max-w-[45%] ${startDate ? 'cursor-pointer' : 'cursor-not-allowed'}`}
                     onClick={() => {
                       if (startDate && endDateRef.current) {
+                        // Se endDate è vuoto, pre-imposta a startDate per evitare errore validazione
+                        if (!endDate) {
+                          setEndDate(startDate);
+                        }
                         endDateRef.current.showPicker?.();
                         endDateRef.current.focus();
                         endDateRef.current.click();
@@ -472,7 +477,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                 </div>
 
                 {/* Errore se date non valide */}
-                {startDate && endDate && startDate.length === 10 && endDate.length === 10 && new Date(endDate) < new Date(startDate) && (
+                {startDate && endDate && new Date(endDate) < new Date(startDate) && (
                   <p className="text-xs text-red-500 mt-2">
                     ⚠️ La data di ritorno deve essere uguale o successiva alla partenza
                   </p>
