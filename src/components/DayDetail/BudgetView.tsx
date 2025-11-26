@@ -192,10 +192,12 @@ const BudgetView: React.FC<BudgetViewProps> = ({ trip, onUpdateTrip, isDesktop =
                     <span className="w-7 text-right mr-0.5">{Math.round(perDay)}</span>
                     <span>€/gg</span>
                   </div>
-                  <div className="flex">
-                    <span className="w-7 text-right mr-0.5">{Math.round(perDay / (activeMembers || 1))}</span>
-                    <span>€/gg/pers</span>
-                  </div>
+                  {activeMembers > 1 && (
+                    <div className="flex">
+                      <span className="w-7 text-right mr-0.5">{Math.round(perDay / activeMembers)}</span>
+                      <span>€/gg/pers</span>
+                    </div>
+                  )}
                 </div>
                 
                 {editMode ? (
