@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Upload, UserPlus, Crown } from 'lucide-react';
+import DatePicker, { registerLocale } from 'react-datepicker';
+import { it } from 'date-fns/locale';
 import { resizeAndUploadImage, deleteImageFromStorage } from '../services/mediaService';
 import { IMAGE_COMPRESSION } from '../config/imageConfig';
 import InviteOptionsModal from './InviteOptionsModal';
@@ -7,6 +9,9 @@ import UserProfileModal from './Profile/UserProfileModal';
 import Avatar from './Avatar';
 import { normalizeDestination } from '../utils/textUtils';
 import { useAnalytics } from '../hooks/useAnalytics';
+
+// Registra locale italiano
+registerLocale('it', it);
 
 interface TripMetadataModalProps {
   isOpen: boolean;
@@ -67,10 +72,8 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [selectedUserProfile, setSelectedUserProfile] = useState<string | null>(null);
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
-  const startDateRef = useRef<HTMLInputElement>(null);
-  const endDateRef = useRef<HTMLInputElement>(null);
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
   const analytics = useAnalytics();
 
   // Carica dati iniziali quando il modal si apre
@@ -82,8 +85,8 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
       setImage(initialData.image || null);
       setImagePath(initialData.imagePath || null);
       // Reset date in edit mode (non usate)
-      setStartDate('');
-      setEndDate('');
+      setStartDate(null);
+      setEndDate(null);
     } else if (isOpen && !initialData) {
       // Reset per creazione nuovo viaggio
       setTripName('');
@@ -91,8 +94,8 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
       setDescription('');
       setImage(null);
       setImagePath(null);
-      setStartDate('');
-      setEndDate('');
+      setStartDate(null);
+      setEndDate(null);
     }
   }, [isOpen, initialData]);
 
@@ -167,18 +170,14 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
   const handleSave = () => {
     const finalName = tripName.trim() || 'Nuovo Viaggio';
 
-    // Converti stringhe date in oggetti Date (solo se valorizzate)
-    const parsedStartDate = startDate ? new Date(startDate + 'T00:00:00') : undefined;
-    const parsedEndDate = endDate ? new Date(endDate + 'T00:00:00') : undefined;
-
     const metadata: TripMetadata = {
       name: finalName,
       image,
       imagePath,
       destinations,
       description: description.trim(),
-      ...(mode === 'create' && parsedStartDate && { startDate: parsedStartDate }),
-      ...(mode === 'create' && parsedEndDate && { endDate: parsedEndDate })
+      ...(mode === 'create' && startDate && { startDate }),
+      ...(mode === 'create' && endDate && { endDate })
     };
 
     onSave(metadata);
@@ -202,6 +201,17 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
       addDestination();
     }
   };
+
+  // Calcola numero giorni
+  const getDaysDiff = () => {
+    if (!startDate || !endDate) return null;
+    const diffTime = endDate.getTime() - startDate.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    return diffDays;
+  };
+
+  const daysDiff = getDaysDiff();
+  const isValidRange = daysDiff !== null && daysDiff > 0 && daysDiff <= 90;
 
   if (!isOpen) return null;
 
@@ -389,95 +399,59 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                   <label className="text-sm font-semibold text-gray-700">
                     📅 Durata del viaggio
                   </label>
-                  {startDate && endDate && (() => {
-                    const start = new Date(startDate);
-                    const end = new Date(endDate);
-                    const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-                    const isValid = diffDays > 0 && diffDays <= 90;
-
-                    return (
-                      <span className={`text-xs font-semibold ${isValid ? 'text-blue-400' : 'text-red-500'}`}>
-                        {isValid ? `${diffDays} giorni` : diffDays > 90 ? 'Max 90 giorni' : 'Date non valide'}
-                      </span>
-                    );
-                  })()}
+                  {daysDiff !== null && (
+                    <span className={`text-xs font-semibold ${isValidRange ? 'text-blue-400' : 'text-red-500'}`}>
+                      {isValidRange ? `${daysDiff} giorni` : daysDiff > 90 ? 'Max 90 giorni' : 'Date non valide'}
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2">
                   {/* Data inizio */}
-                  <div 
-                    className="flex-1 min-w-[120px] max-w-[45%] cursor-pointer"
-                    onClick={() => {
-                      if (startDateRef.current) {
-                        startDateRef.current.showPicker?.();
-                        startDateRef.current.focus();
-                        startDateRef.current.click();
-                      }
-                    }}
-                  >
-                    <div className={`w-full px-3 py-2 border-2 rounded-lg text-sm transition-colors ${
-                      startDate 
-                        ? 'border-gray-200 text-gray-900' 
-                        : 'border-gray-200 text-gray-400 hover:border-gray-300'
-                    }`}>
-                      {startDate 
-                        ? new Date(startDate + 'T00:00:00').toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })
-                        : 'Quando parti?'
-                      }
-                    </div>
+                  <div className="flex-1 min-w-[120px] max-w-[45%]">
+                    <DatePicker
+                      selected={startDate}
+                      onChange={(date: Date | null) => {
+                        setStartDate(date);
+                        // Se endDate è prima di startDate, resettala
+                        if (date && endDate && endDate < date) {
+                          setEndDate(null);
+                        }
+                      }}
+                      dateFormat="d MMM yyyy"
+                      locale="it"
+                      placeholderText="Quando parti?"
+                      className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors text-sm cursor-pointer"
+                      wrapperClassName="w-full"
+                      popperPlacement="bottom-start"
+                    />
                   </div>
-                  <input
-                    ref={startDateRef}
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="sr-only"
-                  />
 
                   <span className="text-gray-400 font-medium flex-shrink-0">→</span>
 
                   {/* Data fine */}
-                  {/* Data fine */}
-                  <div 
-                    className={`flex-1 min-w-[120px] max-w-[45%] ${startDate ? 'cursor-pointer' : 'cursor-not-allowed'}`}
-                    onClick={() => {
-                      if (startDate && endDateRef.current) {
-                        // Se endDate è vuoto, pre-imposta a startDate per evitare errore validazione
-                        if (!endDate) {
-                          setEndDate(startDate);
-                        }
-                        endDateRef.current.showPicker?.();
-                        endDateRef.current.focus();
-                        endDateRef.current.click();
-                      }
-                    }}
-                  >
-                    <div className={`w-full px-3 py-2 border-2 rounded-lg text-sm transition-colors ${
-                      !startDate
-                        ? 'border-gray-100 text-gray-300 bg-gray-50'
-                        : endDate 
-                          ? 'border-gray-200 text-gray-900' 
-                          : 'border-gray-200 text-gray-400 hover:border-gray-300'
-                    }`}>
-                      {endDate 
-                        ? new Date(endDate + 'T00:00:00').toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })
-                        : 'Quando torni?'
-                      }
-                    </div>
+                  <div className="flex-1 min-w-[120px] max-w-[45%]">
+                    <DatePicker
+                      selected={endDate}
+                      onChange={(date: Date | null) => setEndDate(date)}
+                      dateFormat="d MMM yyyy"
+                      locale="it"
+                      placeholderText="Quando torni?"
+                      minDate={startDate || undefined}
+                      disabled={!startDate}
+                      className={`w-full px-3 py-2 border-2 rounded-lg focus:border-blue-500 focus:outline-none transition-colors text-sm ${
+                        !startDate 
+                          ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed' 
+                          : 'border-gray-200 cursor-pointer'
+                      }`}
+                      wrapperClassName="w-full"
+                      popperPlacement="bottom-end"
+                    />
                   </div>
-                  <input
-                    ref={endDateRef}
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    min={startDate || undefined}
-                    disabled={!startDate}
-                    className="sr-only"
-                  />
                 </div>
 
                 {/* Errore se date non valide */}
-                {startDate && endDate && new Date(endDate) < new Date(startDate) && (
+                {startDate && endDate && endDate < startDate && (
                   <p className="text-xs text-red-500 mt-2">
                     ⚠️ La data di ritorno deve essere uguale o successiva alla partenza
                   </p>

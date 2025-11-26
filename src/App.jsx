@@ -9,6 +9,7 @@ import { PrivacyPage, TermsPage, CookiePage } from "./pages/LegalPages.tsx";
 import { auth } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { loadUserProfile } from './services';
+import "react-datepicker/dist/react-datepicker.css";
 
 function App() {
   return (
