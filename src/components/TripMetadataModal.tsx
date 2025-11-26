@@ -424,7 +424,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                       wrapperClassName="w-full"
                       popperPlacement="bottom-start"
                       readOnly
-                      onFocus={(e) => e.target.blur()}
+                      inputMode="none"
                     />
                   </div>
 
@@ -447,7 +447,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                       wrapperClassName="w-full"
                       popperPlacement="bottom-end"
                       readOnly
-                      onFocus={(e) => e.target.blur()}
+                      inputMode="none"
                     />
                   </div>
                 </div>
