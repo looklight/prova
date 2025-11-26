@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Upload, UserPlus, Crown } from 'lucide-react';
 import { resizeAndUploadImage, deleteImageFromStorage } from '../services/mediaService';
 import { IMAGE_COMPRESSION } from '../config/imageConfig';
@@ -69,6 +69,8 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
   const [selectedUserProfile, setSelectedUserProfile] = useState<string | null>(null);
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
+  const startDateRef = useRef<HTMLInputElement>(null);
+  const endDateRef = useRef<HTMLInputElement>(null);
   const analytics = useAnalytics();
 
   // Carica dati iniziali quando il modal si apre
@@ -401,52 +403,72 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                   })()}
                 </div>
 
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
                   {/* Data inizio */}
-                  <div className="flex-1 min-w-[140px] max-w-[50%] relative overflow-hidden">
-                    <input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      onKeyDown={(e) => e.preventDefault()}
-                      id="startDateInput"
-                      className={`w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors text-sm cursor-pointer ${!startDate ? 'absolute opacity-0 pointer-events-none' : ''}`}
-                    />
-                    {!startDate && (
-                      <div
-                        onClick={() => document.getElementById('startDateInput')?.showPicker()}
-                        className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm text-gray-400 cursor-pointer hover:border-gray-300 transition-colors"
-                      >
-                        Quando parti?
-                      </div>
-                    )}
+                  <div 
+                    className="flex-1 min-w-[120px] max-w-[45%] cursor-pointer"
+                    onClick={() => {
+                      if (startDateRef.current) {
+                        startDateRef.current.showPicker?.();
+                        startDateRef.current.focus();
+                        startDateRef.current.click();
+                      }
+                    }}
+                  >
+                    <div className={`w-full px-3 py-2 border-2 rounded-lg text-sm transition-colors ${
+                      startDate 
+                        ? 'border-gray-200 text-gray-900' 
+                        : 'border-gray-200 text-gray-400 hover:border-gray-300'
+                    }`}>
+                      {startDate 
+                        ? new Date(startDate + 'T00:00:00').toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })
+                        : 'Quando parti?'
+                      }
+                    </div>
                   </div>
+                  <input
+                    ref={startDateRef}
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="sr-only"
+                  />
 
-                  <span className="text-gray-400 font-medium">→</span>
+                  <span className="text-gray-400 font-medium flex-shrink-0">→</span>
 
                   {/* Data fine */}
-                  <div className="flex-1 min-w-[140px] max-w-[50%] relative overflow-hidden">
-                    <input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      onKeyDown={(e) => e.preventDefault()}
-                      min={startDate || undefined}
-                      id="endDateInput"
-                      className={`w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors text-sm cursor-pointer ${!endDate ? 'absolute opacity-0 pointer-events-none' : ''}`}
-                    />
-                    {!endDate && (
-                      <div
-                        onClick={() => startDate && document.getElementById('endDateInput')?.showPicker()}
-                        className={`w-full px-3 py-2 border-2 rounded-lg text-sm transition-colors ${startDate
-                          ? 'border-gray-200 text-gray-400 cursor-pointer hover:border-gray-300'
-                          : 'border-gray-100 text-gray-300 cursor-not-allowed bg-gray-50'
-                          }`}
-                      >
-                        Quando torni?
-                      </div>
-                    )}
+                  <div 
+                    className={`flex-1 min-w-[120px] max-w-[45%] ${startDate ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+                    onClick={() => {
+                      if (startDate && endDateRef.current) {
+                        endDateRef.current.showPicker?.();
+                        endDateRef.current.focus();
+                        endDateRef.current.click();
+                      }
+                    }}
+                  >
+                    <div className={`w-full px-3 py-2 border-2 rounded-lg text-sm transition-colors ${
+                      !startDate
+                        ? 'border-gray-100 text-gray-300 bg-gray-50'
+                        : endDate 
+                          ? 'border-gray-200 text-gray-900' 
+                          : 'border-gray-200 text-gray-400 hover:border-gray-300'
+                    }`}>
+                      {endDate 
+                        ? new Date(endDate + 'T00:00:00').toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })
+                        : 'Quando torni?'
+                      }
+                    </div>
                   </div>
+                  <input
+                    ref={endDateRef}
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    min={startDate || undefined}
+                    disabled={!startDate}
+                    className="sr-only"
+                  />
                 </div>
 
                 {/* Errore se date non valide */}
