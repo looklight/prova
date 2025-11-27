@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, PanelRightClose } from 'lucide-react';
 
 interface DayHeaderProps {
   trip: any;
@@ -8,6 +8,7 @@ interface DayHeaderProps {
   onBack?: () => void;
   onChangeDayIndex: (index: number) => void;
   isDesktop: boolean;
+  onClosePanel?: () => void; // 🆕 Solo desktop: chiude il pannello
 }
 
 const DayHeader: React.FC<DayHeaderProps> = ({
@@ -16,14 +17,27 @@ const DayHeader: React.FC<DayHeaderProps> = ({
   dayIndex,
   onBack,
   onChangeDayIndex,
-  isDesktop
+  isDesktop,
+  onClosePanel
 }) => {
   return (
     <div className="bg-white px-4 py-4 shadow-sm sticky top-0 z-20">
       <div className="flex items-center mb-2">
+        {/* Mobile: icona Calendar per tornare indietro */}
         {!isDesktop && onBack && (
           <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full ml-4 mr-4">
             <Calendar size={24} />
+          </button>
+        )}
+
+        {/* Desktop: icona PanelRightClose per chiudere il pannello */}
+        {isDesktop && onClosePanel && (
+          <button 
+            onClick={onClosePanel} 
+            className="p-2 hover:bg-gray-100 rounded-full ml-4 mr-4"
+            title="Chiudi pannello"
+          >
+            <PanelRightClose size={24} />
           </button>
         )}
         

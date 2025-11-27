@@ -21,7 +21,8 @@ const DayDetailView = ({
   onChangeDayIndex,
   isDesktop = false,
   user,
-  highlightCategoryId = null
+  highlightCategoryId = null,
+  onClosePanel = null // 🆕 Solo desktop: callback per chiudere il pannello
 }) => {
   // Safety check
   if (dayIndex === null || dayIndex === undefined || dayIndex >= trip.days.length || dayIndex < 0) {
@@ -214,61 +215,76 @@ const DayDetailView = ({
         const category = CATEGORIES.find(c => c.id === categoryId);
         const key = `${currentDay.id}-${categoryId}`;
 
-        // Reset completo a stato vergine
-        const emptyData = {
-          title: '',
-          cost: '',
+        const updatedData = {
+          ...trip.data[key],
           costBreakdown: null,
+          cost: '',
           participants: null,
-          participantsUpdatedAt: null,  // 🆕 Reset anche timestamp
-          hasSplitCost: false,
-          bookingStatus: 'na',
-          transportMode: categoryId.startsWith('spostamenti') ? 'treno' : 'none',
-          links: [],
-          images: [],
-          videos: [],
-          mediaNotes: [],
-          notes: ''
+          participantsUpdatedAt: null,
+          hasSplitCost: false
         };
 
-        console.log(`🧹 Reset categoria: ${category?.label}`);
+        console.log('🗑️ [Category] Reset completo:', categoryId);
 
         onUpdateTrip({
           ...trip,
           data: {
             ...trip.data,
-            [key]: emptyData
+            [key]: updatedData
+          }
+        });
+      } else if (costBreakdownModal.expenseId) {
+        const key = `${currentDay.id}-otherExpenses`;
+        const expenses = [...(trip.data[key] || [])];
+        const expenseIndex = expenses.findIndex(e => e.id === costBreakdownModal.expenseId);
+
+        if (expenseIndex === -1) return;
+
+        expenses[expenseIndex] = {
+          ...expenses[expenseIndex],
+          costBreakdown: null,
+          cost: '',
+          participants: null,
+          participantsUpdatedAt: null,
+          hasSplitCost: false
+        };
+
+        console.log('🗑️ [OtherExpense] Reset completo:', costBreakdownModal.expenseId);
+
+        onUpdateTrip({
+          ...trip,
+          data: {
+            ...trip.data,
+            [key]: expenses
           }
         });
       }
+
+      setCostBreakdownModal({ isOpen: false, categoryId: null, expenseId: null });
       return;
     }
 
-    // ✅ FIX: Salvataggio ATOMICO per categorie normali CON TIMESTAMP
+    // Calcola totale dal breakdown
+    const total = breakdown.reduce((sum, entry) => sum + (parseFloat(entry.amount) || 0), 0);
+
     if (costBreakdownModal.categoryId) {
       const categoryId = costBreakdownModal.categoryId;
+      const category = CATEGORIES.find(c => c.id === categoryId);
       const key = `${currentDay.id}-${categoryId}`;
-      const currentData = trip.data[key] || {};
 
-      // Calcola totale
-      const total = breakdown.reduce((sum, entry) => sum + entry.amount, 0);
-
-      // ✅ AGGIORNA TUTTO INSIEME in un'unica operazione
       const updatedData = {
-        ...currentData,
+        ...trip.data[key],
         participants: participants,
-        participantsUpdatedAt: new Date(),  // 🆕 Timestamp aggiornamento
+        participantsUpdatedAt: Date.now(),
         costBreakdown: breakdown,
         cost: total.toString(),
         hasSplitCost: breakdown.length > 1
       };
 
-      console.log('💾 [Categoria] Salvataggio atomico con timestamp:', {
+      console.log('💾 [Category] Salvataggio atomico con timestamp:', {
         categoryId,
         participants,
-        participantsUpdatedAt: updatedData.participantsUpdatedAt,
-        breakdown: breakdown.length,
-        total
+        participantsUpdatedAt: updatedData.participantsUpdatedAt
       });
 
       onUpdateTrip({
@@ -278,27 +294,18 @@ const DayDetailView = ({
           [key]: updatedData
         }
       });
-
-    }
-    // ✅ FIX: Salvataggio ATOMICO per altre spese CON TIMESTAMP
-    else if (costBreakdownModal.expenseId !== null) {
+    } else if (costBreakdownModal.expenseId) {
       const key = `${currentDay.id}-otherExpenses`;
-      const expensesArray = trip.data[key] || [];
+      const expenses = [...(trip.data[key] || [])];
+      const expenseIndex = expenses.findIndex(e => e.id === costBreakdownModal.expenseId);
 
-      const expenseIndex = expensesArray.findIndex(e => e.id === costBreakdownModal.expenseId);
-      if (expenseIndex === -1) {
-        console.warn('⚠️ Spesa non trovata:', costBreakdownModal.expenseId);
-        return;
-      }
+      if (expenseIndex === -1) return;
 
-      const total = breakdown.reduce((sum, entry) => sum + entry.amount, 0);
-
-      // ✅ AGGIORNA TUTTO INSIEME in un'unica operazione
-      const updatedExpenses = [...expensesArray];
+      const updatedExpenses = [...expenses];
       updatedExpenses[expenseIndex] = {
         ...updatedExpenses[expenseIndex],
         participants: participants,
-        participantsUpdatedAt: new Date(),  // 🆕 Timestamp aggiornamento
+        participantsUpdatedAt: Date.now(),
         costBreakdown: breakdown,
         cost: total.toString(),
         hasSplitCost: breakdown.length > 1
@@ -353,6 +360,7 @@ const DayDetailView = ({
         onBack={onBack}
         onChangeDayIndex={onChangeDayIndex}
         isDesktop={isDesktop}
+        onClosePanel={onClosePanel}
       />
 
       <div className="p-4 space-y-3">

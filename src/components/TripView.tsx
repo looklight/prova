@@ -32,6 +32,7 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
   const [view, setView] = useState('calendar');
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [highlightCategoryId, setHighlightCategoryId] = useState(null);
+  const [showDetailPanel, setShowDetailPanel] = useState(true); // 🆕 Stato per toggle pannello desktop
   const analytics = useAnalytics();
 
   const isDesktop = useMediaQuery('(min-width: 1024px)');
@@ -48,11 +49,16 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
   }, [trip.days.length, selectedDayIndex]);
 
   /**
-   * ✅ MODIFICATO: Riceve anche categoryId per highlight
+   * ✅ MODIFICATO: Riceve anche categoryId per highlight + riapre pannello su desktop
    */
   const handleOpenDay = (dayIndex, currentScrollPosition = null, categoryId = null) => {
     setSelectedDayIndex(dayIndex);
     setHighlightCategoryId(categoryId);
+
+    // 🆕 Su desktop, riapri il pannello se era chiuso
+    if (isDesktop) {
+      setShowDetailPanel(true);
+    }
 
     if (!isDesktop) {
       setScrollPosition(currentScrollPosition);
@@ -79,6 +85,11 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
     if (isDesktop) {
       setScrollToDayId(trip.days[newIndex].id);
     }
+  };
+
+  // 🆕 Handler per chiudere il pannello desktop
+  const handleClosePanel = () => {
+    setShowDetailPanel(false);
   };
 
   useEffect(() => {
@@ -137,7 +148,12 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
   // ========== RENDERING DESKTOP ==========
   return (
     <div className="flex h-screen bg-gray-50">
-      <div className="w-[60%] border-r border-gray-300 overflow-hidden flex-col">
+      {/* Calendario - si espande quando il pannello è chiuso */}
+      <div 
+        className={`border-r border-gray-300 overflow-hidden flex-col transition-all duration-300 ${
+          showDetailPanel ? 'w-[60%]' : 'w-full'
+        }`}
+      >
         <CalendarView
           trip={trip}
           onUpdateTrip={onUpdateTrip}
@@ -147,36 +163,40 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
           savedScrollPosition={null}
           onScrollComplete={handleScrollComplete}
           isDesktop={true}
-          selectedDayIndex={selectedDayIndex}
+          selectedDayIndex={showDetailPanel ? selectedDayIndex : null}
           currentUser={currentUser}
           onInviteClick={() => setShowInviteModal(true)}
         />
       </div>
 
-      <div className="w-[40%] overflow-y-auto flex flex-col bg-white">
-        {selectedDayIndex !== null ? (
-          <DayDetailView
-            trip={trip}
-            dayIndex={selectedDayIndex}
-            onUpdateTrip={onUpdateTrip}
-            onBack={null}
-            onChangeDayIndex={handleChangeDayIndex}
-            isDesktop={true}
-            user={currentUser}
-            highlightCategoryId={highlightCategoryId}
-          />
-        ) : (
-          <div className="h-full flex items-center justify-center text-gray-400 bg-gray-50">
-            <div className="text-center px-6">
-              <Calendar size={64} className="mx-auto mb-4 opacity-30" />
-              <p className="text-lg font-medium text-gray-500">Seleziona un giorno</p>
-              <p className="text-sm text-gray-400 mt-2">
-                Clicca su una cella del calendario per visualizzare i dettagli
-              </p>
+      {/* Pannello dettaglio - visibile solo se showDetailPanel è true */}
+      {showDetailPanel && (
+        <div className="w-[40%] overflow-y-auto flex flex-col bg-white">
+          {selectedDayIndex !== null ? (
+            <DayDetailView
+              trip={trip}
+              dayIndex={selectedDayIndex}
+              onUpdateTrip={onUpdateTrip}
+              onBack={null}
+              onChangeDayIndex={handleChangeDayIndex}
+              isDesktop={true}
+              user={currentUser}
+              highlightCategoryId={highlightCategoryId}
+              onClosePanel={handleClosePanel}
+            />
+          ) : (
+            <div className="h-full flex items-center justify-center text-gray-400 bg-gray-50">
+              <div className="text-center px-6">
+                <Calendar size={64} className="mx-auto mb-4 opacity-30" />
+                <p className="text-lg font-medium text-gray-500">Seleziona un giorno</p>
+                <p className="text-sm text-gray-400 mt-2">
+                  Clicca su una cella del calendario per visualizzare i dettagli
+                </p>
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
