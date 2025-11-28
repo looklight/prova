@@ -99,9 +99,10 @@ const CostSummaryByUserView: React.FC<CostSummaryByUserViewProps> = ({
               breakdown[uid].participatedCount++;
 
               // Calcola quanto ha PAGATO per il totale
-              const userEntry = cellData.costBreakdown.find(entry => entry.userId === uid);
-              if (userEntry && userEntry.amount > 0) {
-                breakdown[uid].total += userEntry.amount;
+              const userEntries = cellData.costBreakdown.filter(entry => entry.userId === uid);
+              const userTotal = userEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
+              if (userTotal > 0) {
+                breakdown[uid].total += userTotal;
 
                 const categoryKey = cat.label;
                 if (!breakdown[uid].byCategory[categoryKey]) {
@@ -112,13 +113,13 @@ const CostSummaryByUserView: React.FC<CostSummaryByUserViewProps> = ({
                   };
                 }
 
-                breakdown[uid].byCategory[categoryKey].total += userEntry.amount;
+                breakdown[uid].byCategory[categoryKey].total += userTotal;
                 breakdown[uid].byCategory[categoryKey].count += 1;
                 breakdown[uid].byCategory[categoryKey].items.push({
                   day: day.number,
                   base: baseTitle,
                   title: cellData.title || cat.label,
-                  amount: userEntry.amount
+                  amount: userTotal
                 });
               }
             } else {
@@ -152,9 +153,10 @@ const CostSummaryByUserView: React.FC<CostSummaryByUserViewProps> = ({
                 breakdown[uid].participatedCount++;
 
                 // Calcola quanto ha PAGATO per il totale
-                const userEntry = expense.costBreakdown.find(entry => entry.userId === uid);
-                if (userEntry && userEntry.amount > 0) {
-                  breakdown[uid].total += userEntry.amount;
+                const userEntries = expense.costBreakdown.filter(entry => entry.userId === uid);
+                const userTotal = userEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
+                if (userTotal > 0) {
+                  breakdown[uid].total += userTotal;
 
                   const categoryKey = 'Altre Spese';
                   if (!breakdown[uid].byCategory[categoryKey]) {
@@ -165,13 +167,13 @@ const CostSummaryByUserView: React.FC<CostSummaryByUserViewProps> = ({
                     };
                   }
 
-                  breakdown[uid].byCategory[categoryKey].total += userEntry.amount;
+                  breakdown[uid].byCategory[categoryKey].total += userTotal;
                   breakdown[uid].byCategory[categoryKey].count += 1;
                   breakdown[uid].byCategory[categoryKey].items.push({
                     day: day.number,
                     base: baseTitle,
                     title: expense.title || 'Altra Spesa',
-                    amount: userEntry.amount
+                    amount: userTotal
                   });
                 }
               } else {
@@ -294,8 +296,8 @@ const CostSummaryByUserView: React.FC<CostSummaryByUserViewProps> = ({
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`py-2.5 px-1 text-xs font-medium transition-all duration-200 flex flex-col items-center justify-center gap-1 relative ${activeTab === tab.id
-                  ? 'text-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
+                ? 'text-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
                 }`}
             >
               <span className="text-base">{tab.icon}</span>

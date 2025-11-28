@@ -256,7 +256,7 @@ const CurrencySelector = ({ preferredCurrencies = {}, onChange, showHelp = false
       {showHelp && (
         <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
           <p className="text-xs text-gray-600 leading-relaxed">
-            💡 Aggiungi le valute locali per convertire facilmente le spese durante il viaggio. 
+            💡 Aggiungi le valute locali per convertire facilmente in Euro le spese durante il viaggio. 
             I tassi vengono aggiornati automaticamente dalla BCE.
           </p>
         </div>

@@ -48,8 +48,26 @@ const DayDetailView = ({
   });
   const [showFullSummary, setShowFullSummary] = useState(false);
   const [showEmptyCategories, setShowEmptyCategories] = useState(false);
-  const [highlightedCategory, setHighlightedCategory] = useState(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(highlightCategoryId); // Ring blu (3s)
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(highlightCategoryId); // Controlli visibili
   const analytics = useAnalytics();
+
+  // Ring blu scompare dopo 3 secondi
+  useEffect(() => {
+    if (!selectedCategoryId) return;
+    
+    const timer = setTimeout(() => {
+      setSelectedCategoryId(null);
+    }, 3000);
+    
+    return () => clearTimeout(timer);
+  }, [selectedCategoryId]);
+
+  // Handler per selezionare una categoria
+  const handleSelectCategory = (categoryId: string) => {
+    setSelectedCategoryId(categoryId);
+    setActiveCategoryId(categoryId);
+  };
 
   const hasScrolledRef = useRef(false);
   const [layoutSnapshot, setLayoutSnapshot] = useState(null);
@@ -72,17 +90,17 @@ const DayDetailView = ({
   }, [currentDay.id]);
 
   useEffect(() => {
-    const alwaysVisible = ['base', 'note'];
+    const alwaysVisible = ['base'];
     const frozenData = trip.data;
 
     const snapshot = {
       categoriesWithData: CATEGORIES
-        .filter(cat => cat.id !== 'otherExpenses')
+        .filter(cat => cat.id !== 'otherExpenses' && cat.id !== 'note')
         .filter(cat =>
           alwaysVisible.includes(cat.id) || calculateHasData(cat.id, frozenData)
         ),
       categoriesWithoutData: CATEGORIES
-        .filter(cat => cat.id !== 'otherExpenses')
+        .filter(cat => cat.id !== 'otherExpenses' && cat.id !== 'note')
         .filter(cat =>
           !alwaysVisible.includes(cat.id) && !calculateHasData(cat.id, frozenData)
         )
@@ -92,7 +110,7 @@ const DayDetailView = ({
     console.log('📸 Snapshot layout aggiornato per giorno', dayIndex);
   }, [dayIndex, calculateHasData]);
 
-  const alwaysVisible = ['base', 'note'];
+  const alwaysVisible = ['base'];
   const categoriesWithData = layoutSnapshot?.categoriesWithData || [];
   const categoriesWithoutData = layoutSnapshot?.categoriesWithoutData || [];
 
@@ -126,7 +144,7 @@ const DayDetailView = ({
       data?.notes?.trim()
     );
 
-    const alwaysVisible = ['base', 'note'];
+    const alwaysVisible = ['base', 'note', 'otherExpenses'];
     const isAlwaysVisible = alwaysVisible.includes(highlightCategoryId);
     const needsDropdown = !categoryHasData && !isAlwaysVisible;
 
@@ -135,42 +153,48 @@ const DayDetailView = ({
       setShowEmptyCategories(true);
 
       setTimeout(() => {
-        scrollToAndHighlight(highlightCategoryId);
+        scrollToAndSelect(highlightCategoryId);
         hasScrolledRef.current = true;
       }, 350);
     } else {
       setTimeout(() => {
-        scrollToAndHighlight(highlightCategoryId);
+        scrollToAndSelect(highlightCategoryId);
         hasScrolledRef.current = true;
       }, 100);
     }
   }, [highlightCategoryId, currentDay.id, showEmptyCategories]);
 
-  const scrollToAndHighlight = (categoryId, retryCount = 0) => {
+  const scrollToAndSelect = (categoryId: string, retryCount = 0) => {
     const element = document.getElementById(`category-${categoryId}`);
 
     if (element) {
       console.log('✅ Scrolling a categoria:', categoryId);
       element.scrollIntoView({
-        behavior: 'smooth',
+        behavior: isDesktop ? 'smooth' : 'instant',
         block: 'center'
       });
 
-      setHighlightedCategory(categoryId);
-
-      setTimeout(() => {
-        setHighlightedCategory(null);
-      }, 800);
+      // Seleziona la categoria (ring blu fisso)
+      handleSelectCategory(categoryId);
     } else {
       console.warn(`⚠️ Elemento #category-${categoryId} non trovato (tentativo ${retryCount + 1}/3)`);
 
       if (retryCount < 3) {
         setTimeout(() => {
-          scrollToAndHighlight(categoryId, retryCount + 1);
+          scrollToAndSelect(categoryId, retryCount + 1);
         }, 200 * (retryCount + 1));
       } else {
         console.error(`❌ Impossibile trovare elemento #category-${categoryId} dopo 3 tentativi`);
       }
+    }
+  };
+
+  // Handler per deselezionare quando si clicca fuori
+  const handleContainerClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    // Se il click è sul container stesso (non su una card)
+    if (target.classList.contains('day-detail-container')) {
+      setSelectedCategoryId(null);
     }
   };
 
@@ -349,10 +373,14 @@ const DayDetailView = ({
   }
 
   return (
-    <div className={`bg-gray-50 ${isDesktop ? 'h-full overflow-y-auto' : 'min-h-screen'}`} style={{
-      maxWidth: isDesktop ? '100%' : '430px',
-      margin: isDesktop ? '0' : '0 auto'
-    }}>
+    <div 
+      className={`day-detail-container bg-gray-50 ${isDesktop ? 'h-full overflow-y-auto' : 'min-h-screen'}`} 
+      style={{
+        maxWidth: isDesktop ? '100%' : '430px',
+        margin: isDesktop ? '0' : '0 auto'
+      }}
+      onClick={handleContainerClick}
+    >
       <DayHeader
         trip={trip}
         currentDay={currentDay}
@@ -387,7 +415,9 @@ const DayDetailView = ({
             onOpenCostBreakdown={() => handleOpenCategoryBreakdown(category.id)}
             currentUserId={user.uid}
             tripMembers={trip.sharing?.members}
-            isHighlighted={highlightedCategory === category.id}
+            isSelected={selectedCategoryId === category.id}
+            isActive={activeCategoryId === category.id}
+            onSelect={() => handleSelectCategory(category.id)}
           />
         ))}
 
@@ -398,7 +428,10 @@ const DayDetailView = ({
           onOpenCostBreakdown={handleOpenExpenseBreakdown}
           currentUserId={user.uid}
           tripMembers={trip.sharing?.members}
-          isHighlighted={highlightedCategory === 'otherExpenses'}
+          isHighlighted={selectedCategoryId === 'otherExpenses'}
+          notes={categoryData['note']?.notes || ''}
+          onUpdateNotes={(value) => updateCategory('note', 'notes', value)}
+          isNoteHighlighted={selectedCategoryId === 'note'}
         />
 
         {categoriesWithoutData.length > 0 && (
@@ -449,7 +482,9 @@ const DayDetailView = ({
                       onOpenCostBreakdown={() => handleOpenCategoryBreakdown(category.id)}
                       currentUserId={user.uid}
                       tripMembers={trip.sharing?.members}
-                      isHighlighted={highlightedCategory === category.id}
+                      isSelected={selectedCategoryId === category.id}
+                      isActive={activeCategoryId === category.id}
+                      onSelect={() => handleSelectCategory(category.id)}
                     />
                   );
                 })}
