@@ -124,7 +124,7 @@ const CurrencySelector = ({ preferredCurrencies = {}, onChange, showHelp = false
     <div>
       <div className="flex items-center gap-1 mb-3">
         <label className="text-sm font-semibold text-gray-700">
-          💱 Valute del viaggio
+          💱 Altre valute del viaggio
         </label>
         {onToggleHelp && (
           <button
@@ -200,7 +200,7 @@ const CurrencySelector = ({ preferredCurrencies = {}, onChange, showHelp = false
                 setError(null);
               }}
               onFocus={() => setShowDropdown(true)}
-              placeholder="Aggiungi valuta..."
+              placeholder="Aggiungi altra valuta..."
               className="w-full pl-9 pr-4 py-2.5 border-2 border-gray-200 rounded-lg focus:border-amber-400 focus:outline-none transition-colors text-sm bg-white"
             />
           </div>
@@ -256,8 +256,8 @@ const CurrencySelector = ({ preferredCurrencies = {}, onChange, showHelp = false
       {showHelp && (
         <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
           <p className="text-xs text-gray-600 leading-relaxed">
-            💡 Aggiungi le valute locali per convertire facilmente in Euro le spese durante il viaggio. 
-            I tassi vengono aggiornati automaticamente dalla BCE.
+            💡 Qui è possibile aggiungere altre valute locali per convertire facilmente in € le spese durante il viaggio. 
+            I tassi vengono aggiornati automaticamente dalla BCE. Per trovare una valuta, inizia a digitare il nome o il codice (es. "USD" o "Yen").
           </p>
         </div>
       )}

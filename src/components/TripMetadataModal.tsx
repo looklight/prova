@@ -507,7 +507,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                   ref={calendarButtonRef}
                   type="button"
                   onClick={() => setShowCalendar(!showCalendar)}
-                  className={`w-full px-4 py-3 border-2 rounded-xl flex items-center justify-between transition-colors ${showCalendar
+                  className={`w-full px-4 py-2 border-2 rounded-lg flex items-center justify-between transition-colors text-sm ${showCalendar
                     ? 'border-blue-500 bg-blue-50'
                     : 'border-gray-200 hover:border-gray-300'
                     }`}

@@ -186,12 +186,17 @@ export const updateTrip = async (userId, tripId, updates) => {
       }));
     }
     
+    // 🔧 FIX: Rimuovi campi undefined (Firebase non li accetta)
+    const cleanUpdateData = Object.fromEntries(
+      Object.entries(updateData).filter(([_, value]) => value !== undefined)
+    );
+    
     const docSnap = await getDoc(tripRef);
     
     if (docSnap.exists()) {
-      await updateDoc(tripRef, updateData);
+      await updateDoc(tripRef, cleanUpdateData);
     } else {
-      await setDoc(tripRef, updateData);
+      await setDoc(tripRef, cleanUpdateData);
     }
     
     console.log('✅ Viaggio aggiornato:', tripId);
