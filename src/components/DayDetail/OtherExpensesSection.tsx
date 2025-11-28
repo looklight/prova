@@ -50,7 +50,7 @@ const OtherExpensesSection: React.FC<OtherExpensesSectionProps> = ({
       {/* 💸 Altre Spese */}
       <div 
         id="category-otherExpenses" 
-        className={`bg-white rounded-lg shadow p-4 transition-all duration-1000 ${
+        className={`bg-white rounded-lg shadow p-4 ${
           isHighlighted 
             ? 'ring-2 ring-blue-500' 
             : 'ring-0 ring-transparent'
@@ -116,7 +116,7 @@ const OtherExpensesSection: React.FC<OtherExpensesSectionProps> = ({
       {onUpdateNotes && (
         <div 
           id="category-note" 
-          className={`bg-white rounded-lg shadow p-4 transition-all duration-1000 ${
+          className={`bg-white rounded-lg shadow p-4 ${
             isNoteHighlighted 
               ? 'ring-2 ring-blue-500' 
               : 'ring-0 ring-transparent'
