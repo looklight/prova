@@ -74,7 +74,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
       className={`bg-white rounded-lg shadow p-4 transition-all duration-200 cursor-pointer ${
         isSelected 
           ? 'ring-2 ring-blue-500' 
-          : 'ring-0 ring-transparent hover:shadow-md'
+          : 'ring-2 ring-transparent hover:shadow-md'
       }`}
       id={`category-${category.id}`}
       onClick={handleCardClick}
