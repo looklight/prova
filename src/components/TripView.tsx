@@ -149,10 +149,9 @@ const TripView = ({ trip, onUpdateTrip, onBackToHome, currentUser }) => {
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Calendario - si espande quando il pannello è chiuso */}
-      <div 
-        className={`border-r border-gray-300 overflow-hidden flex-col transition-all duration-300 ${
-          showDetailPanel ? 'w-[60%]' : 'w-full'
-        }`}
+      <div
+        className={`border-r border-gray-300 overflow-hidden flex-col transition-all duration-300 ${showDetailPanel ? 'w-[60%]' : 'w-full'
+          }`}
       >
         <CalendarView
           trip={trip}

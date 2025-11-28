@@ -48,9 +48,20 @@ const DayDetailView = ({
   });
   const [showFullSummary, setShowFullSummary] = useState(false);
   const [showEmptyCategories, setShowEmptyCategories] = useState(false);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(highlightCategoryId); // Ring blu (3s)
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(highlightCategoryId); // Controlli visibili
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null); // Ring blu (3s)
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null); // Controlli visibili
   const analytics = useAnalytics();
+
+  // Delay per mostrare ring dopo che il layout è stabile
+  useEffect(() => {
+    if (highlightCategoryId) {
+      const timer = setTimeout(() => {
+        setSelectedCategoryId(highlightCategoryId);
+        setActiveCategoryId(highlightCategoryId);
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   // Ring blu scompare dopo 3 secondi
   useEffect(() => {
