@@ -137,6 +137,7 @@ const DayDetailView = ({
   };
 
   const hasScrolledRef = useRef(false);
+  const scrollPositionRef = useRef(0); // 🆕 Salva posizione scroll per modal
 
   useEffect(() => {
     hasScrolledRef.current = false;
@@ -200,12 +201,20 @@ const DayDetailView = ({
   }, [trip.sharing.members]);
 
   const handleOpenCategoryBreakdown = (categoryId) => {
+    // 🆕 Salva posizione scroll prima di aprire modal
+    const container = document.querySelector('.day-detail-container');
+    if (container) scrollPositionRef.current = container.scrollTop;
+    
     // 📊 Track apertura breakdown
     analytics.trackCostBreakdownOpened(trip.id, categoryId, false);
     setCostBreakdownModal({ isOpen: true, categoryId, expenseId: null });
   };
 
   const handleOpenExpenseBreakdown = (expenseId) => {
+    // 🆕 Salva posizione scroll prima di aprire modal
+    const container = document.querySelector('.day-detail-container');
+    if (container) scrollPositionRef.current = container.scrollTop;
+    
     // 📊 Track apertura breakdown altre spese
     analytics.trackCostBreakdownOpened(trip.id, 'other', true);
     setCostBreakdownModal({ isOpen: true, categoryId: null, expenseId });
@@ -567,7 +576,14 @@ const DayDetailView = ({
             : otherExpenses.find(e => e.id === costBreakdownModal.expenseId)?.participantsUpdatedAt || null
         }
         preferredCurrencies={trip.currency?.preferred || {}}
-        onClose={() => setCostBreakdownModal({ isOpen: false, categoryId: null, expenseId: null })}
+        onClose={() => {
+          setCostBreakdownModal({ isOpen: false, categoryId: null, expenseId: null });
+          // 🆕 Ripristina posizione scroll dopo chiusura modal
+          setTimeout(() => {
+            const container = document.querySelector('.day-detail-container');
+            if (container) container.scrollTop = scrollPositionRef.current;
+          }, 50);
+        }}
         onConfirm={handleConfirmBreakdown}
       />
     </div>

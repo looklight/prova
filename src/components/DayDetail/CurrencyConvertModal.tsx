@@ -67,7 +67,7 @@ const CurrencyConvertModal: React.FC<CurrencyConvertModalProps> = ({
     const numRate = parseFloat(customRate) || 0;
     const converted = Math.round(numAmount * numRate * 100) / 100;
     onAmountChange(converted);
-  }, [amount, customRate, onAmountChange]);
+  }, [amount, customRate]);
 
   // Chiudi con Escape
   useEffect(() => {

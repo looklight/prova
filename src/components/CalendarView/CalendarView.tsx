@@ -7,6 +7,30 @@ import { useCalendarScroll } from '../../hooks/useCalendarScroll';
 import { useDayOperations } from '../../hooks/useDayOperations';
 import { CATEGORIES } from '../../utils/constants';
 
+/**
+ * Hook per rilevare media query (es. orientamento schermo)
+ */
+const useMediaQuery = (query: string) => {
+  const [matches, setMatches] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.matchMedia(query).matches;
+    }
+    return false;
+  });
+
+  React.useEffect(() => {
+    const media = window.matchMedia(query);
+    setMatches(media.matches);
+
+    const listener = (e: MediaQueryListEvent) => setMatches(e.matches);
+    media.addEventListener('change', listener);
+
+    return () => media.removeEventListener('change', listener);
+  }, [query]);
+
+  return matches;
+};
+
 type EditTarget = 'days' | 'categories';
 
 interface CalendarViewProps {
@@ -53,10 +77,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [expandedNotes, setExpandedNotes] = useState(false);
   const [expandedOtherExpenses, setExpandedOtherExpenses] = useState(false);
   const [hoveredCell, setHoveredCell] = useState<string | null>(null);
+  const isLandscape = useMediaQuery('(orientation: landscape) and (max-width: 1023px)')
 
   // 🆕 Category order: stato locale per update ottimistico
   const [localCategoryOrder, setLocalCategoryOrder] = useState<string[] | null>(null);
-  
+
   const categoryOrder = useMemo(() => {
     // Usa ordine locale se presente, altrimenti quello del trip o default
     return localCategoryOrder || trip.categoryOrder || getDefaultCategoryOrder();
@@ -88,8 +113,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const isToday = (date: Date) => {
     const today = new Date();
     return date.getDate() === today.getDate() &&
-           date.getMonth() === today.getMonth() &&
-           date.getFullYear() === today.getFullYear();
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear();
   };
 
   const getCellData = (dayId: number, categoryId: string) => {
@@ -101,15 +126,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     const map: Record<string, string> = {};
     const baseColors = ['bg-blue-50', 'bg-green-50', 'bg-purple-50', 'bg-indigo-50', 'bg-teal-50'];
     const pernottamentoColors = ['bg-yellow-50', 'bg-pink-50', 'bg-orange-50', 'bg-cyan-50', 'bg-lime-50'];
-    
+
     let baseIndex = 0;
     let pernottamentoIndex = 0;
-    
+
     trip.days.forEach((day: any) => {
       ['base', 'pernottamento'].forEach(catId => {
         const cellData = getCellData(day.id, catId);
         const content = cellData?.title?.trim();
-        
+
         if (content && !map[`${catId}-${content}`]) {
           const colors = catId === 'base' ? baseColors : pernottamentoColors;
           const index = catId === 'base' ? baseIndex++ : pernottamentoIndex++;
@@ -117,21 +142,21 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         }
       });
     });
-    
+
     return map;
   }, [trip.days, trip.data]);
 
   const getColorForContent = (categoryId: string, content: string) => {
     if (categoryId !== 'base' && categoryId !== 'pernottamento') return null;
     if (!content) return null;
-    
+
     const occurrences = trip.days.filter((day: any) => {
       const cellData = getCellData(day.id, categoryId);
       return cellData?.title === content;
     }).length;
-    
+
     if (occurrences < 2) return null;
-    
+
     return contentColorMap[`${categoryId}-${content}`] || null;
   };
 
@@ -154,7 +179,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       setEditMode(false);
       resetEditMode();
     }
-    
+
     const currentScrollPosition = scrollContainerRef.current?.scrollLeft || 0;
     onOpenDay(dayIndex, currentScrollPosition, categoryId);
   };
@@ -188,10 +213,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   // 🆕 Handler per riordinare le categorie
   const handleCategoryReorder = async (newOrder: string[]) => {
     console.log('🔄 Nuovo ordine categorie:', newOrder);
-    
+
     // 🆕 Update ottimistico: aggiorna subito lo stato locale
     setLocalCategoryOrder(newOrder);
-    
+
     try {
       await onUpdateTrip({
         categoryOrder: newOrder,
@@ -221,10 +246,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   }
 
   return (
-    <div 
-      className="min-h-screen bg-gray-50" 
-      style={{ 
-        maxWidth: isDesktop ? '100%' : '430px',
+    <div
+      className="min-h-screen bg-gray-50"
+      style={{
+        // 🆕 In landscape mobile usa tutto lo schermo per mostrare più colonne
+        maxWidth: isDesktop || isLandscape ? '100%' : '430px',
         margin: '0 auto',
         height: isDesktop ? '100%' : 'auto'
       }}
@@ -259,9 +285,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         onMoveDays={moveDaysAfter}
       />
 
-      <div 
+      <div
         ref={scrollContainerRef}
-        className="overflow-x-auto px-2 mt-2" 
+        className="overflow-x-auto px-2 mt-2"
         onScroll={(e) => setIsScrolled((e.target as HTMLDivElement).scrollLeft > 10)}
       >
         <CalendarTable
