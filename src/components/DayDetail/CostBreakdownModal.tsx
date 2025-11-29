@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Plus, ArrowRightLeft } from 'lucide-react';
 import Avatar from '../Avatar';
 import CurrencyConvertModal from './CurrencyConvertModal';
+import { parseCost } from '../../utils/costsUtils';
 
 interface BreakdownEntry {
   id: number;
@@ -199,7 +200,7 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
 
   const calculateTotal = () => {
     return entries.reduce((sum, entry) => {
-      const amount = parseFloat(entry.amount) || 0;
+      const amount = parseFloat(parseCost(entry.amount)) || 0;
       return sum + amount;
     }, 0);
   };
@@ -211,7 +212,7 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
     }
 
     const validEntries = entries.filter(e =>
-      e.userId && e.amount && parseFloat(e.amount) > 0
+      e.userId && e.amount && parseFloat(parseCost(e.amount)) > 0
     );
 
     // Se tutti a 0€ → Chiedi conferma azzeramento
@@ -229,10 +230,10 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
       return;
     }
 
-    // Salvataggio normale
+    // Salvataggio normale - parseCost normalizza virgole e decimali
     const breakdown = validEntries.map(e => ({
       userId: e.userId,
-      amount: parseFloat(e.amount)
+      amount: parseFloat(parseCost(e.amount))
     }));
 
     console.log(`💾 [CostBreakdown] Salvataggio:`, {

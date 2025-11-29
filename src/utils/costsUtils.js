@@ -5,6 +5,17 @@
 import { CATEGORIES } from './constants';
 
 /**
+ * Normalizza un valore costo: accetta sia "," che ".", limita a 2 decimali
+ */
+export const parseCost = (value) => {
+  if (!value && value !== 0) return '';
+  const normalized = value.toString().replace(',', '.');
+  const num = parseFloat(normalized);
+  if (isNaN(num)) return '';
+  return parseFloat(num.toFixed(2)).toString();
+};
+
+/**
  * 🆕 Filtra un breakdown per includere solo membri attivi
  * @param {Array} breakdown - Array di { userId, amount }
  * @param {Object} tripMembers - Oggetto trip.sharing.members

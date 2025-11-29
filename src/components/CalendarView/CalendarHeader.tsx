@@ -178,13 +178,10 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
 
           {/* TOOLBAR CATEGORIE */}
           {editTarget === 'categories' && (
-            <div className="bg-purple-50 p-3 rounded-lg animate-fade-in">
-              <div className="text-sm text-purple-700">
-                <span className="font-medium">Trascina le righe</span> per riordinare le categorie.
-              </div>
-              <div className="text-xs text-purple-500 mt-1">
-                Base rimane sempre in alto, Altre Spese e Note sempre in fondo.
-              </div>
+            <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100 animate-fade-in">
+              <p className="text-xs text-gray-600 leading-relaxed">
+                Puoi usare il <span className="font-medium">Drag&Drop</span> per riordinare le categorie
+              </p>
             </div>
           )}
         </div>

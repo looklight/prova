@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import CostConflictDialog from './CostConflictDialog';
+import { parseCost } from '../../../utils/costsUtils';
 
 interface CostInputProps {
   value: string;
@@ -42,8 +43,8 @@ const CostInput: React.FC<CostInputProps> = ({
   // Calcola il valore effettivo da mostrare (solo membri attivi)
   const activeBreakdown = getActiveBreakdown();
   const displayValue = activeBreakdown.length > 0
-    ? activeBreakdown.reduce((sum, entry) => sum + entry.amount, 0).toString()
-    : '';
+  ? parseCost(activeBreakdown.reduce((sum, entry) => sum + entry.amount, 0))
+  : '';
 
   // Determina colore basato su UTENTI UNICI ATTIVI che hanno pagato
   const getBackgroundColor = () => {

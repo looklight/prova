@@ -54,10 +54,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [expandedOtherExpenses, setExpandedOtherExpenses] = useState(false);
   const [hoveredCell, setHoveredCell] = useState<string | null>(null);
 
-  // 🆕 Category order: usa quello salvato nel trip o il default
+  // 🆕 Category order: stato locale per update ottimistico
+  const [localCategoryOrder, setLocalCategoryOrder] = useState<string[] | null>(null);
+  
   const categoryOrder = useMemo(() => {
-    return trip.categoryOrder || getDefaultCategoryOrder();
-  }, [trip.categoryOrder]);
+    // Usa ordine locale se presente, altrimenti quello del trip o default
+    return localCategoryOrder || trip.categoryOrder || getDefaultCategoryOrder();
+  }, [localCategoryOrder, trip.categoryOrder]);
 
   // Custom hooks
   const scrollContainerRef = useCalendarScroll({
@@ -185,14 +188,22 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   // 🆕 Handler per riordinare le categorie
   const handleCategoryReorder = async (newOrder: string[]) => {
     console.log('🔄 Nuovo ordine categorie:', newOrder);
+    
+    // 🆕 Update ottimistico: aggiorna subito lo stato locale
+    setLocalCategoryOrder(newOrder);
+    
     try {
       await onUpdateTrip({
         categoryOrder: newOrder,
         updatedAt: new Date()
       });
       console.log('✅ Ordine categorie salvato');
+      // Dopo il salvataggio, resetta lo stato locale (userà trip.categoryOrder)
+      setLocalCategoryOrder(null);
     } catch (error) {
       console.error('❌ Errore salvataggio ordine categorie:', error);
+      // In caso di errore, resetta allo stato precedente
+      setLocalCategoryOrder(null);
     }
   };
 
