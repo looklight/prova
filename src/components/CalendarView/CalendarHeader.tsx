@@ -1,14 +1,18 @@
 import React from 'react';
-import { Edit2, Check, Plus, ChevronLeft, Trash2 } from 'lucide-react';
+import { Edit2, Check, Plus, ChevronLeft, Trash2, Calendar, Layers } from 'lucide-react';
+
+type EditTarget = 'days' | 'categories';
 
 interface CalendarHeaderProps {
   trip: any;
   editMode: boolean;
+  editTarget: EditTarget;
   selectedDays: number[];
   moveAfterIndex: number | null;
   onBack?: () => void;
   onMetadataClick: () => void;
   onEditModeToggle: () => void;
+  onEditTargetChange: (target: EditTarget) => void;
   onRemoveSelectedDays: () => void;
   onAddDay: () => void;
   onMoveAfterChange: (value: number | null) => void;
@@ -18,11 +22,13 @@ interface CalendarHeaderProps {
 const CalendarHeader: React.FC<CalendarHeaderProps> = ({
   trip,
   editMode,
+  editTarget,
   selectedDays,
   moveAfterIndex,
   onBack,
   onMetadataClick,
   onEditModeToggle,
+  onEditTargetChange,
   onRemoveSelectedDays,
   onAddDay,
   onMoveAfterChange,
@@ -40,12 +46,11 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           </button>
         )}
         
-        {/* TITOLO VIAGGIO + AVATAR (cliccabile per metadata) */}
+        {/* TITOLO VIAGGIO + AVATAR */}
         <div 
           className="flex items-center gap-2 flex-1 min-w-0 ml-0 mr-2 cursor-pointer hover:bg-gray-50 rounded-xl p-2 -m-2 transition-colors"
           onClick={onMetadataClick}
         >
-          {/* Avatar/Logo */}
           <div className="flex-shrink-0">
             {trip.image || trip.metadata?.image ? (
               <img 
@@ -60,16 +65,15 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
             )}
           </div>
           
-          {/* Nome viaggio */}
           <h1 className="text-xl font-bold flex-1 min-w-0 truncate">
             {trip.metadata?.name || trip.name}
           </h1>
         </div>
         
-        {/* 🖊️ BOTTONE EDIT/FINE (ingrandito: p-3 + size 24) */}
+        {/* BOTTONE EDIT/FINE */}
         <button
           onClick={onEditModeToggle}
-          className={`rounded-full flex items-center gap-1 font-semibold transition-all shadow-sm flex-shrink-0 ${
+          className={`rounded-full flex items-center gap-1 font-semibold transition-all duration-200 shadow-sm flex-shrink-0 ${
             editMode 
               ? 'bg-green-100 text-green-600 hover:bg-green-200 px-3 py-3 mr-2' 
               : 'bg-gray-200 hover:bg-green-200 text-gray-700 hover:text-green-900 p-3 mr-4'
@@ -88,61 +92,130 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
 
       {/* ========== TOOLBAR EDIT MODE ========== */}
       {editMode && (
-        <div className="space-y-2 mt-2">
+        <div className="space-y-2 mt-2 animate-fade-in-down">
           
-          {/* Bottoni RIMUOVI e AGGIUNGI */}
-          <div className="flex gap-2">
-            {/* Bottone RIMUOVI giorni selezionati */}
-            <button 
-              onClick={onRemoveSelectedDays} 
-              disabled={selectedDays.length === 0}
-              className={`flex-1 py-2 rounded-full text-sm font-medium flex items-center justify-center gap-1 transition-all ${
-                selectedDays.length > 0 
-                  ? 'bg-red-500 text-white hover:bg-red-600 active:bg-red-700 active:scale-95' 
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          {/* TOGGLE: Giorni / Categorie */}
+          <div className="relative flex bg-gray-100 rounded-full p-1">
+            {/* Indicatore sliding */}
+            <div 
+              className="absolute top-1 bottom-1 bg-white rounded-full shadow-sm transition-all duration-200 ease-out"
+              style={{
+                left: editTarget === 'days' ? '4px' : 'calc(50% + 2px)',
+                width: 'calc(50% - 6px)',
+              }}
+            />
+            
+            <button
+              onClick={() => onEditTargetChange('days')}
+              className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-full text-sm font-medium transition-colors duration-200 ${
+                editTarget === 'days' ? 'text-blue-600' : 'text-gray-500'
               }`}
             >
-              <Trash2 size={16} /> Rimuovi {selectedDays.length > 0 && `(${selectedDays.length})`}
+              <Calendar size={16} />
+              <span>Giorni</span>
             </button>
-            
-            {/* Bottone AGGIUNGI giorno */}
-            <button 
-              onClick={onAddDay} 
-              className="flex-1 py-2 bg-green-500 text-white rounded-full text-sm font-medium flex items-center justify-center gap-1 hover:bg-green-600 active:bg-green-700 active:scale-95 transition-all"
+            <button
+              onClick={() => onEditTargetChange('categories')}
+              className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-full text-sm font-medium transition-colors duration-200 ${
+                editTarget === 'categories' ? 'text-blue-600' : 'text-gray-500'
+              }`}
             >
-              <Plus size={16} /> Giorno ({trip.days.length})
+              <Layers size={16} />
+              <span>Categorie</span>
             </button>
           </div>
-          
-          {/* Pannello SPOSTA giorni (visibile solo con selezione attiva) */}
-          {selectedDays.length > 0 && (
-            <div className="bg-blue-50 p-3 rounded-lg">
-              <div className="text-sm font-medium mb-2">{selectedDays.length} giorni selezionati</div>
+
+          {/* TOOLBAR GIORNI */}
+          {editTarget === 'days' && (
+            <div className="space-y-2 animate-fade-in">
+              <div className="flex gap-2">
+                <button 
+                  onClick={onRemoveSelectedDays} 
+                  disabled={selectedDays.length === 0}
+                  className={`flex-1 py-2 rounded-full text-sm font-medium flex items-center justify-center gap-1 transition-all ${
+                    selectedDays.length > 0 
+                      ? 'bg-red-500 text-white hover:bg-red-600 active:bg-red-700 active:scale-95' 
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  <Trash2 size={16} /> Rimuovi {selectedDays.length > 0 && `(${selectedDays.length})`}
+                </button>
+                
+                <button 
+                  onClick={onAddDay} 
+                  className="flex-1 py-2 bg-green-500 text-white rounded-full text-sm font-medium flex items-center justify-center gap-1 hover:bg-green-600 active:bg-green-700 active:scale-95 transition-all"
+                >
+                  <Plus size={16} /> Giorno ({trip.days.length})
+                </button>
+              </div>
               
-              {/* Dropdown selezione posizione */}
-              <select
-                value={moveAfterIndex ?? ''}
-                onChange={(e) => onMoveAfterChange(e.target.value === '' ? null : parseInt(e.target.value))}
-                className="w-full px-3 py-2 border rounded-lg text-sm mb-2"
-              >
-                <option value="">Sposta dopo il giorno...</option>
-                {trip.days.map((day: any, index: number) => (
-                  <option key={day.id} value={index}>Giorno {day.number}</option>
-                ))}
-              </select>
-              
-              {/* Bottone conferma spostamento */}
-              <button
-                onClick={onMoveDays}
-                disabled={moveAfterIndex === null}
-                className="w-full py-2 bg-blue-500 text-white rounded-full text-sm font-medium disabled:bg-gray-300"
-              >
-                Sposta
-              </button>
+              {selectedDays.length > 0 && (
+                <div className="bg-blue-50 p-3 rounded-lg animate-fade-in">
+                  <div className="text-sm font-medium mb-2">{selectedDays.length} giorni selezionati</div>
+                  
+                  <select
+                    value={moveAfterIndex ?? ''}
+                    onChange={(e) => onMoveAfterChange(e.target.value === '' ? null : parseInt(e.target.value))}
+                    className="w-full px-3 py-2 border rounded-lg text-sm mb-2"
+                  >
+                    <option value="">Sposta dopo il giorno...</option>
+                    {trip.days.map((day: any, index: number) => (
+                      <option key={day.id} value={index}>Giorno {day.number}</option>
+                    ))}
+                  </select>
+                  
+                  <button
+                    onClick={onMoveDays}
+                    disabled={moveAfterIndex === null}
+                    className="w-full py-2 bg-blue-500 text-white rounded-full text-sm font-medium disabled:bg-gray-300 hover:bg-blue-600 transition-colors"
+                  >
+                    Sposta
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TOOLBAR CATEGORIE */}
+          {editTarget === 'categories' && (
+            <div className="bg-purple-50 p-3 rounded-lg animate-fade-in">
+              <div className="text-sm text-purple-700">
+                <span className="font-medium">Trascina le righe</span> per riordinare le categorie.
+              </div>
+              <div className="text-xs text-purple-500 mt-1">
+                Base rimane sempre in alto, Altre Spese e Note sempre in fondo.
+              </div>
             </div>
           )}
         </div>
       )}
+
+      {/* CSS per animazioni */}
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        
+        @keyframes fadeInDown {
+          from { 
+            opacity: 0; 
+            transform: translateY(-8px); 
+          }
+          to { 
+            opacity: 1; 
+            transform: translateY(0); 
+          }
+        }
+        
+        .animate-fade-in {
+          animation: fadeIn 200ms ease-out;
+        }
+        
+        .animate-fade-in-down {
+          animation: fadeInDown 250ms ease-out;
+        }
+      `}</style>
     </div>
   );
 };

@@ -339,3 +339,35 @@ export const getInviteLinkStats = async (token) => {
     return null;
   }
 };
+
+/**
+ * 🧹 Elimina inviti scaduti (chiamare al login dell'owner)
+ */
+export const cleanupExpiredInvites = async () => {
+  try {
+    const invitesRef = collection(db, 'invites');
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    // Trova inviti scaduti (status expired O expiresAt passato)
+    const expiredQuery = query(
+      invitesRef,
+      where('expiresAt', '<', new Date())
+    );
+    
+    const snapshot = await getDocs(expiredQuery);
+    
+    if (snapshot.empty) {
+      return 0;
+    }
+    
+    const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(deletePromises);
+    
+    console.log(`🧹 ${snapshot.size} inviti scaduti eliminati`);
+    return snapshot.size;
+  } catch (error) {
+    console.error('❌ Errore cleanup inviti:', error);
+    return 0;
+  }
+};

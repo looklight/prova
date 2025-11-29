@@ -47,20 +47,57 @@ const DayDetailView = ({
     expenseId: null
   });
   const [showFullSummary, setShowFullSummary] = useState(false);
-  const [showEmptyCategories, setShowEmptyCategories] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null); // Ring blu (3s)
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(highlightCategoryId); // Controlli visibili
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set()); // 🆕 Categorie espanse manualmente
   const analytics = useAnalytics();
+
+  // Categorie sempre visibili (non collassabili)
+  const ALWAYS_VISIBLE = ['base', 'note', 'otherExpenses'];
+
+  // 🆕 Helper per verificare se una categoria ha dati
+  const categoryHasData = useCallback((catId: string) => {
+    const data = categoryData[catId];
+    if (!data) return false;
+
+    return Boolean(
+      data.title?.trim() ||
+      data.cost?.trim() ||
+      data.links?.length ||
+      data.images?.length ||
+      data.videos?.length ||
+      data.mediaNotes?.length ||
+      data.notes?.trim()
+    );
+  }, [categoryData]);
+
+  // 🆕 Collassa le categorie vuote espanse (chiamato quando si seleziona un'altra categoria)
+  const collapseEmptyExpanded = useCallback((exceptCategoryId?: string) => {
+    setExpandedCategories(prev => {
+      const newSet = new Set<string>();
+      prev.forEach(catId => {
+        // Mantieni se ha dati O se è la categoria che stiamo per selezionare
+        if (categoryHasData(catId) || catId === exceptCategoryId) {
+          newSet.add(catId);
+        }
+      });
+      return newSet;
+    });
+  }, [categoryHasData]);
 
   // Delay per mostrare ring dopo che il layout è stabile
   useEffect(() => {
     if (highlightCategoryId) {
       const timer = setTimeout(() => {
         setActiveCategoryId(highlightCategoryId);
+        // Se la categoria è vuota, espandila automaticamente
+        if (!categoryHasData(highlightCategoryId) && !ALWAYS_VISIBLE.includes(highlightCategoryId)) {
+          setExpandedCategories(prev => new Set(prev).add(highlightCategoryId));
+        }
       }, 150);
       return () => clearTimeout(timer);
     }
-  }, []);
+  }, [highlightCategoryId]);
 
   // Ring blu scompare dopo 3 secondi
   useEffect(() => {
@@ -73,66 +110,33 @@ const DayDetailView = ({
     return () => clearTimeout(timer);
   }, [selectedCategoryId]);
 
-  // Handler per selezionare una categoria
+  // 🆕 Reset expanded categories quando cambia giorno
+  useEffect(() => {
+    setExpandedCategories(new Set());
+    setSelectedCategoryId(null);
+    setActiveCategoryId(null);
+  }, [dayIndex]);
+
+  // Handler per selezionare una categoria (e collassare le altre vuote)
   const handleSelectCategory = (categoryId: string) => {
+    // Prima collassa le categorie vuote espanse (tranne quella che stiamo selezionando)
+    collapseEmptyExpanded(categoryId);
+    
+    setSelectedCategoryId(categoryId);
+    setActiveCategoryId(categoryId);
+  };
+
+  // 🆕 Handler per espandere una categoria collapsed
+  const handleExpandCategory = (categoryId: string) => {
+    // Collassa altre categorie vuote prima di espandere questa
+    collapseEmptyExpanded(categoryId);
+    
+    setExpandedCategories(prev => new Set(prev).add(categoryId));
     setSelectedCategoryId(categoryId);
     setActiveCategoryId(categoryId);
   };
 
   const hasScrolledRef = useRef(false);
-  const [layoutSnapshot, setLayoutSnapshot] = useState(null);
-
-  const calculateHasData = useCallback((catId, dataSource) => {
-    const key = `${currentDay.id}-${catId}`;
-    const data = dataSource[key];
-
-    if (!data) return false;
-
-    return Boolean(
-      data.title?.trim() ||
-      data.cost?.trim() ||
-      data.links?.length ||
-      data.images?.length ||
-      data.videos?.length ||
-      data.mediaNotes?.length ||
-      data.notes?.trim()
-    );
-  }, [currentDay.id]);
-
-  useEffect(() => {
-    const alwaysVisible = ['base'];
-    const frozenData = trip.data;
-
-    const snapshot = {
-      categoriesWithData: CATEGORIES
-        .filter(cat => cat.id !== 'otherExpenses' && cat.id !== 'note')
-        .filter(cat =>
-          alwaysVisible.includes(cat.id) || calculateHasData(cat.id, frozenData)
-        ),
-      categoriesWithoutData: CATEGORIES
-        .filter(cat => cat.id !== 'otherExpenses' && cat.id !== 'note')
-        .filter(cat =>
-          !alwaysVisible.includes(cat.id) && !calculateHasData(cat.id, frozenData)
-        )
-    };
-
-    setLayoutSnapshot(snapshot);
-    console.log('📸 Snapshot layout aggiornato per giorno', dayIndex);
-  }, [dayIndex, calculateHasData]);
-
-  const alwaysVisible = ['base'];
-  const categoriesWithData = layoutSnapshot?.categoriesWithData || [];
-  const categoriesWithoutData = layoutSnapshot?.categoriesWithoutData || [];
-
-  useEffect(() => {
-    const hasRealData = categoriesWithData.length > alwaysVisible.length;
-
-    if (!hasRealData) {
-      setShowEmptyCategories(true);
-    } else {
-      setShowEmptyCategories(false);
-    }
-  }, [dayIndex, categoriesWithData.length]);
 
   useEffect(() => {
     hasScrolledRef.current = false;
@@ -141,38 +145,16 @@ const DayDetailView = ({
   useEffect(() => {
     if (!highlightCategoryId || hasScrolledRef.current) return;
 
-    const key = `${currentDay.id}-${highlightCategoryId}`;
-    const data = trip.data[key];
-
-    const categoryHasData = Boolean(
-      data?.title?.trim() ||
-      data?.cost?.trim() ||
-      data?.links?.length ||
-      data?.images?.length ||
-      data?.videos?.length ||
-      data?.mediaNotes?.length ||
-      data?.notes?.trim()
-    );
-
-    const alwaysVisible = ['base', 'note', 'otherExpenses'];
-    const isAlwaysVisible = alwaysVisible.includes(highlightCategoryId);
-    const needsDropdown = !categoryHasData && !isAlwaysVisible;
-
-    if (needsDropdown && !showEmptyCategories) {
-      console.log('📂 Espando dropdown per categoria nascosta:', highlightCategoryId);
-      setShowEmptyCategories(true);
-
-      setTimeout(() => {
-        scrollToAndSelect(highlightCategoryId);
-        hasScrolledRef.current = true;
-      }, 350);
-    } else {
-      setTimeout(() => {
-        scrollToAndSelect(highlightCategoryId);
-        hasScrolledRef.current = true;
-      }, 100);
+    // Se la categoria è vuota, espandila prima
+    if (!categoryHasData(highlightCategoryId) && !ALWAYS_VISIBLE.includes(highlightCategoryId)) {
+      setExpandedCategories(prev => new Set(prev).add(highlightCategoryId));
     }
-  }, [highlightCategoryId, currentDay.id, showEmptyCategories]);
+
+    setTimeout(() => {
+      scrollToAndSelect(highlightCategoryId);
+      hasScrolledRef.current = true;
+    }, 150);
+  }, [highlightCategoryId, currentDay.id]);
 
   const scrollToAndSelect = (categoryId: string, retryCount = 0) => {
     const element = document.getElementById(`category-${categoryId}`);
@@ -196,15 +178,6 @@ const DayDetailView = ({
       } else {
         console.error(`❌ Impossibile trovare elemento #category-${categoryId} dopo 3 tentativi`);
       }
-    }
-  };
-
-  // Handler per deselezionare quando si clicca fuori
-  const handleContainerClick = (e: React.MouseEvent) => {
-    const target = e.target as HTMLElement;
-    // Se il click è sul container stesso (non su una card)
-    if (target.classList.contains('day-detail-container')) {
-      setSelectedCategoryId(null);
     }
   };
 
@@ -359,6 +332,8 @@ const DayDetailView = ({
         }
       });
     }
+
+    setCostBreakdownModal({ isOpen: false, categoryId: null, expenseId: null });
   };
 
   // 📊 Track visualizzazione dettaglio giorno
@@ -382,14 +357,77 @@ const DayDetailView = ({
     );
   }
 
+  // 🆕 Filtra categorie escludendo note e otherExpenses (gestite separatamente)
+  // e ordina secondo trip.categoryOrder
+  const mainCategories = useMemo(() => {
+    const filtered = CATEGORIES.filter(cat => cat.id !== 'note' && cat.id !== 'otherExpenses');
+    
+    // Se non c'è un ordine personalizzato, usa l'ordine di default
+    if (!trip.categoryOrder || trip.categoryOrder.length === 0) {
+      return filtered;
+    }
+    
+    // Ordina secondo categoryOrder
+    // 'base' rimane sempre primo (non è in categoryOrder)
+    const baseCategory = filtered.find(c => c.id === 'base');
+    const otherCategories = filtered.filter(c => c.id !== 'base');
+    
+    const sortedOthers = [...otherCategories].sort((a, b) => {
+      const indexA = trip.categoryOrder.indexOf(a.id);
+      const indexB = trip.categoryOrder.indexOf(b.id);
+      // Se non trovato nell'ordine, metti in fondo
+      if (indexA === -1 && indexB === -1) return 0;
+      if (indexA === -1) return 1;
+      if (indexB === -1) return -1;
+      return indexA - indexB;
+    });
+    
+    return baseCategory ? [baseCategory, ...sortedOthers] : sortedOthers;
+  }, [trip.categoryOrder]);
+
+  // 🆕 Raggruppa categorie in "segmenti": card normali singole o gruppi di collapsed consecutive
+  const renderSegments = useMemo(() => {
+    const segments: Array<{ type: 'card' | 'collapsed-group'; categories: typeof mainCategories }> = [];
+    let currentCollapsedGroup: typeof mainCategories = [];
+
+    mainCategories.forEach((category) => {
+      const hasData = categoryHasData(category.id);
+      const isAlwaysVisible = ALWAYS_VISIBLE.includes(category.id);
+      const isExpanded = expandedCategories.has(category.id);
+      const showFullCard = hasData || isAlwaysVisible || isExpanded;
+
+      if (showFullCard) {
+        // Prima chiudi eventuale gruppo collapsed aperto
+        if (currentCollapsedGroup.length > 0) {
+          segments.push({ type: 'collapsed-group', categories: [...currentCollapsedGroup] });
+          currentCollapsedGroup = [];
+        }
+        // Aggiungi la card normale
+        segments.push({ type: 'card', categories: [category] });
+      } else {
+        // Accumula nel gruppo collapsed
+        currentCollapsedGroup.push(category);
+      }
+    });
+
+    // Chiudi l'ultimo gruppo collapsed se presente
+    if (currentCollapsedGroup.length > 0) {
+      segments.push({ type: 'collapsed-group', categories: [...currentCollapsedGroup] });
+    }
+
+    return segments;
+  }, [mainCategories, categoryHasData, expandedCategories]);
+
   return (
     <div 
-      className={`day-detail-container bg-gray-50 ${isDesktop ? 'h-full overflow-y-auto' : 'min-h-screen'}`} 
+      className="day-detail-container bg-gray-50" 
       style={{
         maxWidth: isDesktop ? '100%' : '430px',
-        margin: isDesktop ? '0' : '0 auto'
+        margin: isDesktop ? '0' : '0 auto',
+        minHeight: isDesktop ? '100%' : '100vh',
+        height: isDesktop ? '100%' : 'auto',
+        overflowY: isDesktop ? 'auto' : 'visible'
       }}
-      onClick={handleContainerClick}
     >
       <DayHeader
         trip={trip}
@@ -402,106 +440,76 @@ const DayDetailView = ({
       />
 
       <div className="p-4 space-y-3">
-        {categoriesWithData.map((category) => (
-          <CategoryCard
-            key={category.id}
-            category={category}
-            categoryData={categoryData[category.id]}
-            suggestion={getSuggestion(category.id)}
-            transportSelectorOpen={transportSelectorOpen[category.id] || false}
-            onToggleTransportSelector={() => setTransportSelectorOpen(prev => ({
-              ...prev,
-              [category.id]: !prev[category.id]
-            }))}
-            onUpdateCategory={updateCategory}
-            onMediaDialogOpen={(type) => mediaHandlers.setMediaDialogOpen({ type, categoryId: category.id })}
-            onImageUpload={(file) => mediaHandlers.addImage(category.id, file)}
-            onRemoveMedia={(mediaType, itemId) => mediaHandlers.removeMedia(category.id, mediaType, itemId)}
-            onEditNote={(note) => {
-              mediaHandlers.setEditingNote(note);
-              mediaHandlers.setNoteInput(note.text);
-              mediaHandlers.setMediaDialogOpen({ type: 'note', categoryId: category.id });
-            }}
-            onOpenCostBreakdown={() => handleOpenCategoryBreakdown(category.id)}
-            currentUserId={user.uid}
-            tripMembers={trip.sharing?.members}
-            isSelected={selectedCategoryId === category.id}
-            isActive={activeCategoryId === category.id}
-            onSelect={() => handleSelectCategory(category.id)}
-          />
-        ))}
+        {/* 🆕 Renderizza segmenti: card singole o gruppi di chips collapsed */}
+        {renderSegments.map((segment, segmentIndex) => {
+          if (segment.type === 'card') {
+            const category = segment.categories[0];
+            return (
+              <CategoryCard
+                key={category.id}
+                category={category}
+                categoryData={categoryData[category.id]}
+                suggestion={getSuggestion(category.id)}
+                transportSelectorOpen={transportSelectorOpen[category.id] || false}
+                onToggleTransportSelector={() => setTransportSelectorOpen(prev => ({
+                  ...prev,
+                  [category.id]: !prev[category.id]
+                }))}
+                onUpdateCategory={updateCategory}
+                onMediaDialogOpen={(type) => mediaHandlers.setMediaDialogOpen({ type, categoryId: category.id })}
+                onImageUpload={(file) => mediaHandlers.addImage(category.id, file)}
+                onRemoveMedia={(mediaType, itemId) => mediaHandlers.removeMedia(category.id, mediaType, itemId)}
+                onEditNote={(note) => {
+                  mediaHandlers.setEditingNote(note);
+                  mediaHandlers.setNoteInput(note.text);
+                  mediaHandlers.setMediaDialogOpen({ type: 'note', categoryId: category.id });
+                }}
+                onOpenCostBreakdown={() => handleOpenCategoryBreakdown(category.id)}
+                currentUserId={user.uid}
+                tripMembers={trip.sharing?.members}
+                isSelected={selectedCategoryId === category.id}
+                isActive={activeCategoryId === category.id}
+                onSelect={() => handleSelectCategory(category.id)}
+              />
+            );
+          } else {
+            // 🆕 Gruppo di collapsed chips in flex-wrap
+            return (
+              <div 
+                key={`collapsed-group-${segmentIndex}`}
+                className="flex flex-wrap gap-2 justify-center py-1"
+              >
+                {segment.categories.map((category) => (
+                  <CollapsedCategoryChip
+                    key={category.id}
+                    category={category}
+                    onExpand={() => handleExpandCategory(category.id)}
+                  />
+                ))}
+              </div>
+            );
+          }
+        })}
 
+        {/* Altre Spese + Note (sempre visibili) */}
         <OtherExpensesSection
           expenses={otherExpenses}
-          onUpdate={updateOtherExpense}
+          onUpdate={(id, field, value) => {
+            collapseEmptyExpanded(); // Collassa quando interagisci con OtherExpenses
+            updateOtherExpense(id, field, value);
+          }}
           onRemove={removeOtherExpense}
           onOpenCostBreakdown={handleOpenExpenseBreakdown}
           currentUserId={user.uid}
           tripMembers={trip.sharing?.members}
           isHighlighted={selectedCategoryId === 'otherExpenses'}
           notes={categoryData['note']?.notes || ''}
-          onUpdateNotes={(value) => updateCategory('note', 'notes', value)}
+          onUpdateNotes={(value) => {
+            collapseEmptyExpanded(); // Collassa quando interagisci con Note
+            updateCategory('note', 'notes', value);
+          }}
           isNoteHighlighted={selectedCategoryId === 'note'}
         />
-
-        {categoriesWithoutData.length > 0 && (
-          <div className="pt-2">
-            <button
-              onClick={() => setShowEmptyCategories(!showEmptyCategories)}
-              className="w-full py-3 px-4 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors flex items-center justify-center gap-2"
-            >
-              {showEmptyCategories ? (
-                <>
-                  <span>▼</span>
-                  <span>Nascondi altre categorie</span>
-                </>
-              ) : (
-                <>
-                  <span>▶</span>
-                  <span>Mostra altre categorie</span>
-                  <span className="text-xs text-gray-500">({categoriesWithoutData.length})</span>
-                </>
-              )}
-            </button>
-
-            {showEmptyCategories && (
-              <div className="space-y-3 mt-3">
-                {categoriesWithoutData.map((category) => {
-                  const suggestion = getSuggestion(category.id);
-
-                  return (
-                    <CategoryCard
-                      key={category.id}
-                      category={category}
-                      categoryData={categoryData[category.id]}
-                      suggestion={suggestion}
-                      transportSelectorOpen={transportSelectorOpen[category.id] || false}
-                      onToggleTransportSelector={() => setTransportSelectorOpen(prev => ({
-                        ...prev,
-                        [category.id]: !prev[category.id]
-                      }))}
-                      onUpdateCategory={updateCategory}
-                      onMediaDialogOpen={(type) => mediaHandlers.setMediaDialogOpen({ type, categoryId: category.id })}
-                      onImageUpload={(file) => mediaHandlers.addImage(category.id, file)}
-                      onRemoveMedia={(mediaType, itemId) => mediaHandlers.removeMedia(category.id, mediaType, itemId)}
-                      onEditNote={(note) => {
-                        mediaHandlers.setEditingNote(note);
-                        mediaHandlers.setNoteInput(note.text);
-                        mediaHandlers.setMediaDialogOpen({ type: 'note', categoryId: category.id });
-                      }}
-                      onOpenCostBreakdown={() => handleOpenCategoryBreakdown(category.id)}
-                      currentUserId={user.uid}
-                      tripMembers={trip.sharing?.members}
-                      isSelected={selectedCategoryId === category.id}
-                      isActive={activeCategoryId === category.id}
-                      onSelect={() => handleSelectCategory(category.id)}
-                    />
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
 
         <CostSummary
           dayCost={dayCost}
@@ -542,7 +550,7 @@ const DayDetailView = ({
         }
         currentUserId={user.uid}
         tripMembers={activeMembers}
-        tripSharing={trip.sharing} // 🆕 Passa trip.sharing
+        tripSharing={trip.sharing}
         existingBreakdown={
           costBreakdownModal.categoryId
             ? categoryData[costBreakdownModal.categoryId]?.costBreakdown || null
@@ -553,7 +561,7 @@ const DayDetailView = ({
             ? categoryData[costBreakdownModal.categoryId]?.participants || null
             : otherExpenses.find(e => e.id === costBreakdownModal.expenseId)?.participants || null
         }
-        existingParticipantsUpdatedAt={  // 🆕 Passa timestamp
+        existingParticipantsUpdatedAt={
           costBreakdownModal.categoryId
             ? categoryData[costBreakdownModal.categoryId]?.participantsUpdatedAt || null
             : otherExpenses.find(e => e.id === costBreakdownModal.expenseId)?.participantsUpdatedAt || null
@@ -563,6 +571,31 @@ const DayDetailView = ({
         onConfirm={handleConfirmBreakdown}
       />
     </div>
+  );
+};
+
+// 🆕 Componente chip per categoria collassata
+interface CollapsedCategoryChipProps {
+  category: {
+    id: string;
+    label: string;
+    emoji: string;
+  };
+  onExpand: () => void;
+}
+
+const CollapsedCategoryChip: React.FC<CollapsedCategoryChipProps> = ({ category, onExpand }) => {
+  return (
+    <button
+      id={`category-${category.id}`}
+      onClick={onExpand}
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 rounded-full text-gray-500 hover:text-gray-600 transition-colors cursor-pointer"
+      aria-label={`Espandi ${category.label}`}
+    >
+      <span className="text-sm">{category.emoji}</span>
+      <span className="text-[11px] font-medium">{category.label}</span>
+      <span className="text-[10px] opacity-50">＋</span>
+    </button>
   );
 };
 

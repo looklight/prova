@@ -4,11 +4,11 @@ import TripView from './TripView';
 import { ProfileView } from './Profile';
 import LoadingScreen from './LoadingScreen';
 import { CATEGORIES } from './constants';
-import { 
-  subscribeToUserTrips, 
-  createTrip, 
-  updateTrip, 
-  deleteTripForUser, 
+import {
+  subscribeToUserTrips,
+  createTrip,
+  updateTrip,
+  deleteTripForUser,
   loadUserProfile,
   archiveTrip,
   unarchiveTrip
@@ -18,6 +18,8 @@ import { useAnalytics } from "../hooks/useAnalytics";
 import { isSeriousTrip, getUserEngagementLevel } from "../utils/analyticsHelpers";
 import { calculateTripCost } from "../utils/costsUtils";
 import { exportTripAsJSON, exportTripAsCSV, importTrip } from '../services/exportService';
+import { cleanupOldNotifications } from "../services/notifications/notificationService";
+import { cleanupExpiredInvites } from "../services/invites/linkInvites";
 
 const TravelPlannerApp = ({ user }) => {
   const [currentView, setCurrentView] = useState('home');
@@ -60,6 +62,11 @@ const TravelPlannerApp = ({ user }) => {
         const profile = await loadUserProfile(user.uid, user.email);
         setUserProfile(profile);
         setAnalyticsUserId(user.uid);
+
+        // 🧹 Cleanup notifiche e inviti al login
+        cleanupOldNotifications(user.uid);
+        cleanupExpiredInvites();
+
         console.timeEnd('🔑 Load Profile');
         console.log('✅ Profilo caricato:', profile.displayName);
       } catch (error) {
@@ -245,13 +252,13 @@ const TravelPlannerApp = ({ user }) => {
     try {
       console.log('📦 Archiviazione viaggio...');
       await archiveTrip(user.uid, tripId);
-      
+
       // Aggiorna stato locale profilo
       setUserProfile(prev => ({
         ...prev,
         archivedTripIds: [...(prev.archivedTripIds || []), String(tripId)]
       }));
-      
+
       console.log('✅ Viaggio archiviato');
     } catch (error) {
       console.error('❌ Errore archiviazione viaggio:', error);
@@ -264,13 +271,13 @@ const TravelPlannerApp = ({ user }) => {
     try {
       console.log('↩️ Disarchiviazione viaggio...');
       await unarchiveTrip(user.uid, tripId);
-      
+
       // Aggiorna stato locale profilo
       setUserProfile(prev => ({
         ...prev,
         archivedTripIds: (prev.archivedTripIds || []).filter(id => id !== String(tripId))
       }));
-      
+
       console.log('✅ Viaggio disarchiviato');
     } catch (error) {
       console.error('❌ Errore disarchiviazione viaggio:', error);
@@ -292,7 +299,7 @@ const TravelPlannerApp = ({ user }) => {
       }
 
       exportTripAsJSON(trip, false); // ← Senza media
-      
+
       const totalCost = calculateTripCost(trip);
       analytics.trackTripExported(tripId, trip.name, trip.days.length, totalCost);
     } catch (error) {
@@ -310,7 +317,7 @@ const TravelPlannerApp = ({ user }) => {
       }
 
       exportTripAsJSON(trip, true); // ← Con media
-      
+
       const totalCost = calculateTripCost(trip);
       analytics.trackTripExported(tripId, trip.name, trip.days.length, totalCost);
     } catch (error) {
@@ -328,7 +335,7 @@ const TravelPlannerApp = ({ user }) => {
       }
 
       exportTripAsCSV(trip);
-      
+
       const totalCost = calculateTripCost(trip);
       analytics.trackTripExported(tripId, trip.name, trip.days.length, totalCost);
       console.log('✅ CSV esportato');

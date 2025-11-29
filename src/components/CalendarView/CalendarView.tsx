@@ -5,6 +5,9 @@ import CalendarHeader from './CalendarHeader';
 import CalendarTable from './CalendarTable';
 import { useCalendarScroll } from '../../hooks/useCalendarScroll';
 import { useDayOperations } from '../../hooks/useDayOperations';
+import { CATEGORIES } from '../../utils/constants';
+
+type EditTarget = 'days' | 'categories';
 
 interface CalendarViewProps {
   trip: any;
@@ -20,6 +23,13 @@ interface CalendarViewProps {
   onInviteClick: () => void;
 }
 
+// Ordine di default delle categorie riordinabili (esclude base, otherExpenses, note)
+const getDefaultCategoryOrder = () => {
+  return CATEGORIES
+    .filter(c => !['base', 'otherExpenses', 'note'].includes(c.id))
+    .map(c => c.id);
+};
+
 const CalendarView: React.FC<CalendarViewProps> = ({
   trip,
   onUpdateTrip,
@@ -34,14 +44,20 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   onInviteClick
 }) => {
   const [editMode, setEditMode] = useState(false);
+  const [editTarget, setEditTarget] = useState<EditTarget>('days');
   const [isScrolled, setIsScrolled] = useState(false);
   const [justMounted, setJustMounted] = useState(true);
   const [showMetadataModal, setShowMetadataModal] = useState(false);
   const [showCostSummary, setShowCostSummary] = useState(false);
   const [showCosts, setShowCosts] = useState(false);
-  const [expandedNotes, setExpandedNotes] = useState(false); // 📝 Toggle altezza Note
-  const [expandedOtherExpenses, setExpandedOtherExpenses] = useState(false); // 💸 Toggle lista Altre Spese
+  const [expandedNotes, setExpandedNotes] = useState(false);
+  const [expandedOtherExpenses, setExpandedOtherExpenses] = useState(false);
   const [hoveredCell, setHoveredCell] = useState<string | null>(null);
+
+  // 🆕 Category order: usa quello salvato nel trip o il default
+  const categoryOrder = useMemo(() => {
+    return trip.categoryOrder || getDefaultCategoryOrder();
+  }, [trip.categoryOrder]);
 
   // Custom hooks
   const scrollContainerRef = useCalendarScroll({
@@ -86,14 +102,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     let baseIndex = 0;
     let pernottamentoIndex = 0;
     
-    // Per ogni giorno, raccogli i contenuti unici
     trip.days.forEach((day: any) => {
       ['base', 'pernottamento'].forEach(catId => {
         const cellData = getCellData(day.id, catId);
         const content = cellData?.title?.trim();
         
         if (content && !map[`${catId}-${content}`]) {
-          // Assegna colore in ordine di apparizione
           const colors = catId === 'base' ? baseColors : pernottamentoColors;
           const index = catId === 'base' ? baseIndex++ : pernottamentoIndex++;
           map[`${catId}-${content}`] = colors[index % colors.length];
@@ -108,16 +122,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     if (categoryId !== 'base' && categoryId !== 'pernottamento') return null;
     if (!content) return null;
     
-    // Conta occorrenze
     const occurrences = trip.days.filter((day: any) => {
       const cellData = getCellData(day.id, categoryId);
       return cellData?.title === content;
     }).length;
     
-    // Solo se appare 2+ volte
     if (occurrences < 2) return null;
     
-    // Usa mappa pre-calcolata (deterministico, zero collisioni)
     return contentColorMap[`${categoryId}-${content}`] || null;
   };
 
@@ -129,7 +140,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       'bg-yellow-100': '#fef9c3',
       'bg-orange-100': '#ffedd5',
       'bg-purple-100': '#f3e8ff',
-      'bg-teal-100': '#ccfbf1' // 🆕 Turchese per Altre Spese
+      'bg-teal-100': '#ccfbf1'
     };
     return colorMap[color] || '#f3f4f6';
   };
@@ -141,7 +152,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       resetEditMode();
     }
     
-    // Poi apri normalmente il giorno
     const currentScrollPosition = scrollContainerRef.current?.scrollLeft || 0;
     onOpenDay(dayIndex, currentScrollPosition, categoryId);
   };
@@ -152,7 +162,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         metadata: metadata,
         name: metadata.name,
         image: metadata.image,
-        currency: metadata.currency,  // 🆕 Salva le valute
+        currency: metadata.currency,
         updatedAt: new Date()
       });
       setShowMetadataModal(false);
@@ -164,10 +174,25 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   };
 
   const handleEditModeToggle = () => {
-    setEditMode(!editMode);
     if (editMode) {
-      // Reset selections when exiting edit mode
+      // Uscendo da edit mode, reset tutto
       resetEditMode();
+      setEditTarget('days');
+    }
+    setEditMode(!editMode);
+  };
+
+  // 🆕 Handler per riordinare le categorie
+  const handleCategoryReorder = async (newOrder: string[]) => {
+    console.log('🔄 Nuovo ordine categorie:', newOrder);
+    try {
+      await onUpdateTrip({
+        categoryOrder: newOrder,
+        updatedAt: new Date()
+      });
+      console.log('✅ Ordine categorie salvato');
+    } catch (error) {
+      console.error('❌ Errore salvataggio ordine categorie:', error);
     }
   };
 
@@ -210,11 +235,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       <CalendarHeader
         trip={trip}
         editMode={editMode}
+        editTarget={editTarget}
         selectedDays={selectedDays}
         moveAfterIndex={moveAfterIndex}
         onBack={onBack}
         onMetadataClick={() => setShowMetadataModal(true)}
         onEditModeToggle={handleEditModeToggle}
+        onEditTargetChange={setEditTarget}
         onRemoveSelectedDays={removeSelectedDays}
         onAddDay={addDay}
         onMoveAfterChange={setMoveAfterIndex}
@@ -229,6 +256,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         <CalendarTable
           trip={trip}
           editMode={editMode}
+          editTarget={editTarget}
+          categoryOrder={categoryOrder}
+          onCategoryReorder={handleCategoryReorder}
           selectedDays={selectedDays}
           isDesktop={isDesktop}
           selectedDayIndex={selectedDayIndex}
