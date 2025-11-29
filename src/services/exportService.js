@@ -12,6 +12,8 @@ import {
   CSV_BOM
 } from '../utils/csvHelpers';
 
+import { CATEGORIES } from '../utils/constants';
+
 /**
  * Sanitizza dati viaggio per export (rimuove info sensibili)
  */
@@ -25,6 +27,8 @@ const sanitizeTripData = (trip, includeMedia = true) => {
       image: includeMedia ? (trip.metadata?.image || trip.image || null) : null
     },
     startDate: trip.startDate,
+    // 🆕 Salva ordine personalizzato categorie (se presente)
+    categoryOrder: trip.categoryOrder || null,
     days: trip.days.map(day => {
       const dayData = {
         number: day.number,
@@ -133,22 +137,20 @@ export const exportTripAsCSV = (trip) => {
     }));
     rows.push(luogoRow.join(';'));
 
-    // Categorie in ordine
-    const categories = [
-      { id: 'pernottamento', label: 'Pernottamento' },
-      { id: 'attivita1', label: 'Attività 1' },
-      { id: 'attivita2', label: 'Attività 2' },
-      { id: 'attivita3', label: 'Attività 3' },
-      { id: 'spostamenti1', label: 'Spostamenti 1' },
-      { id: 'spostamenti2', label: 'Spostamenti 2' },
-      { id: 'ristori1', label: 'Ristori 1' },
-      { id: 'ristori2', label: 'Ristori 2' }
-    ];
+    // 🆕 Usa trip.categoryOrder se presente, altrimenti ordine di default
+    const defaultOrder = CATEGORIES
+      .filter(c => !['base', 'otherExpenses', 'note'].includes(c.id))
+      .map(c => c.id);
+    
+    const categoryOrder = trip.categoryOrder || defaultOrder;
 
-    // Genera riga per ogni categoria
-    categories.forEach(cat => {
-      const row = [cat.label].concat(trip.days.map(day => {
-        const key = `${day.id}-${cat.id}`;
+    // Genera riga per ogni categoria nell'ordine corretto
+    categoryOrder.forEach(catId => {
+      const category = CATEGORIES.find(c => c.id === catId);
+      if (!category) return;
+      
+      const row = [category.label].concat(trip.days.map(day => {
+        const key = `${day.id}-${catId}`;
         const cellData = trip.data[key];
         return escapeCSV(cellData?.title || '');
       }));
@@ -238,6 +240,8 @@ export const importTrip = async (file) => {
           startDate: new Date(tripData.startDate),
           createdAt: new Date(),
           updatedAt: new Date(),
+          // 🆕 Ripristina ordine personalizzato categorie (se presente)
+          categoryOrder: tripData.categoryOrder || null,
           days: tripData.days.map(day => ({
             id: Date.now() + Math.random(),
             date: new Date(day.date),
