@@ -13,6 +13,7 @@ import {
   archiveTrip,
   unarchiveTrip
 } from "../services";
+import { createMemberLeftNotification } from "../services/notifications/memberNotifications";
 import { setAnalyticsUserId, updateUserAnalyticsProperties } from "../services/analyticsService";
 import { useAnalytics } from "../hooks/useAnalytics";
 import { isSeriousTrip, getUserEngagementLevel } from "../utils/analyticsHelpers";
@@ -234,13 +235,48 @@ const TravelPlannerApp = ({ user }) => {
     try {
       console.log('🗑️ Eliminazione viaggio...');
       const trip = trips.find(t => t.id === tripId);
+      
       if (trip) {
         const memberCount = Object.keys(trip.sharing?.members || {}).length;
         const action = memberCount > 1 ? 'left' : 'deleted';
         analytics.trackTripDeleted(tripId, trip.name, action, memberCount, isSeriousTrip(trip));
+        
+        // 🆕 Se sta uscendo (non eliminando), prepara dati per notifica owner
+        const isLeaving = action === 'left';
+        let ownerId = null;
+        
+        if (isLeaving) {
+          // Trova l'owner del viaggio
+          ownerId = Object.entries(trip.sharing.members)
+            .find(([_, m]) => m.role === 'owner')?.[0];
+        }
+        
+        // Esegui operazione DB
+        await deleteTripForUser(user.uid, tripId);
+        console.log('✅ Viaggio eliminato/lasciato');
+        
+        // 🆕 Invia notifica all'owner DOPO successo operazione
+        if (isLeaving && ownerId && ownerId !== user.uid) {
+          const effectiveProfile = userProfile || {
+            displayName: user.displayName || 'Utente',
+            avatar: user.photoURL
+          };
+          
+          await createMemberLeftNotification(
+            ownerId,
+            tripId,
+            trip.name,
+            {
+              uid: user.uid,
+              displayName: effectiveProfile.displayName,
+              avatar: effectiveProfile.avatar
+            }
+          );
+        }
+      } else {
+        await deleteTripForUser(user.uid, tripId);
+        console.log('✅ Viaggio eliminato');
       }
-      await deleteTripForUser(user.uid, tripId);
-      console.log('✅ Viaggio eliminato');
     } catch (error) {
       console.error('❌ Errore eliminazione viaggio:', error);
       alert('Errore nell\'eliminazione del viaggio');

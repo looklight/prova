@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, User, Crown, Trash2, UserPlus } from 'lucide-react';
 import { removeMember } from '../services';
+import { createMemberRemovedNotification } from '../services/notifications/memberNotifications';
 import InviteOptionsModal from './InviteOptionsModal';
 import UserProfileModal from './Profile/UserProfileModal';
 import Avatar from './Avatar';
@@ -71,8 +72,21 @@ const TripMembersModal: React.FC<TripMembersModalProps> = ({
 
     setProcessingMember(userId);
     try {
+      // 1. Esegui rimozione DB
       await removeMember(trip.id, userId);
       console.log('✅ Membro rimosso:', userId);
+      
+      // 2. 🆕 Invia notifica al membro rimosso (DOPO successo operazione)
+      await createMemberRemovedNotification(
+        userId,
+        trip.id,
+        trip.name,
+        {
+          uid: currentUser.uid,
+          displayName: currentUser.displayName,
+          avatar: currentUser.photoURL
+        }
+      );
       
       if (onMemberUpdated) {
         onMemberUpdated();

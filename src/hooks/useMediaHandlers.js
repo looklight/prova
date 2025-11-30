@@ -104,6 +104,9 @@ export const useMediaHandlers = (categoryData, updateCategory, tripId) => {
   };
 
   const removeMedia = async (categoryId, mediaType, itemId) => {
+    // 🆕 Conferma eliminazione
+    if (!window.confirm('Eliminare?')) return;
+
     const mediaArray = categoryData[categoryId][mediaType];
     const mediaItem = mediaArray.find(item => item.id === itemId);
 

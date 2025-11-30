@@ -42,6 +42,37 @@ const getDaysUntilExpiry = (expiresAt) => {
   return Math.ceil((expires - now) / (1000 * 60 * 60 * 24));
 };
 
+// 🆕 Messaggi per tipo notifica
+const getNotificationMessage = (item) => {
+  switch (item.type) {
+    case 'member_left':
+      return (
+        <>
+          <span className="font-medium">{item.actorName}</span>
+          {' '}ha lasciato{' '}
+          <span className="font-medium">{item.tripName}</span>
+        </>
+      );
+    case 'member_removed':
+      return (
+        <>
+          Sei stato rimosso da{' '}
+          <span className="font-medium">{item.tripName}</span>
+        </>
+      );
+    case 'link_invite_accepted':
+    case 'username_invite_accepted':
+    default:
+      return (
+        <>
+          <span className="font-medium">{item.actorName}</span>
+          {' '}si è unito a{' '}
+          <span className="font-medium">{item.tripName}</span>
+        </>
+      );
+  }
+};
+
 export default function NotificationCenter({ userProfile }) {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState(null);
@@ -106,15 +137,32 @@ export default function NotificationCenter({ userProfile }) {
   const unreadNotifications = notifications.filter(n => !n.read).length;
   const totalBadge = invitations.length + unreadNotifications;
 
-  const handleCloseDropdown = async () => {
-    if (unreadNotifications > 0) {
+  // 🆕 Apri dropdown e segna tutto come letto
+  const handleOpenDropdown = async () => {
+    setShowDropdown(true);
+    
+    // Segna come lette quando APRI (non quando chiudi)
+    if (unreadNotifications > 0 && currentUser?.uid) {
       try {
         await markAllAsRead(currentUser.uid);
       } catch (error) {
         console.error('❌ Errore auto-read:', error);
       }
     }
+  };
+
+  // 🆕 Semplice chiusura senza markAllAsRead
+  const handleCloseDropdown = () => {
     setShowDropdown(false);
+  };
+
+  // 🆕 Toggle dropdown
+  const handleToggleDropdown = () => {
+    if (showDropdown) {
+      handleCloseDropdown();
+    } else {
+      handleOpenDropdown();
+    }
   };
 
   useEffect(() => {
@@ -128,10 +176,13 @@ export default function NotificationCenter({ userProfile }) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [showDropdown, unreadNotifications, currentUser]);
+  }, [showDropdown]);
 
   const handleNotificationClick = (notification) => {
-    navigate('/');
+    // 🆕 Non navigare se è una notifica di rimozione (non hai più accesso al viaggio)
+    if (notification.type !== 'member_removed') {
+      navigate('/');
+    }
     setShowDropdown(false);
   };
 
@@ -195,7 +246,7 @@ export default function NotificationCenter({ userProfile }) {
     <div className="relative" ref={dropdownRef}>
       {/* Badge */}
       <button
-        onClick={() => setShowDropdown(!showDropdown)}
+        onClick={handleToggleDropdown}
         className="relative p-2 hover:bg-gray-100 rounded-full transition-colors"
       >
         <Bell size={24} className="text-gray-700" />
@@ -211,17 +262,11 @@ export default function NotificationCenter({ userProfile }) {
       {showDropdown && (
         <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-20 max-h-96 overflow-hidden flex flex-col">
 
-          {/* Header */}
-          <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+          {/* 🆕 Header semplificato - senza X */}
+          <div className="px-4 py-3 border-b border-gray-200">
             <span className="text-sm font-semibold text-gray-900">
-              {totalBadge === 0 ? 'Notifiche' : `${totalBadge} ${totalBadge === 1 ? 'nuova' : 'nuove'}`}
+              Notifiche
             </span>
-            <button
-              onClick={handleCloseDropdown}
-              className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-            >
-              <X size={18} className="text-gray-500" />
-            </button>
           </div>
 
           <div className="overflow-y-auto">
@@ -310,9 +355,7 @@ export default function NotificationCenter({ userProfile }) {
 
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-gray-900">
-                        <span className="font-medium">{item.actorName}</span>
-                        {' '}si è unito a{' '}
-                        <span className="font-medium">{item.tripName}</span>
+                        {getNotificationMessage(item)}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
                         {getTimeAgo(item.createdAt)}
