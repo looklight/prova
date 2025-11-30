@@ -1,5 +1,5 @@
 export const CATEGORIES = [
-  { id: 'base', label: 'Base', emoji: '📍', color: 'bg-gray-100' },
+  { id: 'base', label: 'Luogo', emoji: '📍', color: 'bg-gray-100' },
   { id: 'pernottamento', label: 'Pernottamento', emoji: '🛏️', color: 'bg-blue-100' },
   { id: 'attivita1', label: 'Attività', emoji: '💡', color: 'bg-green-100' },
   { id: 'attivita2', label: 'Attività', emoji: '💡', color: 'bg-green-100' },

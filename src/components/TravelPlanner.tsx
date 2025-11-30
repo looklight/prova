@@ -191,12 +191,14 @@ const TravelPlannerApp = ({ user }) => {
         id: Date.now(),
         name: finalName,
         image: metadata?.image || null,
+        currency: metadata?.currency || null,
         metadata: {
           name: finalName,
           image: metadata?.image || null,
           imagePath: metadata?.imagePath || null,
           destinations: metadata?.destinations || [],
-          description: metadata?.description || ''
+          description: metadata?.description || '',
+          currency: metadata?.currency || null
         },
         startDate: startDate,
         createdAt: new Date(),

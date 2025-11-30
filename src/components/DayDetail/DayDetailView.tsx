@@ -12,6 +12,7 @@ import MediaDialog from './MediaDialog';
 import CostBreakdownModal from './CostBreakdownModal';
 import CostSummaryByUserView from './CostSummaryByUserView';
 import { useAnalytics } from '../../hooks/useAnalytics';
+import { deleteImage } from '../../services/storageService';
 
 const DayDetailView = ({
   trip,
@@ -24,13 +25,8 @@ const DayDetailView = ({
   highlightCategoryId = null,
   onClosePanel = null // 🆕 Solo desktop: callback per chiudere il pannello
 }) => {
-  // Safety check
-  if (dayIndex === null || dayIndex === undefined || dayIndex >= trip.days.length || dayIndex < 0) {
-    console.warn('⚠️ DayDetailView: dayIndex invalido', dayIndex);
-    return null;
-  }
 
-  const currentDay = trip.days[dayIndex];
+  const currentDay = trip.days[dayIndex] || trip.days[0];
 
   // Custom Hooks
   const { categoryData, otherExpenses, updateCategory, updateOtherExpense, removeOtherExpense, addOtherExpense } =
@@ -102,11 +98,11 @@ const DayDetailView = ({
   // Ring blu scompare dopo 3 secondi
   useEffect(() => {
     if (!selectedCategoryId) return;
-    
+
     const timer = setTimeout(() => {
       setSelectedCategoryId(null);
     }, 3000);
-    
+
     return () => clearTimeout(timer);
   }, [selectedCategoryId]);
 
@@ -121,7 +117,7 @@ const DayDetailView = ({
   const handleSelectCategory = (categoryId: string) => {
     // Prima collassa le categorie vuote espanse (tranne quella che stiamo selezionando)
     collapseEmptyExpanded(categoryId);
-    
+
     setSelectedCategoryId(categoryId);
     setActiveCategoryId(categoryId);
   };
@@ -130,7 +126,7 @@ const DayDetailView = ({
   const handleExpandCategory = (categoryId: string) => {
     // Collassa altre categorie vuote prima di espandere questa
     collapseEmptyExpanded(categoryId);
-    
+
     setExpandedCategories(prev => new Set(prev).add(categoryId));
     setSelectedCategoryId(categoryId);
     setActiveCategoryId(categoryId);
@@ -200,11 +196,72 @@ const DayDetailView = ({
       }));
   }, [trip.sharing.members]);
 
+    // 🆕 Filtra categorie escludendo note e otherExpenses (gestite separatamente)
+  // e ordina secondo trip.categoryOrder
+  const mainCategories = useMemo(() => {
+    const filtered = CATEGORIES.filter(cat => cat.id !== 'note' && cat.id !== 'otherExpenses');
+
+    // Se non c'è un ordine personalizzato, usa l'ordine di default
+    if (!trip.categoryOrder || trip.categoryOrder.length === 0) {
+      return filtered;
+    }
+
+    // Ordina secondo categoryOrder
+    // 'base' rimane sempre primo (non è in categoryOrder)
+    const baseCategory = filtered.find(c => c.id === 'base');
+    const otherCategories = filtered.filter(c => c.id !== 'base');
+
+    const sortedOthers = [...otherCategories].sort((a, b) => {
+      const indexA = trip.categoryOrder.indexOf(a.id);
+      const indexB = trip.categoryOrder.indexOf(b.id);
+      // Se non trovato nell'ordine, metti in fondo
+      if (indexA === -1 && indexB === -1) return 0;
+      if (indexA === -1) return 1;
+      if (indexB === -1) return -1;
+      return indexA - indexB;
+    });
+
+    return baseCategory ? [baseCategory, ...sortedOthers] : sortedOthers;
+  }, [trip.categoryOrder]);
+
+  // 🆕 Raggruppa categorie in "segmenti": card normali singole o gruppi di collapsed consecutive
+  const renderSegments = useMemo(() => {
+    const segments: Array<{ type: 'card' | 'collapsed-group'; categories: typeof mainCategories }> = [];
+    let currentCollapsedGroup: typeof mainCategories = [];
+
+    mainCategories.forEach((category) => {
+      const hasData = categoryHasData(category.id);
+      const isAlwaysVisible = ALWAYS_VISIBLE.includes(category.id);
+      const isExpanded = expandedCategories.has(category.id);
+      const showFullCard = hasData || isAlwaysVisible || isExpanded;
+
+      if (showFullCard) {
+        // Prima chiudi eventuale gruppo collapsed aperto
+        if (currentCollapsedGroup.length > 0) {
+          segments.push({ type: 'collapsed-group', categories: [...currentCollapsedGroup] });
+          currentCollapsedGroup = [];
+        }
+        // Aggiungi la card normale
+        segments.push({ type: 'card', categories: [category] });
+      } else {
+        // Accumula nel gruppo collapsed
+        currentCollapsedGroup.push(category);
+      }
+    });
+
+    // Chiudi l'ultimo gruppo collapsed se presente
+    if (currentCollapsedGroup.length > 0) {
+      segments.push({ type: 'collapsed-group', categories: [...currentCollapsedGroup] });
+    }
+
+    return segments;
+  }, [mainCategories, categoryHasData, expandedCategories]);
+
   const handleOpenCategoryBreakdown = (categoryId) => {
     // 🆕 Salva posizione scroll prima di aprire modal
     const container = document.querySelector('.day-detail-container');
     if (container) scrollPositionRef.current = container.scrollTop;
-    
+
     // 📊 Track apertura breakdown
     analytics.trackCostBreakdownOpened(trip.id, categoryId, false);
     setCostBreakdownModal({ isOpen: true, categoryId, expenseId: null });
@@ -214,7 +271,7 @@ const DayDetailView = ({
     // 🆕 Salva posizione scroll prima di aprire modal
     const container = document.querySelector('.day-detail-container');
     if (container) scrollPositionRef.current = container.scrollTop;
-    
+
     // 📊 Track apertura breakdown altre spese
     analytics.trackCostBreakdownOpened(trip.id, 'other', true);
     setCostBreakdownModal({ isOpen: true, categoryId: null, expenseId });
@@ -228,19 +285,38 @@ const DayDetailView = ({
     if (breakdown === 'RESET_ALL') {
       if (costBreakdownModal.categoryId) {
         const categoryId = costBreakdownModal.categoryId;
-        const category = CATEGORIES.find(c => c.id === categoryId);
         const key = `${currentDay.id}-${categoryId}`;
+        const currentData = trip.data[key] || {};
 
+        // 🧹 Elimina immagini da Storage (non bloccante)
+        if (currentData.images?.length > 0) {
+          currentData.images.forEach(img => {
+            if (img.path) {
+              deleteImage(img.path).catch(err =>
+                console.warn('⚠️ Errore eliminazione immagine:', err)
+              );
+            }
+          });
+        }
+
+        // 🔧 Reset COMPLETO - oggetto pulito SENZA spread
         const updatedData = {
-          ...trip.data[key],
-          costBreakdown: null,
+          title: '',
           cost: '',
+          bookingStatus: 'na',
+          ...(categoryId.startsWith('spostamenti') && { transportMode: 'funivia' }),
+          links: [],
+          images: [],
+          videos: [],
+          mediaNotes: [],
+          notes: '',
+          costBreakdown: null,
           participants: null,
           participantsUpdatedAt: null,
           hasSplitCost: false
         };
 
-        console.log('🗑️ [Category] Reset completo:', categoryId);
+        console.log('🗑️ [Category] Reset COMPLETO:', categoryId);
 
         onUpdateTrip({
           ...trip,
@@ -257,15 +333,16 @@ const DayDetailView = ({
         if (expenseIndex === -1) return;
 
         expenses[expenseIndex] = {
-          ...expenses[expenseIndex],
-          costBreakdown: null,
+          id: costBreakdownModal.expenseId,
+          title: '',
           cost: '',
+          costBreakdown: null,
           participants: null,
           participantsUpdatedAt: null,
           hasSplitCost: false
         };
 
-        console.log('🗑️ [OtherExpense] Reset completo:', costBreakdownModal.expenseId);
+        console.log('🗑️ [OtherExpense] Reset COMPLETO:', costBreakdownModal.expenseId);
 
         onUpdateTrip({
           ...trip,
@@ -354,6 +431,12 @@ const DayDetailView = ({
 
   console.log('🧳 trip.currency:', trip.currency);
 
+  // Safety check
+  if (dayIndex === null || dayIndex === undefined || dayIndex >= trip.days.length || dayIndex < 0) {
+    console.warn('⚠️ DayDetailView: dayIndex invalido', dayIndex);
+    return null;
+  }
+
   if (showFullSummary) {
     return (
       <CostSummaryByUserView
@@ -366,70 +449,9 @@ const DayDetailView = ({
     );
   }
 
-  // 🆕 Filtra categorie escludendo note e otherExpenses (gestite separatamente)
-  // e ordina secondo trip.categoryOrder
-  const mainCategories = useMemo(() => {
-    const filtered = CATEGORIES.filter(cat => cat.id !== 'note' && cat.id !== 'otherExpenses');
-    
-    // Se non c'è un ordine personalizzato, usa l'ordine di default
-    if (!trip.categoryOrder || trip.categoryOrder.length === 0) {
-      return filtered;
-    }
-    
-    // Ordina secondo categoryOrder
-    // 'base' rimane sempre primo (non è in categoryOrder)
-    const baseCategory = filtered.find(c => c.id === 'base');
-    const otherCategories = filtered.filter(c => c.id !== 'base');
-    
-    const sortedOthers = [...otherCategories].sort((a, b) => {
-      const indexA = trip.categoryOrder.indexOf(a.id);
-      const indexB = trip.categoryOrder.indexOf(b.id);
-      // Se non trovato nell'ordine, metti in fondo
-      if (indexA === -1 && indexB === -1) return 0;
-      if (indexA === -1) return 1;
-      if (indexB === -1) return -1;
-      return indexA - indexB;
-    });
-    
-    return baseCategory ? [baseCategory, ...sortedOthers] : sortedOthers;
-  }, [trip.categoryOrder]);
-
-  // 🆕 Raggruppa categorie in "segmenti": card normali singole o gruppi di collapsed consecutive
-  const renderSegments = useMemo(() => {
-    const segments: Array<{ type: 'card' | 'collapsed-group'; categories: typeof mainCategories }> = [];
-    let currentCollapsedGroup: typeof mainCategories = [];
-
-    mainCategories.forEach((category) => {
-      const hasData = categoryHasData(category.id);
-      const isAlwaysVisible = ALWAYS_VISIBLE.includes(category.id);
-      const isExpanded = expandedCategories.has(category.id);
-      const showFullCard = hasData || isAlwaysVisible || isExpanded;
-
-      if (showFullCard) {
-        // Prima chiudi eventuale gruppo collapsed aperto
-        if (currentCollapsedGroup.length > 0) {
-          segments.push({ type: 'collapsed-group', categories: [...currentCollapsedGroup] });
-          currentCollapsedGroup = [];
-        }
-        // Aggiungi la card normale
-        segments.push({ type: 'card', categories: [category] });
-      } else {
-        // Accumula nel gruppo collapsed
-        currentCollapsedGroup.push(category);
-      }
-    });
-
-    // Chiudi l'ultimo gruppo collapsed se presente
-    if (currentCollapsedGroup.length > 0) {
-      segments.push({ type: 'collapsed-group', categories: [...currentCollapsedGroup] });
-    }
-
-    return segments;
-  }, [mainCategories, categoryHasData, expandedCategories]);
-
   return (
-    <div 
-      className="day-detail-container bg-gray-50" 
+    <div
+      className="day-detail-container bg-gray-50"
       style={{
         maxWidth: isDesktop ? '100%' : '430px',
         margin: isDesktop ? '0' : '0 auto',
@@ -484,7 +506,7 @@ const DayDetailView = ({
           } else {
             // 🆕 Gruppo di collapsed chips in flex-wrap
             return (
-              <div 
+              <div
                 key={`collapsed-group-${segmentIndex}`}
                 className="flex flex-wrap gap-2 justify-center py-1"
               >

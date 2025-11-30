@@ -190,7 +190,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         metadata: metadata,
         name: metadata.name,
         image: metadata.image,
-        currency: metadata.currency,
+        currency: metadata.currency || null,
         updatedAt: new Date()
       });
       setShowMetadataModal(false);
