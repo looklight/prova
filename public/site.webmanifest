@@ -1,6 +1,6 @@
 {
   "name": "Look Travel",
-  "short_name": "Look",
+  "short_name": "Travel Planner",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
