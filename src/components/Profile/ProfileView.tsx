@@ -240,7 +240,7 @@ const ProfileView = ({ onBack, user, trips = [] }) => {
             <span>Info App</span>
           </h3>
           <div className="space-y-1 text-sm text-gray-600">
-            <p>Versione 1.0.0</p>
+            <p>Versione 1.0 fatta col ❤️ per i viaggiatori</p>
           </div>
         </div>
 
