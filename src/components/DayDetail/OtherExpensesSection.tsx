@@ -5,6 +5,7 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import CostInput from './ui/CostInput';
+import OfflineDisabled from '../OfflineDisabled';
 
 interface OtherExpensesSectionProps {
   expenses: Array<{
@@ -48,13 +49,12 @@ const OtherExpensesSection: React.FC<OtherExpensesSectionProps> = ({
   return (
     <>
       {/* 💸 Altre Spese */}
-      <div 
-        id="category-otherExpenses" 
-        className={`bg-white rounded-lg shadow p-4 ${
-          isHighlighted 
-            ? 'ring-2 ring-blue-500' 
-            : 'ring-0 ring-transparent'
-        }`}
+      <div
+        id="category-otherExpenses"
+        className={`bg-white rounded-lg shadow p-4 ${isHighlighted
+          ? 'ring-2 ring-blue-500'
+          : 'ring-0 ring-transparent'
+          }`}
       >
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-semibold">💸 Altre Spese</h2>
@@ -64,48 +64,56 @@ const OtherExpensesSection: React.FC<OtherExpensesSectionProps> = ({
           {expenses.map((expense) => (
             <div key={expense.id} className="flex gap-2 items-center">
               {/* Titolo */}
-              <input
-                type="text"
-                value={expense.title}
-                onChange={(e) => onUpdate(expense.id, 'title', e.target.value)}
-                placeholder="Descrizione"
-                className="flex-1 min-w-0 px-4 py-2.5 border rounded-full text-sm"
-              />
+              <OfflineDisabled>
+                <input
+                  type="text"
+                  value={expense.title}
+                  onChange={(e) => onUpdate(expense.id, 'title', e.target.value)}
+                  placeholder="Descrizione"
+                  className="flex-1 min-w-0 px-4 py-2.5 border rounded-full text-sm"
+                />
+              </OfflineDisabled>
 
               {/* Costo - Riusa CostInput */}
-              <CostInput
-                value={expense.cost}
-                onChange={(e) => onUpdate(expense.id, 'cost', e.target.value)}
-                hasSplitCost={expense.hasSplitCost || false}
-                currentUserId={currentUserId}
-                costBreakdown={expense.costBreakdown || null}
-                tripMembers={tripMembers}
-                onClearBreakdown={() => {
-                  onUpdate(expense.id, 'cost', '');
-                }}
-              />
+              <OfflineDisabled>
+                <CostInput
+                  value={expense.cost}
+                  onChange={(e) => onUpdate(expense.id, 'cost', e.target.value)}
+                  hasSplitCost={expense.hasSplitCost || false}
+                  currentUserId={currentUserId}
+                  costBreakdown={expense.costBreakdown || null}
+                  tripMembers={tripMembers}
+                  onClearBreakdown={() => {
+                    onUpdate(expense.id, 'cost', '');
+                  }}
+                />
+              </OfflineDisabled>
 
               {/* Bottone Gestisci */}
               {onOpenCostBreakdown && (
-                <button
-                  onClick={() => onOpenCostBreakdown(expense.id)}
-                  className="w-8 h-8 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-full flex items-center justify-center transition-colors"
-                  title="Gestisci spesa"
-                >
-                  💰
-                </button>
+                <OfflineDisabled>
+                  <button
+                    onClick={() => onOpenCostBreakdown(expense.id)}
+                    className="w-8 h-8 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-full flex items-center justify-center transition-colors"
+                    title="Gestisci spesa"
+                  >
+                    💰
+                  </button>
+                </OfflineDisabled>
               )}
 
               {/* Bottone Rimuovi con conferma */}
               {(expenses.length > 1 || expense.title.trim() !== '' || expense.cost.trim() !== '') && (
-                <button
-                  type="button"
-                  onClick={() => handleRemove(expense.id)}
-                  className="w-8 h-8 bg-red-50 hover:bg-red-100 text-red-600 rounded-full flex items-center justify-center flex-shrink-0 transition-colors"
-                  title="Elimina spesa"
-                >
-                  <X size={16} />
-                </button>
+                <OfflineDisabled>
+                  <button
+                    type="button"
+                    onClick={() => handleRemove(expense.id)}
+                    className="w-8 h-8 bg-red-50 hover:bg-red-100 text-red-600 rounded-full flex items-center justify-center flex-shrink-0 transition-colors"
+                    title="Elimina spesa"
+                  >
+                    <X size={16} />
+                  </button>
+                </OfflineDisabled>
               )}
             </div>
           ))}
@@ -114,24 +122,25 @@ const OtherExpensesSection: React.FC<OtherExpensesSectionProps> = ({
 
       {/* 📝 Note */}
       {onUpdateNotes && (
-        <div 
-          id="category-note" 
-          className={`bg-white rounded-lg shadow p-4 ${
-            isNoteHighlighted 
-              ? 'ring-2 ring-blue-500' 
-              : 'ring-0 ring-transparent'
-          }`}
+        <div
+          id="category-note"
+          className={`bg-white rounded-lg shadow p-4 ${isNoteHighlighted
+            ? 'ring-2 ring-blue-500'
+            : 'ring-0 ring-transparent'
+            }`}
         >
           <h2 className="text-base font-semibold mb-3 flex items-center gap-2">
             <span>📝</span>
             <span>Note</span>
           </h2>
-          <textarea
-            value={notes}
-            onChange={(e) => onUpdateNotes(e.target.value)}
-            placeholder="Aggiungi commento personale"
-            className="w-full px-4 py-2.5 border rounded-lg h-24 resize-none text-sm"
-          />
+          <OfflineDisabled>
+            <textarea
+              value={notes}
+              onChange={(e) => onUpdateNotes(e.target.value)}
+              placeholder="Aggiungi commento personale"
+              className="w-full px-4 py-2.5 border rounded-lg h-24 resize-none text-sm"
+            />
+          </OfflineDisabled>
         </div>
       )}
     </>

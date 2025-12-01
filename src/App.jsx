@@ -5,16 +5,21 @@ import AuthPage from "./components/AuthPage.tsx";
 import InviteHandler from "./components/InviteHandler.tsx";
 import CookieBanner from "./components/Legal/CookieBanner.tsx";
 import LoadingScreen from "./components/LoadingScreen.tsx";
+import OfflineBanner from "./components/OfflineBanner.tsx";
 import { PrivacyPage, TermsPage, CookiePage } from "./pages/LegalPages.tsx";
+import { OnlineProvider } from './contexts/OnlineContext';
 import { auth } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { loadUserProfile } from './services';
 
 function App() {
   return (
-    <Router>
-      <AppContent />
-    </Router>
+    <OnlineProvider>
+      <OfflineBanner />
+      <Router>
+        <AppContent />
+      </Router>
+    </OnlineProvider>
   );
 }
 

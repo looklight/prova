@@ -12,6 +12,7 @@ import { calculateTripCost } from "../utils/costsUtils";
 import { canArchiveTrip } from "../utils/archiveValidation";
 import { useAnalytics } from '../hooks/useAnalytics';
 import ExportModal from './ExportModal';
+import OfflineDisabled from './OfflineDisabled';
 
 const HomeView = ({
   trips,
@@ -246,39 +247,45 @@ const HomeView = ({
             />
 
             {/* 🆕 AVATAR INVECE DI ICONA USER */}
-            <button
-              onClick={onOpenProfile}
-              className="hover:opacity-80 transition-opacity"
-              aria-label="Profilo"
-            >
-              <Avatar
-                src={currentUser.photoURL}
-                name={currentUser.displayName || 'User'}
-                size="sm"
-                className="!w-8 !h-8 !text-sm"
-              />
-            </button>
+            <OfflineDisabled>
+              <button
+                onClick={onOpenProfile}
+                className="hover:opacity-80 transition-opacity"
+                aria-label="Profilo"
+              >
+                <Avatar
+                  src={currentUser.photoURL}
+                  name={currentUser.displayName || 'User'}
+                  size="sm"
+                  className="!w-8 !h-8 !text-sm"
+                />
+              </button>
+            </OfflineDisabled>
           </div>
         </div>
       </div>
 
       <div className="p-4">
         <div className="flex gap-2 mb-6">
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex-1 py-3 bg-blue-500 text-white rounded-2xl font-semibold text-base hover:bg-blue-600 shadow-lg flex items-center justify-center gap-2"
-          >
-            <Plus size={20} />
-            Nuovo
-          </button>
+          <OfflineDisabled>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex-1 py-3 bg-blue-500 text-white rounded-2xl font-semibold text-base hover:bg-blue-600 shadow-lg flex items-center justify-center gap-2"
+            >
+              <Plus size={20} />
+              Nuovo
+            </button>
+          </OfflineDisabled>
 
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="flex-1 py-3 bg-green-500 text-white rounded-2xl font-semibold text-base hover:bg-green-600 shadow-lg flex items-center justify-center gap-2"
-          >
-            <Upload size={20} />
-            Importa
-          </button>
+          <OfflineDisabled>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex-1 py-3 bg-green-500 text-white rounded-2xl font-semibold text-base hover:bg-green-600 shadow-lg flex items-center justify-center gap-2"
+            >
+              <Upload size={20} />
+              Importa
+            </button>
+          </OfflineDisabled>
         </div>
 
         <input
@@ -332,13 +339,13 @@ const HomeView = ({
                     <p className="text-sm text-gray-500">
                       {trip.days.length} {trip.days.length === 1 ? 'giorno' : 'giorni'}
                     </p>
-                    
+
                     {/* Data + Badge Archivia */}
                     <div className="flex items-center gap-2">
                       <p className="text-xs text-gray-400">
                         {trip.startDate.toLocaleDateString('it-IT')}
                       </p>
-                      
+
                       {/* 📦 Badge Archivia - Solo se archiviabile */}
                       {isArchivable && (
                         <button
@@ -392,28 +399,32 @@ const HomeView = ({
                       </div>
 
                       {/* Riga 2: Bottone Download */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setExportModalTrip(trip);
-                        }}
-                        className="p-2 text-blue-500 hover:bg-blue-50 rounded-full transition-colors"
-                        title="Esporta"
-                      >
-                        <Download size={20} />
-                      </button>
+                      <OfflineDisabled>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExportModalTrip(trip);
+                          }}
+                          className="p-2 text-blue-500 hover:bg-blue-50 rounded-full transition-colors"
+                          title="Esporta"
+                        >
+                          <Download size={20} />
+                        </button>
+                      </OfflineDisabled>
 
                       {/* Riga 3: Bottone Elimina */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteConfirm({ id: trip.id, name: trip.name });
-                        }}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors"
-                        title="Elimina"
-                      >
-                        <Trash2 size={20} />
-                      </button>
+                      <OfflineDisabled>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteConfirm({ id: trip.id, name: trip.name });
+                          }}
+                          className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                          title="Elimina"
+                        >
+                          <Trash2 size={20} />
+                        </button>
+                      </OfflineDisabled>
                     </div>
                   </div>
                 </div>

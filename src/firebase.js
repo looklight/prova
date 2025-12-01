@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, persistentLocalCache, initializeFirestore } from 'firebase/firestore';  // ← API moderna
 import { getAnalytics, isSupported } from 'firebase/analytics';
 import { getStorage } from 'firebase/storage';
 
@@ -20,8 +20,15 @@ const app = initializeApp(firebaseConfig);
 
 // Inizializza servizi essenziali
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+
+// 🔄 Firestore con persistenza offline moderna
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache(/* settings */ {})
+});
+
 export const storage = getStorage(app);
+
+console.log('✅ Persistenza offline abilitata (API moderna)');
 
 // 📊 Analytics - Inizializzato automaticamente se supportato
 let analyticsInstance = null;

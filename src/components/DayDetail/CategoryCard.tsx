@@ -2,6 +2,7 @@ import React from 'react';
 import { Video } from 'lucide-react';
 import { BookingToggle, CostInput, MediaButton, TransportSelector } from './ui';
 import { LinkCard, ImageCard, NoteCard, VideoEmbed, LinkIcon, ImageIcon, FileTextIcon } from '../MediaCards';
+import OfflineDisabled from '../OfflineDisabled';
 
 const BOOKING_COLORS = {
   na: 'bg-gray-400',
@@ -98,15 +99,17 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
 
         {/* ✅ GESTISCI SPESA - sempre visibile */}
         {category.id !== 'note' && category.id !== 'base' && onOpenCostBreakdown && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenCostBreakdown();
-            }}
-            className="text-xs px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-full font-medium transition-colors flex-shrink-0"
-          >
-            Gestisci spesa
-          </button>
+          <OfflineDisabled>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenCostBreakdown();
+              }}
+              className="text-xs px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-full font-medium transition-colors flex-shrink-0"
+            >
+              Gestisci spesa
+            </button>
+          </OfflineDisabled>
         )}
       </div>
 
@@ -163,37 +166,41 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
                 className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-3 h-3 rounded-full transition-colors ${BOOKING_COLORS[categoryData.bookingStatus]}`}
               />
             )}
-            <input
-              type="text"
-              value={categoryData.title}
-              onChange={(e) => onUpdateCategory(category.id, 'title', e.target.value)}
-              onFocus={() => onSelect?.()}
-              placeholder={`Nome ${category.label.toLowerCase()}`}
-              className={`w-full px-4 py-2.5 border rounded-full text-sm ${
-                category.id !== 'base' && category.id !== 'note' && hasContent
-                  ? 'pl-8' 
-                  : ''
-              }`}
-            />
+            <OfflineDisabled>
+              <input
+                type="text"
+                value={categoryData.title}
+                onChange={(e) => onUpdateCategory(category.id, 'title', e.target.value)}
+                onFocus={() => onSelect?.()}
+                placeholder={`Nome ${category.label.toLowerCase()}`}
+                className={`w-full px-4 py-2.5 border rounded-full text-sm ${
+                  category.id !== 'base' && category.id !== 'note' && hasContent
+                    ? 'pl-8' 
+                    : ''
+                }`}
+              />
+            </OfflineDisabled>
           </div>
         )}
 
         {/* Campo costo - sempre visibile */}
         {category.id !== 'note' && category.id !== 'base' && (
           <div className="flex-shrink-0" onClickCapture={() => onSelect?.()}>
-            <CostInput
-              value={categoryData.cost || ''}
-              onChange={(e) => onUpdateCategory(category.id, 'cost', e.target.value)}
-              hasSplitCost={categoryData.hasSplitCost || false}
-              currentUserId={currentUserId}
-              costBreakdown={categoryData.costBreakdown || null}
-              tripMembers={tripMembers}
-              onClearBreakdown={() => {
-                onUpdateCategory(category.id, 'costBreakdown', null);
-                onUpdateCategory(category.id, 'hasSplitCost', false);
-              }}
-              onOpenManageBreakdown={onOpenCostBreakdown}
-            />
+            <OfflineDisabled>
+              <CostInput
+                value={categoryData.cost || ''}
+                onChange={(e) => onUpdateCategory(category.id, 'cost', e.target.value)}
+                hasSplitCost={categoryData.hasSplitCost || false}
+                currentUserId={currentUserId}
+                costBreakdown={categoryData.costBreakdown || null}
+                tripMembers={tripMembers}
+                onClearBreakdown={() => {
+                  onUpdateCategory(category.id, 'costBreakdown', null);
+                  onUpdateCategory(category.id, 'hasSplitCost', false);
+                }}
+                onOpenManageBreakdown={onOpenCostBreakdown}
+              />
+            </OfflineDisabled>
           </div>
         )}
       </div>
@@ -213,55 +220,59 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
               />
             </div>
 
-            <div className="flex gap-2 flex-shrink-0">
-              <MediaButton
-                icon={LinkIcon}
-                label="Link"
-                color="blue"
-                onClick={() => onMediaDialogOpen('link')}
-              />
-
-              <MediaButton
-                icon={ImageIcon}
-                label="Foto"
-                color="green"
-                isLabel={true}
-              >
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => e.target.files?.[0] && onImageUpload(e.target.files[0])}
+            <OfflineDisabled>
+              <div className="flex gap-2 flex-shrink-0">
+                <MediaButton
+                  icon={LinkIcon}
+                  label="Link"
+                  color="blue"
+                  onClick={() => onMediaDialogOpen('link')}
                 />
-              </MediaButton>
 
-              <MediaButton
-                icon={Video}
-                label="Video"
-                color="purple"
-                onClick={() => onMediaDialogOpen('video')}
-              />
+                <MediaButton
+                  icon={ImageIcon}
+                  label="Foto"
+                  color="green"
+                  isLabel={true}
+                >
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => e.target.files?.[0] && onImageUpload(e.target.files[0])}
+                  />
+                </MediaButton>
 
-              <MediaButton
-                icon={FileTextIcon}
-                label="Nota"
-                color="amber"
-                onClick={() => onMediaDialogOpen('note')}
-              />
-            </div>
+                <MediaButton
+                  icon={Video}
+                  label="Video"
+                  color="purple"
+                  onClick={() => onMediaDialogOpen('video')}
+                />
+
+                <MediaButton
+                  icon={FileTextIcon}
+                  label="Nota"
+                  color="amber"
+                  onClick={() => onMediaDialogOpen('note')}
+                />
+              </div>
+            </OfflineDisabled>
           </div>
         </div>
       )}
 
       {/* Note Category (textarea) */}
       {category.id === 'note' && (
-        <textarea
-          value={categoryData.notes}
-          onChange={(e) => onUpdateCategory(category.id, 'notes', e.target.value)}
-          onClick={(e) => e.stopPropagation()}
-          placeholder="Aggiungi commento personale"
-          className="w-full px-4 py-2.5 border rounded-lg h-24 resize-none text-sm"
-        />
+        <OfflineDisabled>
+          <textarea
+            value={categoryData.notes}
+            onChange={(e) => onUpdateCategory(category.id, 'notes', e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            placeholder="Aggiungi commento personale"
+            className="w-full px-4 py-2.5 border rounded-lg h-24 resize-none text-sm"
+          />
+        </OfflineDisabled>
       )}
 
       {/* Media Grid - sempre visibile se ci sono media */}
