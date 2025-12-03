@@ -13,7 +13,7 @@
  */
 
 import { useState } from 'react';
-import { extractVideoId } from '../components/MediaCards';
+import { extractVideoId } from '../components/DayDetail/MediaCards';
 import { uploadImage, deleteImage } from '../services/storageService';
 
 // ⭐ Aggiungi tripId come parametro

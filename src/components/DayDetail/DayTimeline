@@ -1,0 +1,53 @@
+Per inserire DayTimeline
+
+importare in alto:
+
+import DayTimeline from './DayTimeline';
+
+
+Sostituire il blocco:
+ {renderSegments.map(...)} 
+con:
+
+<DayTimeline
+  segments={renderSegments}
+  renderCard={(category) => (
+    <CategoryCard
+      key={category.id}
+      category={category}
+      categoryData={categoryData[category.id]}
+      suggestion={getSuggestion(category.id)}
+      transportSelectorOpen={transportSelectorOpen[category.id] || false}
+      onToggleTransportSelector={() => setTransportSelectorOpen(prev => ({
+        ...prev,
+        [category.id]: !prev[category.id]
+      }))}
+      onUpdateCategory={updateCategory}
+      onMediaDialogOpen={(type) => mediaHandlers.setMediaDialogOpen({ type, categoryId: category.id })}
+      onImageUpload={(file) => mediaHandlers.addImage(category.id, file)}
+      onRemoveMedia={(mediaType, itemId) => mediaHandlers.removeMedia(category.id, mediaType, itemId)}
+      onEditNote={(note) => {
+        mediaHandlers.setEditingNote(note);
+        mediaHandlers.setNoteInput(note.text);
+        mediaHandlers.setMediaDialogOpen({ type: 'note', categoryId: category.id });
+      }}
+      onOpenCostBreakdown={() => handleOpenCategoryBreakdown(category.id)}
+      currentUserId={user.uid}
+      tripMembers={trip.sharing?.members}
+      isSelected={selectedCategoryId === category.id}
+      isActive={activeCategoryId === category.id}
+      onSelect={() => handleSelectCategory(category.id)}
+    />
+  )}
+  renderCollapsedGroup={(categories, segmentIndex) => (
+    <div className="flex flex-wrap gap-2 justify-center py-1">
+      {categories.map((category) => (
+        <CollapsedCategoryChip
+          key={category.id}
+          category={category}
+          onExpand={() => handleExpandCategory(category.id)}
+        />
+      ))}
+    </div>
+  )}
+/>

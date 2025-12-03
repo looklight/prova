@@ -7,7 +7,7 @@ interface MediaButtonProps {
   color: 'blue' | 'green' | 'purple' | 'amber';
   onClick?: () => void;
   isLabel?: boolean;
-  children?: React.ReactNode; // Per input file
+  children?: React.ReactNode;
 }
 
 const MediaButton: React.FC<MediaButtonProps> = ({ 
@@ -19,19 +19,19 @@ const MediaButton: React.FC<MediaButtonProps> = ({
   children 
 }) => {
   const colorClasses = {
-    blue: 'bg-blue-50 hover:bg-blue-100 text-blue-700',
-    green: 'bg-green-50 hover:bg-green-100 text-green-700',
-    purple: 'bg-purple-50 hover:bg-purple-100 text-purple-700',
-    amber: 'bg-amber-50 hover:bg-amber-100 text-amber-700'
+    blue: 'bg-blue-50 active:bg-blue-100 text-blue-700',
+    green: 'bg-green-50 active:bg-green-100 text-green-700',
+    purple: 'bg-purple-50 active:bg-purple-100 text-purple-700',
+    amber: 'bg-amber-50 active:bg-amber-100 text-amber-700'
   };
 
-  const baseClass = `flex items-center justify-center gap-1.5 rounded-full text-xs font-medium transition-colors w-10 h-10 md:w-auto md:h-auto md:px-3 md:py-2.5 ${colorClasses[color]}`;
+  const baseClass = `flex items-center justify-center gap-1.5 rounded-full text-xs font-medium transition-colors px-3 py-2.5 ${colorClasses[color]}`;
 
   if (isLabel) {
     return (
       <label className={`${baseClass} cursor-pointer`}>
         <Icon size={16} />
-        <span className="hidden md:inline">{label}</span>
+        <span>{label}</span>
         {children}
       </label>
     );
@@ -40,7 +40,7 @@ const MediaButton: React.FC<MediaButtonProps> = ({
   return (
     <button onClick={onClick} className={baseClass} type="button">
       <Icon size={16} />
-      <span className="hidden md:inline">{label}</span>
+      <span>{label}</span>
     </button>
   );
 };

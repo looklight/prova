@@ -19,6 +19,7 @@ export const TRANSPORT_OPTIONS = [
   { value: 'train', emoji: '🚂', label: 'Treno' },
   { value: 'default', emoji: '❌', label: 'Nessuno' },
   { value: 'bus', emoji: '🚌', label: 'Bus' },
+  { value: 'van', emoji: '🚐', label: 'Van' },
   { value: 'ship', emoji: '⛴️', label: 'Nave' },
   { value: 'bike', emoji: '🚲', label: 'Bici' },
   { value: 'walk', emoji: '🚶', label: 'A piedi' }

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Video, PlusCircle } from 'lucide-react';
 import { BookingToggle, CostInput, MediaButton, TransportSelector } from './ui';
-import { LinkCard, ImageCard, NoteCard, VideoEmbed, LinkIcon, ImageIcon, FileTextIcon } from '../MediaCards';
+import { LinkCard, ImageCard, NoteCard, VideoEmbed, LinkIcon, ImageIcon, FileTextIcon } from './MediaCards';
 import OfflineDisabled from '../OfflineDisabled';
 
 const BOOKING_COLORS = {
@@ -12,10 +12,18 @@ const BOOKING_COLORS = {
 
 const slideInStyle = `
 @keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
   to {
     opacity: 1;
     transform: translateX(0);
   }
+}
+
+.slide-in-right {
+  animation: slideInRight 0.2s ease-out forwards;
 }
 `;
 
@@ -58,6 +66,13 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
 }) => {
   const [showBookingToggle, setShowBookingToggle] = React.useState(false);
   const [showMediaButtons, setShowMediaButtons] = React.useState(false);
+  // Chiudi booking toggle e media buttons quando la card non è più attiva
+  React.useEffect(() => {
+    if (!isActive) {
+      setShowBookingToggle(false);
+      setShowMediaButtons(false);
+    }
+  }, [isActive]);
 
   const isBaseSuggestions = category.id === 'base' && Array.isArray(suggestion);
   const showSuggestion = suggestion && !categoryData.title;
@@ -86,16 +101,15 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
     <>
       <style>{slideInStyle}</style>
       <div
-        className={`bg-white rounded-lg shadow p-4 transition-all duration-200 cursor-pointer ${
-          isSelected
-            ? 'ring-2 ring-blue-500'
-            : 'ring-2 ring-transparent hover:shadow-md'
-        }`}
+        className={`bg-white rounded-lg shadow p-4 transition-all duration-200 cursor-pointer ${isSelected
+          ? 'ring-2 ring-blue-500'
+          : 'ring-2 ring-transparent hover:shadow-md'
+          }`}
         id={`category-${category.id}`}
         onClick={handleCardClick}
       >
         {/* Category Header */}
-        <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-semibold flex items-center gap-2">
             {(category.id === 'spostamenti1' || category.id === 'spostamenti2') ? (
               <TransportSelector
@@ -121,13 +135,10 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
                     e.stopPropagation();
                     setShowMediaButtons(!showMediaButtons);
                   }}
-                  style={{
-                    animation: 'slideInRight 0.2s ease-out forwards'
-                  }}
-                  className="p-1 hover:bg-blue-50 text-gray-400 rounded-full transition-colors flex-shrink-0 opacity-0 translate-x-2"
+                  className="slide-in-right w-11 h-11 flex items-center justify-center text-gray-400 rounded-full active:scale-90 active:text-gray-600 transition-transform"
                   title="Aggiungi media"
                 >
-                  <PlusCircle size={20} strokeWidth={1.5} />
+                  <PlusCircle size={24} strokeWidth={1.5} />
                 </button>
               </OfflineDisabled>
             )}
@@ -203,9 +214,14 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
                     e.stopPropagation();
                     setShowBookingToggle(!showBookingToggle);
                   }}
-                  className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-3 h-3 rounded-full transition-all cursor-pointer hover:scale-125 ${BOOKING_COLORS[categoryData.bookingStatus]}`}
+                  className="absolute left-0 top-1/2 transform -translate-y-1/2 w-11 h-11 flex items-center justify-center cursor-pointer group"
                   title="Gestisci prenotazione"
-                />
+                >
+                  {/* Pallino visivo piccolo, area touch grande */}
+                  <span
+                    className={`w-3 h-3 rounded-full transition-all group-hover:scale-125 ${BOOKING_COLORS[categoryData.bookingStatus]}`}
+                  />
+                </button>
               )}
               <OfflineDisabled>
                 <input
@@ -214,11 +230,10 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
                   onChange={(e) => onUpdateCategory(category.id, 'title', e.target.value)}
                   onFocus={() => onSelect?.()}
                   placeholder={`Nome ${category.label.toLowerCase()}`}
-                  className={`w-full px-4 py-2.5 border rounded-full text-sm ${
-                    category.id !== 'base' && category.id !== 'note' && hasContent
-                      ? 'pl-8'
-                      : ''
-                  }`}
+                  className={`w-full px-4 py-2.5 border rounded-full text-sm ${category.id !== 'base' && category.id !== 'note' && hasContent
+                    ? 'pl-10'
+                    : ''
+                    }`}
                 />
               </OfflineDisabled>
             </div>
@@ -248,11 +263,10 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
 
         {/* Booking Toggle - si apre solo cliccando sul pallino */}
         {category.id !== 'base' && category.id !== 'note' && (
-          <div className={`transition-all duration-200 ease-out overflow-hidden ${
-            showBookingToggle
-              ? 'opacity-100 max-h-20 translate-y-0 mb-3'
-              : 'opacity-0 max-h-0 -translate-y-2'
-          }`}>
+          <div className={`transition-all duration-200 ease-out overflow-hidden ${showBookingToggle
+            ? 'opacity-100 max-h-20 translate-y-0 mb-3'
+            : 'opacity-0 max-h-0 -translate-y-2'
+            }`}>
             <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
               <BookingToggle
                 value={categoryData.bookingStatus}
@@ -264,13 +278,12 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
 
         {/* Media Buttons - si aprono solo cliccando sul + */}
         {category.id !== 'base' && category.id !== 'note' && (
-          <div className={`transition-all duration-200 ease-out overflow-hidden ${
-            showMediaButtons
-              ? 'opacity-100 max-h-20 translate-y-0 mb-3'
-              : 'opacity-0 max-h-0 -translate-y-2'
-          }`}>
+          <div className={`transition-all duration-200 ease-out overflow-hidden ${showMediaButtons
+            ? 'opacity-100 max-h-20 translate-y-0 mt-1 mb-4'
+            : 'opacity-0 max-h-0 -translate-y-2'
+            }`}>
             <OfflineDisabled>
-              <div className="flex gap-2 flex-shrink-0">
+              <div className="flex justify-around">
                 <MediaButton
                   icon={LinkIcon}
                   label="Link"
@@ -294,7 +307,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
 
                 <MediaButton
                   icon={Video}
-                  label="Video"
+                  label="Social"
                   color="purple"
                   onClick={() => onMediaDialogOpen('video')}
                 />

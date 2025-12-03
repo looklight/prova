@@ -23,7 +23,7 @@ const DayDetailView = ({
   isDesktop = false,
   user,
   highlightCategoryId = null,
-  onClosePanel = null // 🆕 Solo desktop: callback per chiudere il pannello
+  onClosePanel = null
 }) => {
 
   const currentDay = trip.days[dayIndex] || trip.days[0];
@@ -43,15 +43,15 @@ const DayDetailView = ({
     expenseId: null
   });
   const [showFullSummary, setShowFullSummary] = useState(false);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null); // Ring blu (3s)
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(highlightCategoryId); // Controlli visibili
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set()); // 🆕 Categorie espanse manualmente
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(highlightCategoryId);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const analytics = useAnalytics();
 
   // Categorie sempre visibili (non collassabili)
   const ALWAYS_VISIBLE = ['base', 'note', 'otherExpenses'];
 
-  // 🆕 Helper per verificare se una categoria ha dati
+  // Helper per verificare se una categoria ha dati
   const categoryHasData = useCallback((catId: string) => {
     const data = categoryData[catId];
     if (!data) return false;
@@ -67,12 +67,11 @@ const DayDetailView = ({
     );
   }, [categoryData]);
 
-  // 🆕 Collassa le categorie vuote espanse (chiamato quando si seleziona un'altra categoria)
+  // Collassa le categorie vuote espanse
   const collapseEmptyExpanded = useCallback((exceptCategoryId?: string) => {
     setExpandedCategories(prev => {
       const newSet = new Set<string>();
       prev.forEach(catId => {
-        // Mantieni se ha dati O se è la categoria che stiamo per selezionare
         if (categoryHasData(catId) || catId === exceptCategoryId) {
           newSet.add(catId);
         }
@@ -81,12 +80,106 @@ const DayDetailView = ({
     });
   }, [categoryHasData]);
 
+  // 🆕 Reset completo di una categoria (riusabile)
+  const resetCategory = useCallback((categoryId: string) => {
+    const key = `${currentDay.id}-${categoryId}`;
+    const currentData = trip.data[key] || {};
+
+    // 🧹 Elimina immagini da Storage (non bloccante)
+    if (currentData.images?.length > 0) {
+      currentData.images.forEach(img => {
+        if (img.path) {
+          deleteImage(img.path).catch(err =>
+            console.warn('⚠️ Errore eliminazione immagine:', err)
+          );
+        }
+      });
+    }
+
+    // Reset completo
+    const updatedData = {
+      title: '',
+      cost: '',
+      bookingStatus: 'na',
+      ...(categoryId.startsWith('spostamenti') && { transportMode: 'funivia' }),
+      links: [],
+      images: [],
+      videos: [],
+      mediaNotes: [],
+      notes: '',
+      costBreakdown: null,
+      participants: null,
+      participantsUpdatedAt: null,
+      hasSplitCost: false
+    };
+
+    console.log('🗑️ [resetCategory] Reset completo:', categoryId);
+
+    onUpdateTrip({
+      ...trip,
+      data: {
+        ...trip.data,
+        [key]: updatedData
+      }
+    });
+  }, [currentDay.id, trip, onUpdateTrip]);
+
+  // 🆕 Reset completo di una spesa (riusabile)
+  const resetExpense = useCallback((expenseId: string) => {
+    const key = `${currentDay.id}-otherExpenses`;
+    const expenses = [...(trip.data[key] || [])];
+    const expenseIndex = expenses.findIndex(e => e.id === expenseId);
+
+    if (expenseIndex === -1) return;
+
+    expenses[expenseIndex] = {
+      id: expenseId,
+      title: '',
+      cost: '',
+      costBreakdown: null,
+      participants: null,
+      participantsUpdatedAt: null,
+      hasSplitCost: false
+    };
+
+    console.log('🗑️ [resetExpense] Reset completo:', expenseId);
+
+    onUpdateTrip({
+      ...trip,
+      data: {
+        ...trip.data,
+        [key]: expenses
+      }
+    });
+  }, [currentDay.id, trip, onUpdateTrip]);
+
+  // 🆕 Shortcut Delete per reset categoria (solo desktop)
+  useEffect(() => {
+    if (!isDesktop || !activeCategoryId) return;
+    if (['base', 'note', 'otherExpenses'].includes(activeCategoryId)) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
+
+      if (e.key === 'Delete') {
+        e.preventDefault();
+        if (window.confirm('Eliminare tutti i dati di questa categoria?')) {
+          resetCategory(activeCategoryId);
+          setActiveCategoryId(null);
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isDesktop, activeCategoryId, resetCategory]);
+
   // Delay per mostrare ring dopo che il layout è stabile
   useEffect(() => {
     if (highlightCategoryId) {
       const timer = setTimeout(() => {
         setActiveCategoryId(highlightCategoryId);
-        // Se la categoria è vuota, espandila automaticamente
         if (!categoryHasData(highlightCategoryId) && !ALWAYS_VISIBLE.includes(highlightCategoryId)) {
           setExpandedCategories(prev => new Set(prev).add(highlightCategoryId));
         }
@@ -106,41 +199,36 @@ const DayDetailView = ({
     return () => clearTimeout(timer);
   }, [selectedCategoryId]);
 
-  // 🆕 Reset expanded categories quando cambia giorno
+  // Reset expanded categories quando cambia giorno
   useEffect(() => {
     setExpandedCategories(new Set());
     setSelectedCategoryId(null);
     setActiveCategoryId(null);
   }, [dayIndex]);
 
-  // Handler per selezionare una categoria (e collassare le altre vuote)
+  // Handler per selezionare una categoria
   const handleSelectCategory = (categoryId: string) => {
-    // Prima collassa le categorie vuote espanse (tranne quella che stiamo selezionando)
     collapseEmptyExpanded(categoryId);
-
     setSelectedCategoryId(categoryId);
     setActiveCategoryId(categoryId);
   };
 
   const handleExpandCategory = (categoryId: string) => {
     setExpandedCategories(prev => new Set(prev).add(categoryId));
-    // Seleziona anche la categoria quando viene espansa
     handleSelectCategory(categoryId);
   };
 
-  // 🆕 Reset expanded categories quando cambia giorno, MA preserva highlightCategoryId
+  // Reset expanded categories quando cambia giorno, MA preserva highlightCategoryId
   useEffect(() => {
     setExpandedCategories(prev => {
       const newSet = new Set<string>();
 
-      // Mantieni espanse le categorie con dati
       prev.forEach(catId => {
         if (categoryHasData(catId)) {
           newSet.add(catId);
         }
       });
 
-      // 🔧 FIX: Se c'è highlightCategoryId in arrivo, espandila subito
       if (highlightCategoryId && !categoryHasData(highlightCategoryId) && !ALWAYS_VISIBLE.includes(highlightCategoryId)) {
         newSet.add(highlightCategoryId);
       }
@@ -150,10 +238,10 @@ const DayDetailView = ({
 
     setSelectedCategoryId(null);
     setActiveCategoryId(null);
-  }, [dayIndex, categoryHasData, highlightCategoryId]);
+  }, [dayIndex, highlightCategoryId]);
 
   const hasScrolledRef = useRef(false);
-  const scrollPositionRef = useRef(0); // 🆕 Salva posizione scroll per modal
+  const scrollPositionRef = useRef(0);
 
   useEffect(() => {
     hasScrolledRef.current = false;
@@ -162,7 +250,6 @@ const DayDetailView = ({
   useEffect(() => {
     if (!highlightCategoryId || hasScrolledRef.current) return;
 
-    // Se la categoria è vuota, espandila prima
     if (!categoryHasData(highlightCategoryId) && !ALWAYS_VISIBLE.includes(highlightCategoryId)) {
       setExpandedCategories(prev => new Set(prev).add(highlightCategoryId));
     }
@@ -182,8 +269,6 @@ const DayDetailView = ({
         behavior: isDesktop ? 'smooth' : 'instant',
         block: 'center'
       });
-
-      // Seleziona la categoria (ring blu fisso)
       handleSelectCategory(categoryId);
     } else {
       console.warn(`⚠️ Elemento #category-${categoryId} non trovato (tentativo ${retryCount + 1}/3)`);
@@ -216,25 +301,19 @@ const DayDetailView = ({
       }));
   }, [trip.sharing.members]);
 
-  // 🆕 Filtra categorie escludendo note e otherExpenses (gestite separatamente)
-  // e ordina secondo trip.categoryOrder
   const mainCategories = useMemo(() => {
     const filtered = CATEGORIES.filter(cat => cat.id !== 'note' && cat.id !== 'otherExpenses');
 
-    // Se non c'è un ordine personalizzato, usa l'ordine di default
     if (!trip.categoryOrder || trip.categoryOrder.length === 0) {
       return filtered;
     }
 
-    // Ordina secondo categoryOrder
-    // 'base' rimane sempre primo (non è in categoryOrder)
     const baseCategory = filtered.find(c => c.id === 'base');
     const otherCategories = filtered.filter(c => c.id !== 'base');
 
     const sortedOthers = [...otherCategories].sort((a, b) => {
       const indexA = trip.categoryOrder.indexOf(a.id);
       const indexB = trip.categoryOrder.indexOf(b.id);
-      // Se non trovato nell'ordine, metti in fondo
       if (indexA === -1 && indexB === -1) return 0;
       if (indexA === -1) return 1;
       if (indexB === -1) return -1;
@@ -244,7 +323,6 @@ const DayDetailView = ({
     return baseCategory ? [baseCategory, ...sortedOthers] : sortedOthers;
   }, [trip.categoryOrder]);
 
-  // 🆕 Raggruppa categorie in "segmenti": card normali singole o gruppi di collapsed consecutive
   const renderSegments = useMemo(() => {
     const segments: Array<{ type: 'card' | 'collapsed-group'; categories: typeof mainCategories }> = [];
     let currentCollapsedGroup: typeof mainCategories = [];
@@ -256,20 +334,16 @@ const DayDetailView = ({
       const showFullCard = hasData || isAlwaysVisible || isExpanded;
 
       if (showFullCard) {
-        // Prima chiudi eventuale gruppo collapsed aperto
         if (currentCollapsedGroup.length > 0) {
           segments.push({ type: 'collapsed-group', categories: [...currentCollapsedGroup] });
           currentCollapsedGroup = [];
         }
-        // Aggiungi la card normale
         segments.push({ type: 'card', categories: [category] });
       } else {
-        // Accumula nel gruppo collapsed
         currentCollapsedGroup.push(category);
       }
     });
 
-    // Chiudi l'ultimo gruppo collapsed se presente
     if (currentCollapsedGroup.length > 0) {
       segments.push({ type: 'collapsed-group', categories: [...currentCollapsedGroup] });
     }
@@ -278,99 +352,31 @@ const DayDetailView = ({
   }, [mainCategories, categoryHasData, expandedCategories]);
 
   const handleOpenCategoryBreakdown = (categoryId) => {
-    // 🆕 Salva posizione scroll prima di aprire modal
     const container = document.querySelector('.day-detail-container');
     if (container) scrollPositionRef.current = container.scrollTop;
 
-    // 📊 Track apertura breakdown
     analytics.trackCostBreakdownOpened(trip.id, categoryId, false);
     setCostBreakdownModal({ isOpen: true, categoryId, expenseId: null });
   };
 
   const handleOpenExpenseBreakdown = (expenseId) => {
-    // 🆕 Salva posizione scroll prima di aprire modal
     const container = document.querySelector('.day-detail-container');
     if (container) scrollPositionRef.current = container.scrollTop;
 
-    // 📊 Track apertura breakdown altre spese
     analytics.trackCostBreakdownOpened(trip.id, 'other', true);
     setCostBreakdownModal({ isOpen: true, categoryId: null, expenseId });
   };
 
-  // 🔧 FIX CRITICO: Salvataggio atomico di breakdown + participants + timestamp
+  // Gestione conferma breakdown (include RESET_ALL)
   const handleConfirmBreakdown = (breakdown, participants) => {
     console.log('✅ [handleConfirmBreakdown] Ricevuto:', { breakdown, participants });
 
-    // 🆕 Gestisci RESET_ALL
+    // Gestisci RESET_ALL
     if (breakdown === 'RESET_ALL') {
       if (costBreakdownModal.categoryId) {
-        const categoryId = costBreakdownModal.categoryId;
-        const key = `${currentDay.id}-${categoryId}`;
-        const currentData = trip.data[key] || {};
-
-        // 🧹 Elimina immagini da Storage (non bloccante)
-        if (currentData.images?.length > 0) {
-          currentData.images.forEach(img => {
-            if (img.path) {
-              deleteImage(img.path).catch(err =>
-                console.warn('⚠️ Errore eliminazione immagine:', err)
-              );
-            }
-          });
-        }
-
-        // 🔧 Reset COMPLETO - oggetto pulito SENZA spread
-        const updatedData = {
-          title: '',
-          cost: '',
-          bookingStatus: 'na',
-          ...(categoryId.startsWith('spostamenti') && { transportMode: 'funivia' }),
-          links: [],
-          images: [],
-          videos: [],
-          mediaNotes: [],
-          notes: '',
-          costBreakdown: null,
-          participants: null,
-          participantsUpdatedAt: null,
-          hasSplitCost: false
-        };
-
-        console.log('🗑️ [Category] Reset COMPLETO:', categoryId);
-
-        onUpdateTrip({
-          ...trip,
-          data: {
-            ...trip.data,
-            [key]: updatedData
-          }
-        });
+        resetCategory(costBreakdownModal.categoryId);
       } else if (costBreakdownModal.expenseId) {
-        const key = `${currentDay.id}-otherExpenses`;
-        const expenses = [...(trip.data[key] || [])];
-        const expenseIndex = expenses.findIndex(e => e.id === costBreakdownModal.expenseId);
-
-        if (expenseIndex === -1) return;
-
-        expenses[expenseIndex] = {
-          id: costBreakdownModal.expenseId,
-          title: '',
-          cost: '',
-          costBreakdown: null,
-          participants: null,
-          participantsUpdatedAt: null,
-          hasSplitCost: false
-        };
-
-        console.log('🗑️ [OtherExpense] Reset COMPLETO:', costBreakdownModal.expenseId);
-
-        onUpdateTrip({
-          ...trip,
-          data: {
-            ...trip.data,
-            [key]: expenses
-          }
-        });
+        resetExpense(costBreakdownModal.expenseId);
       }
 
       setCostBreakdownModal({ isOpen: false, categoryId: null, expenseId: null });
@@ -382,7 +388,6 @@ const DayDetailView = ({
 
     if (costBreakdownModal.categoryId) {
       const categoryId = costBreakdownModal.categoryId;
-      const category = CATEGORIES.find(c => c.id === categoryId);
       const key = `${currentDay.id}-${categoryId}`;
 
       const updatedData = {
@@ -442,7 +447,7 @@ const DayDetailView = ({
     setCostBreakdownModal({ isOpen: false, categoryId: null, expenseId: null });
   };
 
-  // 📊 Track visualizzazione dettaglio giorno
+  // Track visualizzazione dettaglio giorno
   useEffect(() => {
     if (trip?.id && currentDay?.number !== undefined) {
       analytics.trackDayDetailViewed(trip.id, currentDay.number, isDesktop);
@@ -491,7 +496,6 @@ const DayDetailView = ({
       />
 
       <div className="p-4 space-y-3">
-        {/* 🆕 Renderizza segmenti: card singole o gruppi di chips collapsed */}
         {renderSegments.map((segment, segmentIndex) => {
           if (segment.type === 'card') {
             const category = segment.categories[0];
@@ -524,7 +528,6 @@ const DayDetailView = ({
               />
             );
           } else {
-            // 🆕 Gruppo di collapsed chips in flex-wrap
             return (
               <div
                 key={`collapsed-group-${segmentIndex}`}
@@ -542,11 +545,10 @@ const DayDetailView = ({
           }
         })}
 
-        {/* Altre Spese + Note (sempre visibili) */}
         <OtherExpensesSection
           expenses={otherExpenses}
           onUpdate={(id, field, value) => {
-            collapseEmptyExpanded(); // Collassa quando interagisci con OtherExpenses
+            collapseEmptyExpanded();
             updateOtherExpense(id, field, value);
           }}
           onRemove={removeOtherExpense}
@@ -556,7 +558,7 @@ const DayDetailView = ({
           isHighlighted={selectedCategoryId === 'otherExpenses'}
           notes={categoryData['note']?.notes || ''}
           onUpdateNotes={(value) => {
-            collapseEmptyExpanded(); // Collassa quando interagisci con Note
+            collapseEmptyExpanded();
             updateCategory('note', 'notes', value);
           }}
           isNoteHighlighted={selectedCategoryId === 'note'}
@@ -620,7 +622,6 @@ const DayDetailView = ({
         preferredCurrencies={trip.currency?.preferred || {}}
         onClose={() => {
           setCostBreakdownModal({ isOpen: false, categoryId: null, expenseId: null });
-          // 🆕 Ripristina posizione scroll dopo chiusura modal
           setTimeout(() => {
             const container = document.querySelector('.day-detail-container');
             if (container) container.scrollTop = scrollPositionRef.current;
@@ -632,7 +633,7 @@ const DayDetailView = ({
   );
 };
 
-// 🆕 Componente chip per categoria collassata
+// Componente chip per categoria collassata
 interface CollapsedCategoryChipProps {
   category: {
     id: string;
