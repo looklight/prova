@@ -122,15 +122,35 @@ const DayDetailView = ({
     setActiveCategoryId(categoryId);
   };
 
-  // 🆕 Handler per espandere una categoria collapsed
   const handleExpandCategory = (categoryId: string) => {
-    // Collassa altre categorie vuote prima di espandere questa
-    collapseEmptyExpanded(categoryId);
-
     setExpandedCategories(prev => new Set(prev).add(categoryId));
-    setSelectedCategoryId(categoryId);
-    setActiveCategoryId(categoryId);
+    // Seleziona anche la categoria quando viene espansa
+    handleSelectCategory(categoryId);
   };
+
+  // 🆕 Reset expanded categories quando cambia giorno, MA preserva highlightCategoryId
+  useEffect(() => {
+    setExpandedCategories(prev => {
+      const newSet = new Set<string>();
+
+      // Mantieni espanse le categorie con dati
+      prev.forEach(catId => {
+        if (categoryHasData(catId)) {
+          newSet.add(catId);
+        }
+      });
+
+      // 🔧 FIX: Se c'è highlightCategoryId in arrivo, espandila subito
+      if (highlightCategoryId && !categoryHasData(highlightCategoryId) && !ALWAYS_VISIBLE.includes(highlightCategoryId)) {
+        newSet.add(highlightCategoryId);
+      }
+
+      return newSet;
+    });
+
+    setSelectedCategoryId(null);
+    setActiveCategoryId(null);
+  }, [dayIndex, categoryHasData, highlightCategoryId]);
 
   const hasScrolledRef = useRef(false);
   const scrollPositionRef = useRef(0); // 🆕 Salva posizione scroll per modal
@@ -196,7 +216,7 @@ const DayDetailView = ({
       }));
   }, [trip.sharing.members]);
 
-    // 🆕 Filtra categorie escludendo note e otherExpenses (gestite separatamente)
+  // 🆕 Filtra categorie escludendo note e otherExpenses (gestite separatamente)
   // e ordina secondo trip.categoryOrder
   const mainCategories = useMemo(() => {
     const filtered = CATEGORIES.filter(cat => cat.id !== 'note' && cat.id !== 'otherExpenses');

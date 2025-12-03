@@ -1,5 +1,5 @@
 import React from 'react';
-import { Video } from 'lucide-react';
+import { Video, PlusCircle } from 'lucide-react';
 import { BookingToggle, CostInput, MediaButton, TransportSelector } from './ui';
 import { LinkCard, ImageCard, NoteCard, VideoEmbed, LinkIcon, ImageIcon, FileTextIcon } from '../MediaCards';
 import OfflineDisabled from '../OfflineDisabled';
@@ -9,6 +9,15 @@ const BOOKING_COLORS = {
   no: 'bg-orange-400',
   yes: 'bg-green-400'
 };
+
+const slideInStyle = `
+@keyframes slideInRight {
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+`;
 
 interface CategoryCardProps {
   category: any;
@@ -47,12 +56,15 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
   isActive = false,
   onSelect
 }) => {
+  const [showBookingToggle, setShowBookingToggle] = React.useState(false);
+  const [showMediaButtons, setShowMediaButtons] = React.useState(false);
+
   const isBaseSuggestions = category.id === 'base' && Array.isArray(suggestion);
   const showSuggestion = suggestion && !categoryData.title;
-  
+
   // Contenuto presente (per mostrare pallino booking)
   const hasContent = categoryData.title?.trim() !== '' || categoryData.cost?.trim() !== '';
-  
+
   // Media presenti
   const hasMedia = categoryData.links?.length > 0 ||
     categoryData.images?.length > 0 ||
@@ -64,162 +76,199 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
     // Non selezionare se si sta interagendo con input/button/select
     const target = e.target as HTMLElement;
     const isInteractive = target.closest('input, button, select, textarea, a');
-    
+
     if (!isInteractive && onSelect) {
       onSelect();
     }
   };
 
   return (
-    <div 
-      className={`bg-white rounded-lg shadow p-4 transition-all duration-200 cursor-pointer ${
-        isSelected 
-          ? 'ring-2 ring-blue-500' 
-          : 'ring-2 ring-transparent hover:shadow-md'
-      }`}
-      id={`category-${category.id}`}
-      onClick={handleCardClick}
-    >
-      {/* Category Header */}
-      <div className="flex items-start justify-between mb-3">
-        <h2 className="text-base font-semibold flex items-center gap-2">
-          {(category.id === 'spostamenti1' || category.id === 'spostamenti2') ? (
-            <TransportSelector
-              categoryId={category.id}
-              currentMode={categoryData.transportMode}
-              isOpen={transportSelectorOpen}
-              onToggle={onToggleTransportSelector}
-              onSelect={(mode) => onUpdateCategory(category.id, 'transportMode', mode)}
-            />
-          ) : (
-            <span>{category.emoji}</span>
-          )}
-          <span>{category.label}</span>
-        </h2>
-
-        {/* ✅ GESTISCI SPESA - sempre visibile */}
-        {category.id !== 'note' && category.id !== 'base' && onOpenCostBreakdown && (
-          <OfflineDisabled>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenCostBreakdown();
-              }}
-              className="text-xs px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-full font-medium transition-colors flex-shrink-0"
-            >
-              Gestisci spesa
-            </button>
-          </OfflineDisabled>
-        )}
-      </div>
-
-      {/* Suggerimenti Base (multipli) */}
-      {showSuggestion && isBaseSuggestions && (
-        <div className="mb-3">
-          <div className="text-xs text-gray-500 mb-2">💡 Suggerimenti:</div>
-          <div className="flex flex-wrap gap-2">
-            {suggestion.map((sugg, idx) => (
-              <button
-                key={idx}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onUpdateCategory('base', 'title', sugg.value);
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded-full text-sm font-medium transition-colors"
-              >
-                <span>{sugg.icon}</span>
-                <span>{sugg.value}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Suggerimenti altre categorie (singolo) */}
-      {showSuggestion && !isBaseSuggestions && (
-        <div
-          onClick={(e) => {
-            e.stopPropagation();
-            onUpdateCategory(category.id, 'title', suggestion);
-          }}
-          className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <div className="text-xs text-blue-600 font-medium mb-1">Suggerimento</div>
-              <div className="text-sm font-semibold text-blue-900">{suggestion}</div>
-            </div>
-            <div className="ml-3 px-3 py-1 bg-blue-500 text-white text-xs rounded-full font-medium">
-              Usa
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Input Fields */}
-      <div className="flex gap-2 mb-3">
-        {category.id !== 'note' && (
-          <div className="flex-1 min-w-0 relative">
-            {/* Pallino booking - sempre visibile se c'è contenuto */}
-            {category.id !== 'base' && category.id !== 'note' && hasContent && (
-              <div
-                className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-3 h-3 rounded-full transition-colors ${BOOKING_COLORS[categoryData.bookingStatus]}`}
+    <>
+      <style>{slideInStyle}</style>
+      <div
+        className={`bg-white rounded-lg shadow p-4 transition-all duration-200 cursor-pointer ${
+          isSelected
+            ? 'ring-2 ring-blue-500'
+            : 'ring-2 ring-transparent hover:shadow-md'
+        }`}
+        id={`category-${category.id}`}
+        onClick={handleCardClick}
+      >
+        {/* Category Header */}
+        <div className="flex items-start justify-between mb-3">
+          <h2 className="text-base font-semibold flex items-center gap-2">
+            {(category.id === 'spostamenti1' || category.id === 'spostamenti2') ? (
+              <TransportSelector
+                categoryId={category.id}
+                currentMode={categoryData.transportMode}
+                isOpen={transportSelectorOpen}
+                onToggle={onToggleTransportSelector}
+                onSelect={(mode) => onUpdateCategory(category.id, 'transportMode', mode)}
               />
+            ) : (
+              <span>{category.emoji}</span>
             )}
-            <OfflineDisabled>
-              <input
-                type="text"
-                value={categoryData.title}
-                onChange={(e) => onUpdateCategory(category.id, 'title', e.target.value)}
-                onFocus={() => onSelect?.()}
-                placeholder={`Nome ${category.label.toLowerCase()}`}
-                className={`w-full px-4 py-2.5 border rounded-full text-sm ${
-                  category.id !== 'base' && category.id !== 'note' && hasContent
-                    ? 'pl-8' 
-                    : ''
-                }`}
-              />
-            </OfflineDisabled>
+            <span>{category.label}</span>
+          </h2>
+
+          {/* Gruppo pulsanti a destra */}
+          <div className="flex items-center gap-2">
+            {/* Pulsante + Media - solo quando attiva */}
+            {category.id !== 'note' && category.id !== 'base' && isActive && (
+              <OfflineDisabled>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowMediaButtons(!showMediaButtons);
+                  }}
+                  style={{
+                    animation: 'slideInRight 0.2s ease-out forwards'
+                  }}
+                  className="p-1 hover:bg-blue-50 text-gray-400 rounded-full transition-colors flex-shrink-0 opacity-0 translate-x-2"
+                  title="Aggiungi media"
+                >
+                  <PlusCircle size={20} strokeWidth={1.5} />
+                </button>
+              </OfflineDisabled>
+            )}
+
+            {/* Gestisci spesa - sempre visibile */}
+            {category.id !== 'note' && category.id !== 'base' && onOpenCostBreakdown && (
+              <OfflineDisabled>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenCostBreakdown();
+                  }}
+                  className="text-xs px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-full font-medium transition-colors flex-shrink-0"
+                >
+                  Gestisci spesa
+                </button>
+              </OfflineDisabled>
+            )}
+          </div>
+        </div>
+
+        {/* Suggerimenti Base (multipli) */}
+        {showSuggestion && isBaseSuggestions && (
+          <div className="mb-3">
+            <div className="text-xs text-gray-500 mb-2">💡 Suggerimenti:</div>
+            <div className="flex flex-wrap gap-2">
+              {suggestion.map((sugg, idx) => (
+                <button
+                  key={idx}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onUpdateCategory('base', 'title', sugg.value);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded-full text-sm font-medium transition-colors"
+                >
+                  <span>{sugg.icon}</span>
+                  <span>{sugg.value}</span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* Campo costo - sempre visibile */}
-        {category.id !== 'note' && category.id !== 'base' && (
-          <div className="flex-shrink-0" onClickCapture={() => onSelect?.()}>
-            <OfflineDisabled>
-              <CostInput
-                value={categoryData.cost || ''}
-                onChange={(e) => onUpdateCategory(category.id, 'cost', e.target.value)}
-                hasSplitCost={categoryData.hasSplitCost || false}
-                currentUserId={currentUserId}
-                costBreakdown={categoryData.costBreakdown || null}
-                tripMembers={tripMembers}
-                onClearBreakdown={() => {
-                  onUpdateCategory(category.id, 'costBreakdown', null);
-                  onUpdateCategory(category.id, 'hasSplitCost', false);
-                }}
-                onOpenManageBreakdown={onOpenCostBreakdown}
-              />
-            </OfflineDisabled>
+        {/* Suggerimenti altre categorie (singolo) */}
+        {showSuggestion && !isBaseSuggestions && (
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              onUpdateCategory(category.id, 'title', suggestion);
+            }}
+            className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <div className="text-xs text-blue-600 font-medium mb-1">Suggerimento</div>
+                <div className="text-sm font-semibold text-blue-900">{suggestion}</div>
+              </div>
+              <div className="ml-3 px-3 py-1 bg-blue-500 text-white text-xs rounded-full font-medium">
+                Usa
+              </div>
+            </div>
           </div>
         )}
-      </div>
 
-      {/* Booking Toggle + Media Buttons - solo se attiva */}
-      {category.id !== 'base' && category.id !== 'note' && (
-        <div className={`transition-all duration-200 ease-out overflow-hidden ${
-          isActive 
-            ? 'opacity-100 max-h-20 translate-y-0 mb-3' 
-            : 'opacity-0 max-h-0 -translate-y-2'
-        }`}>
-          <div className="flex items-center justify-between gap-3 flex-wrap">
+        {/* Input Fields */}
+        <div className="flex gap-2 mb-3">
+          {category.id !== 'note' && (
+            <div className="flex-1 min-w-0 relative">
+              {/* Pallino booking - sempre visibile se c'è contenuto */}
+              {category.id !== 'base' && category.id !== 'note' && hasContent && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowBookingToggle(!showBookingToggle);
+                  }}
+                  className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-3 h-3 rounded-full transition-all cursor-pointer hover:scale-125 ${BOOKING_COLORS[categoryData.bookingStatus]}`}
+                  title="Gestisci prenotazione"
+                />
+              )}
+              <OfflineDisabled>
+                <input
+                  type="text"
+                  value={categoryData.title}
+                  onChange={(e) => onUpdateCategory(category.id, 'title', e.target.value)}
+                  onFocus={() => onSelect?.()}
+                  placeholder={`Nome ${category.label.toLowerCase()}`}
+                  className={`w-full px-4 py-2.5 border rounded-full text-sm ${
+                    category.id !== 'base' && category.id !== 'note' && hasContent
+                      ? 'pl-8'
+                      : ''
+                  }`}
+                />
+              </OfflineDisabled>
+            </div>
+          )}
+
+          {/* Campo costo - sempre visibile */}
+          {category.id !== 'note' && category.id !== 'base' && (
+            <div className="flex-shrink-0" onClickCapture={() => onSelect?.()}>
+              <OfflineDisabled>
+                <CostInput
+                  value={categoryData.cost || ''}
+                  onChange={(e) => onUpdateCategory(category.id, 'cost', e.target.value)}
+                  hasSplitCost={categoryData.hasSplitCost || false}
+                  currentUserId={currentUserId}
+                  costBreakdown={categoryData.costBreakdown || null}
+                  tripMembers={tripMembers}
+                  onClearBreakdown={() => {
+                    onUpdateCategory(category.id, 'costBreakdown', null);
+                    onUpdateCategory(category.id, 'hasSplitCost', false);
+                  }}
+                  onOpenManageBreakdown={onOpenCostBreakdown}
+                />
+              </OfflineDisabled>
+            </div>
+          )}
+        </div>
+
+        {/* Booking Toggle - si apre solo cliccando sul pallino */}
+        {category.id !== 'base' && category.id !== 'note' && (
+          <div className={`transition-all duration-200 ease-out overflow-hidden ${
+            showBookingToggle
+              ? 'opacity-100 max-h-20 translate-y-0 mb-3'
+              : 'opacity-0 max-h-0 -translate-y-2'
+          }`}>
             <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
               <BookingToggle
                 value={categoryData.bookingStatus}
                 onChange={(val) => onUpdateCategory(category.id, 'bookingStatus', val)}
               />
             </div>
+          </div>
+        )}
 
+        {/* Media Buttons - si aprono solo cliccando sul + */}
+        {category.id !== 'base' && category.id !== 'note' && (
+          <div className={`transition-all duration-200 ease-out overflow-hidden ${
+            showMediaButtons
+              ? 'opacity-100 max-h-20 translate-y-0 mb-3'
+              : 'opacity-0 max-h-0 -translate-y-2'
+          }`}>
             <OfflineDisabled>
               <div className="flex gap-2 flex-shrink-0">
                 <MediaButton
@@ -259,57 +308,57 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
               </div>
             </OfflineDisabled>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Note Category (textarea) */}
-      {category.id === 'note' && (
-        <OfflineDisabled>
-          <textarea
-            value={categoryData.notes}
-            onChange={(e) => onUpdateCategory(category.id, 'notes', e.target.value)}
-            onClick={(e) => e.stopPropagation()}
-            placeholder="Aggiungi commento personale"
-            className="w-full px-4 py-2.5 border rounded-lg h-24 resize-none text-sm"
-          />
-        </OfflineDisabled>
-      )}
+        {/* Note Category (textarea) */}
+        {category.id === 'note' && (
+          <OfflineDisabled>
+            <textarea
+              value={categoryData.notes}
+              onChange={(e) => onUpdateCategory(category.id, 'notes', e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              placeholder="Aggiungi commento personale"
+              className="w-full px-4 py-2.5 border rounded-lg h-24 resize-none text-sm"
+            />
+          </OfflineDisabled>
+        )}
 
-      {/* Media Grid - sempre visibile se ci sono media */}
-      {category.id !== 'note' && category.id !== 'base' && hasMedia && (
-        <div className="grid grid-cols-3 gap-2">
-          {categoryData.links.map(link => (
-            <LinkCard
-              key={link.id}
-              link={link}
-              onRemove={() => onRemoveMedia('links', link.id)}
-            />
-          ))}
-          {categoryData.images.map(image => (
-            <ImageCard
-              key={image.id}
-              image={image}
-              onRemove={() => onRemoveMedia('images', image.id)}
-            />
-          ))}
-          {categoryData.videos.map(video => (
-            <VideoEmbed
-              key={video.id}
-              video={video}
-              onRemove={() => onRemoveMedia('videos', video.id)}
-            />
-          ))}
-          {categoryData.mediaNotes.map(note => (
-            <NoteCard
-              key={note.id}
-              note={note}
-              onRemove={() => onRemoveMedia('mediaNotes', note.id)}
-              onClick={() => onEditNote(note)}
-            />
-          ))}
-        </div>
-      )}
-    </div>
+        {/* Media Grid - sempre visibile se ci sono media */}
+        {category.id !== 'note' && category.id !== 'base' && hasMedia && (
+          <div className="grid grid-cols-3 gap-2">
+            {categoryData.links.map(link => (
+              <LinkCard
+                key={link.id}
+                link={link}
+                onRemove={() => onRemoveMedia('links', link.id)}
+              />
+            ))}
+            {categoryData.images.map(image => (
+              <ImageCard
+                key={image.id}
+                image={image}
+                onRemove={() => onRemoveMedia('images', image.id)}
+              />
+            ))}
+            {categoryData.videos.map(video => (
+              <VideoEmbed
+                key={video.id}
+                video={video}
+                onRemove={() => onRemoveMedia('videos', video.id)}
+              />
+            ))}
+            {categoryData.mediaNotes.map(note => (
+              <NoteCard
+                key={note.id}
+                note={note}
+                onRemove={() => onRemoveMedia('mediaNotes', note.id)}
+                onClick={() => onEditNote(note)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </>
   );
 };
 
