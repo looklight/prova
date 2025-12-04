@@ -13,6 +13,7 @@
  * - ✅ SYNC OTTIMIZZATA: Aggiorna UI quando trip.data cambia (es. da breakdown modal)
  * - ✅ RESET CHIRURGICO: Breakdown vuoto resetta solo costi, non title/media
  * - 🔧 FIX PARTICIPANTS: Non sovrascrive più i participants quando si aggiorna costBreakdown
+ * - 🆕 LOCATION: Supporto per geolocalizzazione categorie
  */
 
 import { useState, useEffect, useRef } from 'react';
@@ -46,7 +47,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
         cost: cellData.cost || '',
         costBreakdown: cellData.costBreakdown || null,
         participants: cellData.participants || null,
-        participantsUpdatedAt: cellData.participantsUpdatedAt || null,  // 🆕 Timestamp
+        participantsUpdatedAt: cellData.participantsUpdatedAt || null,
         hasSplitCost: cellData.hasSplitCost || false,
         bookingStatus: cellData.bookingStatus || 'na',
         transportMode: cellData.transportMode || 'treno',
@@ -54,7 +55,8 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
         images: cellData.images || [],
         videos: cellData.videos || [],
         mediaNotes: cellData.mediaNotes || [],
-        notes: cellData.notes || ''
+        notes: cellData.notes || '',
+        location: cellData.location || null  // 🆕 Location
       };
     });
     return data;
@@ -71,7 +73,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
       cost: exp.cost || '',
       costBreakdown: exp.costBreakdown || null,
       participants: exp.participants || null,
-      participantsUpdatedAt: exp.participantsUpdatedAt || null,  // 🆕 Timestamp
+      participantsUpdatedAt: exp.participantsUpdatedAt || null,
       hasSplitCost: exp.hasSplitCost || false
     }));
   });
@@ -100,7 +102,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
         cost: cellData.cost || '',
         costBreakdown: cellData.costBreakdown || null,
         participants: cellData.participants || null,
-        participantsUpdatedAt: cellData.participantsUpdatedAt || null,  // 🆕 Timestamp
+        participantsUpdatedAt: cellData.participantsUpdatedAt || null,
         hasSplitCost: cellData.hasSplitCost || false,
         bookingStatus: cellData.bookingStatus || 'na',
         transportMode: cellData.transportMode || 'treno',
@@ -108,7 +110,8 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
         images: cellData.images || [],
         videos: cellData.videos || [],
         mediaNotes: cellData.mediaNotes || [],
-        notes: cellData.notes || ''
+        notes: cellData.notes || '',
+        location: cellData.location || null  // 🆕 Location
       };
     });
 
@@ -134,7 +137,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
       cost: exp.cost || '',
       costBreakdown: exp.costBreakdown || null,
       participants: exp.participants || null,
-      participantsUpdatedAt: exp.participantsUpdatedAt || null,  // 🆕 Timestamp
+      participantsUpdatedAt: exp.participantsUpdatedAt || null,
       hasSplitCost: exp.hasSplitCost || false
     }));
 
@@ -186,22 +189,38 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
 
         console.log('✅ [updateCategory] Breakdown aggiornato (participants NON toccato)');
       } else {
-        // 🆕 Breakdown vuoto/null = reset SOLO costi (non title/media)
+        // 🆕 Breakdown vuoto/null = reset SOLO costi (non title/media/location)
         updatedCellData.costBreakdown = null;
         updatedCellData.participants = null;
-        updatedCellData.participantsUpdatedAt = null;  // 🆕 Reset anche timestamp
+        updatedCellData.participantsUpdatedAt = null;
         updatedCellData.hasSplitCost = false;
         updatedCellData.cost = '';
-        console.log('🧹 [updateCategory] Reset costi (title/media intatti)');
+        console.log('🧹 [updateCategory] Reset costi (title/media/location intatti)');
       }
     }
     // 🔧 FIX: Se modifichi 'participants', aggiorna anche timestamp
     else if (field === 'participants') {
       // Salva solo participants, lascia breakdown intatto
       updatedCellData.participants = value;
-      updatedCellData.participantsUpdatedAt = new Date();  // 🆕 Aggiorna timestamp
+      updatedCellData.participantsUpdatedAt = new Date();
       console.log('✅ [updateCategory] Participants aggiornati con timestamp:', value);
     }
+    // 🆕 Location: salva direttamente senza logica speciale
+    else if (field === 'location') {
+      updatedCellData.location = value;
+      console.log('📍 [updateCategory] Location aggiornata:', value ? 'salvata' : 'rimossa');
+    }
+
+    // 🆕 Se title viene svuotato, rimuovi location
+    else if (field === 'title') {
+      updatedCellData.title = value;
+
+      if (!value || value.trim() === '') {
+        updatedCellData.location = null;
+        console.log('🧹 [updateCategory] Title svuotato, location rimossa');
+      }
+    }
+
     // AUTO-ASSEGNAZIONE: SOLO se modifichi 'cost' E non esiste già breakdown VALIDO
     else if (field === 'cost' && value !== undefined) {
       const amount = parseFloat(value) || 0;
@@ -219,7 +238,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
             { userId: currentUserId, amount: amount }
           ];
           updatedCellData.participants = getDefaultParticipants();
-          updatedCellData.participantsUpdatedAt = new Date();  // 🆕 Inizializza timestamp!
+          updatedCellData.participantsUpdatedAt = new Date();
           updatedCellData.hasSplitCost = false;
           console.log('✅ [updateCategory] Breakdown creato (prima volta) con timestamp');
         } else {
@@ -244,7 +263,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
         // Cost = 0 → reset tutto
         updatedCellData.costBreakdown = null;
         updatedCellData.participants = null;
-        updatedCellData.participantsUpdatedAt = null;  // 🆕 Reset timestamp
+        updatedCellData.participantsUpdatedAt = null;
         updatedCellData.hasSplitCost = false;
         updatedCellData.cost = '';
       }
@@ -299,7 +318,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
           // 🆕 Breakdown vuoto = reset SOLO costi (title intatto)
           updatedExpense.costBreakdown = null;
           updatedExpense.participants = null;
-          updatedExpense.participantsUpdatedAt = null;  // 🆕 Reset timestamp
+          updatedExpense.participantsUpdatedAt = null;
           updatedExpense.hasSplitCost = false;
           updatedExpense.cost = '';
           console.log('🧹 [updateOtherExpense] Reset costi (title intatto)');
@@ -308,7 +327,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
       else if (field === 'participants') {
         // Salva solo participants, lascia breakdown intatto
         updatedExpense.participants = value;
-        updatedExpense.participantsUpdatedAt = new Date();  // 🆕 Aggiorna timestamp
+        updatedExpense.participantsUpdatedAt = new Date();
         console.log('✅ [updateOtherExpense] Participants aggiornati con timestamp:', value);
       }
       else if (field === 'cost' && value !== undefined) {
@@ -326,7 +345,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
               { userId: currentUserId, amount: amount }
             ];
             updatedExpense.participants = getDefaultParticipants();
-            updatedExpense.participantsUpdatedAt = new Date();  // 🆕 Inizializza timestamp!
+            updatedExpense.participantsUpdatedAt = new Date();
             updatedExpense.hasSplitCost = false;
             console.log('✅ [updateOtherExpense] Breakdown creato (prima volta) con timestamp');
           } else {
@@ -347,7 +366,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
         } else {
           updatedExpense.costBreakdown = null;
           updatedExpense.participants = null;
-          updatedExpense.participantsUpdatedAt = null;  // 🆕 Reset timestamp
+          updatedExpense.participantsUpdatedAt = null;
           updatedExpense.hasSplitCost = false;
           updatedExpense.cost = '';
         }

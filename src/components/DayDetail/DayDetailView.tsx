@@ -13,6 +13,8 @@ import CostBreakdownModal from './CostBreakdownModal';
 import CostSummaryByUserView from './CostSummaryByUserView';
 import { useAnalytics } from '../../hooks/useAnalytics';
 import { deleteImage } from '../../services/storageService';
+import LocationModal from './LocationModal';
+import type { LocationData } from '../../services/geocodingService';
 
 const DayDetailView = ({
   trip,
@@ -46,6 +48,13 @@ const DayDetailView = ({
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(highlightCategoryId);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+
+  // 🆕 Stato per LocationModal
+  const [locationModal, setLocationModal] = useState<{
+    isOpen: boolean;
+    categoryId: string | null;
+  }>({ isOpen: false, categoryId: null });
+
   const analytics = useAnalytics();
 
   // Categorie sempre visibili (non collassabili)
@@ -110,7 +119,8 @@ const DayDetailView = ({
       costBreakdown: null,
       participants: null,
       participantsUpdatedAt: null,
-      hasSplitCost: false
+      hasSplitCost: false,
+      location: null  // 🆕 Reset anche location
     };
 
     console.log('🗑️ [resetCategory] Reset completo:', categoryId);
@@ -152,6 +162,29 @@ const DayDetailView = ({
       }
     });
   }, [currentDay.id, trip, onUpdateTrip]);
+
+  // 🆕 Handler per salvare location
+  const handleLocationConfirm = (location: LocationData, useAsTitle: boolean) => {
+    if (!locationModal.categoryId) return;
+
+    updateCategory(locationModal.categoryId, 'location', location);
+
+    if (useAsTitle) {
+      updateCategory(locationModal.categoryId, 'title', location.name);
+    }
+
+    console.log('📍 [Location] Salvata:', { categoryId: locationModal.categoryId, location, useAsTitle });
+    setLocationModal({ isOpen: false, categoryId: null });
+  };
+
+  // 🆕 Handler per rimuovere location
+  const handleLocationRemove = () => {
+    if (!locationModal.categoryId) return;
+
+    updateCategory(locationModal.categoryId, 'location', null);
+    console.log('📍 [Location] Rimossa:', locationModal.categoryId);
+    setLocationModal({ isOpen: false, categoryId: null });
+  };
 
   // 🆕 Shortcut Delete per reset categoria (solo desktop)
   useEffect(() => {
@@ -520,6 +553,7 @@ const DayDetailView = ({
                   mediaHandlers.setMediaDialogOpen({ type: 'note', categoryId: category.id });
                 }}
                 onOpenCostBreakdown={() => handleOpenCategoryBreakdown(category.id)}
+                onOpenLocation={() => setLocationModal({ isOpen: true, categoryId: category.id })}
                 currentUserId={user.uid}
                 tripMembers={trip.sharing?.members}
                 isSelected={selectedCategoryId === category.id}
@@ -630,6 +664,18 @@ const DayDetailView = ({
           }, 50);
         }}
         onConfirm={handleConfirmBreakdown}
+      />
+
+      {/* 🆕 Location Modal */}
+      <LocationModal
+        isOpen={locationModal.isOpen}
+        isDesktop={isDesktop}
+        categoryTitle={locationModal.categoryId ? categoryData[locationModal.categoryId]?.title || '' : ''}
+        baseLocation={categoryData['base']?.title || null}
+        existingLocation={locationModal.categoryId ? categoryData[locationModal.categoryId]?.location || null : null}
+        onClose={() => setLocationModal({ isOpen: false, categoryId: null })}
+        onConfirm={handleLocationConfirm}
+        onRemove={handleLocationRemove}
       />
     </div>
   );

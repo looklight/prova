@@ -55,7 +55,12 @@ const sanitizeTripData = (trip, includeMedia = true) => {
                 bookingStatus: expense.bookingStatus || 'na'
               }));
             }
-          } else if (categoryId !== 'base') {
+          } else if (categoryId === 'base') {
+            // Base contiene solo il titolo (luogo)
+            dayData.categories[categoryId] = {
+              title: cellData.title || ''
+            };
+          } else {
             dayData.categories[categoryId] = {
               title: cellData.title || '',
               notes: cellData.notes || '',
@@ -91,16 +96,16 @@ export const exportTripAsJSON = (trip, includeMedia = true) => {
       trip: sanitizedTrip
     };
 
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { 
-      type: 'application/json' 
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: 'application/json'
     });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    
+
     const suffix = includeMedia ? 'completo' : 'base';
     a.download = `${sanitizedTrip.name.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${suffix}.json`;
-    
+
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -141,14 +146,14 @@ export const exportTripAsCSV = (trip) => {
     const defaultOrder = CATEGORIES
       .filter(c => !['base', 'otherExpenses', 'note'].includes(c.id))
       .map(c => c.id);
-    
+
     const categoryOrder = trip.categoryOrder || defaultOrder;
 
     // Genera riga per ogni categoria nell'ordine corretto
     categoryOrder.forEach(catId => {
       const category = CATEGORIES.find(c => c.id === catId);
       if (!category) return;
-      
+
       const row = [category.label].concat(trip.days.map(day => {
         const key = `${day.id}-${catId}`;
         const cellData = trip.data[key];
@@ -186,7 +191,7 @@ export const exportTripAsCSV = (trip) => {
     const a = document.createElement('a');
     a.href = url;
     a.download = `${tripName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-itinerario.csv`;
-    
+
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -206,7 +211,7 @@ export const exportTripAsCSV = (trip) => {
 export const importTrip = async (file) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    
+
     reader.onload = (e) => {
       try {
         const importData = JSON.parse(e.target.result);
@@ -216,7 +221,7 @@ export const importTrip = async (file) => {
         }
 
         let tripData;
-        
+
         if (importData.version === '1.0' || importData.version === '2.0') {
           tripData = importData.trip;
         } else {
@@ -273,7 +278,12 @@ export const importTrip = async (file) => {
                   hasSplitCost: false,
                   participants: null
                 }));
-              } else if (categoryId !== 'base') {
+              } else if (categoryId === 'base') {
+                // Base contiene solo il titolo
+                newTrip.data[key] = {
+                  title: categoryData.title || ''
+                };
+              } else {
                 newTrip.data[key] = {
                   title: categoryData.title || '',
                   cost: '',

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Video, PlusCircle } from 'lucide-react';
+import { Video, PlusCircle, MapPin } from 'lucide-react';
 import { BookingToggle, CostInput, MediaButton, TransportSelector } from './ui';
 import { LinkCard, ImageCard, NoteCard, VideoEmbed, LinkIcon, ImageIcon, FileTextIcon } from './MediaCards';
 import OfflineDisabled from '../OfflineDisabled';
@@ -14,16 +14,16 @@ const slideInStyle = `
 @keyframes slideInRight {
   from {
     opacity: 0;
-    transform: translateX(8px);
+    transform: translateX(8px) scale(0.9);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateX(0) scale(1);
   }
 }
 
 .slide-in-right {
-  animation: slideInRight 0.2s ease-out forwards;
+  animation: slideInRight 0.25s ease-out forwards;
 }
 `;
 
@@ -39,6 +39,7 @@ interface CategoryCardProps {
   onRemoveMedia: (mediaType: string, itemId: number) => void;
   onEditNote: (note: any) => void;
   onOpenCostBreakdown?: () => void;
+  onOpenLocation?: () => void;
   currentUserId?: string;
   tripMembers?: Record<string, { status: string; displayName: string; avatar?: string }>;
   isSelected?: boolean;
@@ -58,6 +59,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
   onRemoveMedia,
   onEditNote,
   onOpenCostBreakdown,
+  onOpenLocation,
   currentUserId,
   tripMembers,
   isSelected = false,
@@ -66,6 +68,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
 }) => {
   const [showBookingToggle, setShowBookingToggle] = React.useState(false);
   const [showMediaButtons, setShowMediaButtons] = React.useState(false);
+
   // Chiudi booking toggle e media buttons quando la card non è più attiva
   React.useEffect(() => {
     if (!isActive) {
@@ -79,6 +82,17 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
 
   // Contenuto presente (per mostrare pallino booking)
   const hasContent = categoryData.title?.trim() !== '' || categoryData.cost?.trim() !== '';
+
+  // Location presente
+  const hasLocation = categoryData.location?.coordinates != null;
+
+  // Categorie che possono avere location (escludi base, note, otherExpenses)
+  const canHaveLocation = !['base', 'note', 'otherExpenses'].includes(category.id);
+
+  // Mostra pulsante location: quando attivo OPPURE quando ha location
+  const showLocationButton = canHaveLocation &&
+  onOpenLocation &&
+  (isActive || hasLocation);
 
   // Media presenti
   const hasMedia = categoryData.links?.length > 0 ||
@@ -126,26 +140,44 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
           </h2>
 
           {/* Gruppo pulsanti a destra */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             {/* Pulsante + Media - solo quando attiva */}
-            <div className="w-11 h-11 flex items-center justify-center">
-              {category.id !== 'note' && category.id !== 'base' && isActive && (
-                <OfflineDisabled>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowMediaButtons(!showMediaButtons);
-                    }}
-                    className="slide-in-right w-11 h-11 flex items-center justify-center 
-                   text-gray-400 rounded-full active:scale-90 active:text-gray-600 
-                   transition-transform"
-                    title="Aggiungi media"
-                  >
-                    <PlusCircle size={24} strokeWidth={1.5} />
-                  </button>
-                </OfflineDisabled>
-              )}
-            </div>
+            {category.id !== 'note' && category.id !== 'base' && isActive && (
+              <OfflineDisabled>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowMediaButtons(!showMediaButtons);
+                  }}
+                  className="slide-in-right w-11 h-11 flex items-center justify-center 
+                    text-gray-400 rounded-full active:scale-90 active:text-gray-600 
+                    transition-transform"
+                  title="Aggiungi media"
+                >
+                  <PlusCircle size={24} strokeWidth={1.5} />
+                </button>
+              </OfflineDisabled>
+            )}
+
+            {/* Pulsante Location */}
+            {showLocationButton && (
+              <OfflineDisabled>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenLocation();
+                  }}
+                  className={`slide-in-right w-11 h-11 flex items-center justify-center rounded-full 
+  active:scale-90 transition-transform ${hasLocation
+                      ? 'text-red-400 active:text-red-600'
+                      : 'text-gray-400 active:text-gray-600'
+                    }`}
+                  title={hasLocation ? 'Modifica posizione' : 'Aggiungi posizione'}
+                >
+                  <MapPin size={24} strokeWidth={hasLocation ? 2 : 1.5} />
+                </button>
+              </OfflineDisabled>
+            )}
 
             {/* Gestisci spesa - sempre visibile */}
             {category.id !== 'note' && category.id !== 'base' && onOpenCostBreakdown && (
