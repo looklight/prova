@@ -32,32 +32,34 @@ const DayHeader: React.FC<DayHeaderProps> = ({
 
         {/* Desktop: icona PanelRightClose per chiudere il pannello */}
         {isDesktop && onClosePanel && (
-          <button 
-            onClick={onClosePanel} 
+          <button
+            onClick={onClosePanel}
             className="p-2 hover:bg-gray-100 rounded-full ml-4 mr-4"
             title="Chiudi pannello"
           >
             <PanelRightClose size={24} />
           </button>
         )}
-        
-        <button 
-          onClick={() => dayIndex > 0 && onChangeDayIndex(dayIndex - 1)} 
+
+        <button
+          onClick={() => dayIndex > 0 && onChangeDayIndex(dayIndex - 1)}
           disabled={dayIndex === 0}
           className={`p-2 rounded-full ${dayIndex > 0 ? 'hover:bg-gray-100' : 'opacity-30'}`}
         >
           <ChevronLeft size={24} />
         </button>
-        
-        <div className="text-center flex-1 mx-2">
+
+        <div className="text-center flex-1 mx-2 flex flex-col items-center">
           <h1 className="text-xl font-bold">{trip.name}</h1>
-          <div className="text-lg font-semibold">Giorno {currentDay.number}</div>
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-gray-500 mt-2">
+            Giorno {currentDay.number}
+          </div>
+          <div className="text-sm font-semibold mt-1 -mb-2">
             {currentDay.date.toLocaleDateString('it-IT', { weekday: 'long', day: '2-digit', month: '2-digit' })}
           </div>
         </div>
-        
-        <button 
+
+        <button
           onClick={() => dayIndex < trip.days.length - 1 && onChangeDayIndex(dayIndex + 1)}
           disabled={dayIndex === trip.days.length - 1}
           className={`p-2 rounded-full ${dayIndex < trip.days.length - 1 ? 'hover:bg-gray-100' : 'opacity-30'}`}

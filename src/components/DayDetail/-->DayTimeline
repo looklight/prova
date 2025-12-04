@@ -1,6 +1,6 @@
 Per inserire DayTimeline
 
-importare in alto:
+importare in alto: 
 
 import DayTimeline from './DayTimeline';
 

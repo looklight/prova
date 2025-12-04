@@ -555,6 +555,8 @@ const DayDetailView = ({
           onOpenCostBreakdown={handleOpenExpenseBreakdown}
           currentUserId={user.uid}
           tripMembers={trip.sharing?.members}
+          onSelectCategory={handleSelectCategory}    //
+          selectedCategoryId={selectedCategoryId}    //
           isHighlighted={selectedCategoryId === 'otherExpenses'}
           notes={categoryData['note']?.notes || ''}
           onUpdateNotes={(value) => {

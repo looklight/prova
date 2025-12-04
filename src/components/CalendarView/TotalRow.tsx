@@ -62,26 +62,33 @@ const TotalRow: React.FC<TotalRowProps> = ({
           </span>
         </div>
       </td>
-      {trip.days.map((day: any) => (
-        <td 
-          key={`cost-${day.id}`}
-          onClick={onOpenCostSummary}
-          className={`px-1 py-0.5 text-center border-l text-sm cursor-pointer hover:bg-blue-50 transition-colors relative ${
-            selectedDays.includes(trip.days.indexOf(day)) ? 'bg-blue-50' : ''
-          }`} 
-          style={{ height: '48px', width: '140px', minWidth: '140px', maxWidth: '140px' }}
-          title="Clicca per vedere il riepilogo completo dei costi"
-        >
-          {/* Icona Expand in alto a destra */}
-          <Maximize2 
-            size={10} 
-            className="absolute top-1 right-1 text-blue-500 opacity-60"
-          />
-          
-          {/* Costo centrato */}
-          {calculateDayCost(day, trip.data, trip.sharing?.members).toFixed(2)}€
-        </td>
-      ))}
+      {trip.days.map((day: any) => {
+        const dailyTotal = calculateDayCost(day, trip.data, trip.sharing?.members);
+        const display = dailyTotal === 0 ? "-" : dailyTotal.toFixed(2) + "€";
+
+        return (
+          <td 
+            key={`cost-${day.id}`}
+            onClick={onOpenCostSummary}
+            className={`px-1 py-0.5 text-center border-l text-sm cursor-pointer hover:bg-blue-50 transition-colors relative ${
+              selectedDays.includes(trip.days.indexOf(day)) ? 'bg-blue-50' : ''
+            }`} 
+            style={{ height: '48px', width: '140px', minWidth: '140px', maxWidth: '140px' }}
+            title="Clicca per vedere il riepilogo completo dei costi"
+          >
+            {/* Icona Expand in alto a destra */}
+            <Maximize2 
+              size={10} 
+              className="absolute top-1 right-1 text-blue-500 opacity-60"
+            />
+            
+            {/* Costo centrato */}
+            <div className={dailyTotal === 0 ? 'text-gray-400' : ''}>
+              {display}
+            </div>
+          </td>
+        );
+      })}
     </tr>
   );
 };

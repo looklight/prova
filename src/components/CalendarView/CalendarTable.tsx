@@ -75,13 +75,13 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
   const sortedCategories = React.useMemo(() => {
     const fixedTop = ['base'];
     const fixedBottom = ['otherExpenses', 'note'];
-    
+
     const top = CATEGORIES.filter(c => fixedTop.includes(c.id));
     const bottom = CATEGORIES.filter(c => fixedBottom.includes(c.id));
     const middle = CATEGORIES.filter(
       c => !fixedTop.includes(c.id) && !fixedBottom.includes(c.id)
     );
-    
+
     // Ordina middle secondo categoryOrder
     const orderedMiddle = [...middle].sort((a, b) => {
       const indexA = categoryOrder.indexOf(a.id);
@@ -101,19 +101,18 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
         <tr className="bg-gray-100">
           {/* 🆕 Colonna extra per drag handle */}
           {isDragMode && (
-            <th 
+            <th
               className="w-8 px-0 py-3 bg-gray-100 sticky left-0 z-10"
               style={{ minWidth: '32px', maxWidth: '32px' }}
             />
           )}
-          <th 
-            className={`px-2 py-3 text-left font-medium sticky z-10 text-xs ${
-              isScrolled ? 'bg-transparent' : 'bg-gray-100'
-            }`}
-            style={{ 
+          <th
+            className={`px-2 py-3 text-left font-medium sticky z-10 text-xs ${isScrolled ? 'bg-transparent' : 'bg-gray-100'
+              }`}
+            style={{
               left: isDragMode ? '32px' : '0px',
-              width: isScrolled ? '60px' : '120px', 
-              minWidth: isScrolled ? '60px' : '120px', 
+              width: isScrolled ? '60px' : '120px',
+              minWidth: isScrolled ? '60px' : '120px',
               maxWidth: isScrolled ? '60px' : '120px',
               transition: justMounted ? 'none' : 'all 0.3s'
             }}
@@ -121,29 +120,25 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
             {!isScrolled && 'Categoria'}
           </th>
           {trip.days.map((day: any, index: number) => (
-            <th 
+            <th
               key={day.id}
               data-day-id={day.id}
-              className={`px-2 py-3 text-center font-medium relative text-xs ${
-                selectedDays.includes(index) ? 'bg-blue-100' : ''
-              } ${isToday(day.date) ? 'ring-2 ring-blue-400 ring-inset bg-blue-50' : ''} ${
-                isDesktop && selectedDayIndex === index ? 'bg-blue-200 ring-2 ring-blue-500' : ''}
+              className={`px-2 py-3 text-center font-medium relative text-xs ${selectedDays.includes(index) ? 'bg-blue-100' : ''
+                } ${isToday(day.date) ? 'ring-2 ring-blue-400 ring-inset bg-blue-50' : ''} ${isDesktop && selectedDayIndex === index ? 'bg-blue-200 ring-2 ring-blue-500' : ''}
               `}
               style={{ width: '140px', minWidth: '140px', maxWidth: '140px' }}
             >
               {isDaysEditMode && (
                 <div className="absolute top-1 left-1">
-                  <div 
+                  <div
                     onClick={() => onToggleDaySelection(index)}
-                    className={`w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer ${
-                      selectedDays.includes(index) ? 'bg-blue-500 border-blue-500' : 'border-gray-300 bg-white'
-                    }`}
+                    className={`w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer ${selectedDays.includes(index) ? 'bg-blue-500 border-blue-500' : 'border-gray-300 bg-white'
+                      }`}
                   >
                     {selectedDays.includes(index) && <Check size={14} className="text-white" />}
                   </div>
                 </div>
               )}
-              <div className="font-bold text-sm">Giorno {day.number}</div>
               {isDaysEditMode ? (
                 <input
                   type="date"
@@ -153,9 +148,14 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
                   style={{ fontSize: '10px' }}
                 />
               ) : (
-                <div className="text-xs text-gray-600 mt-1">
-                  {day.date.toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' })}
-                </div>
+                <>
+                  <div className="font-bold text-sm">
+                    {day.date.toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' })}
+                  </div>
+                  <div className="text-xs text-gray-600 mt-1">
+                    Giorno {day.number}
+                  </div>
+                </>
               )}
             </th>
           ))}

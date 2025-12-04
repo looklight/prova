@@ -128,20 +128,24 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
           {/* Gruppo pulsanti a destra */}
           <div className="flex items-center gap-2">
             {/* Pulsante + Media - solo quando attiva */}
-            {category.id !== 'note' && category.id !== 'base' && isActive && (
-              <OfflineDisabled>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowMediaButtons(!showMediaButtons);
-                  }}
-                  className="slide-in-right w-11 h-11 flex items-center justify-center text-gray-400 rounded-full active:scale-90 active:text-gray-600 transition-transform"
-                  title="Aggiungi media"
-                >
-                  <PlusCircle size={24} strokeWidth={1.5} />
-                </button>
-              </OfflineDisabled>
-            )}
+            <div className="w-11 h-11 flex items-center justify-center">
+              {category.id !== 'note' && category.id !== 'base' && isActive && (
+                <OfflineDisabled>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowMediaButtons(!showMediaButtons);
+                    }}
+                    className="slide-in-right w-11 h-11 flex items-center justify-center 
+                   text-gray-400 rounded-full active:scale-90 active:text-gray-600 
+                   transition-transform"
+                    title="Aggiungi media"
+                  >
+                    <PlusCircle size={24} strokeWidth={1.5} />
+                  </button>
+                </OfflineDisabled>
+              )}
+            </div>
 
             {/* Gestisci spesa - sempre visibile */}
             {category.id !== 'note' && category.id !== 'base' && onOpenCostBreakdown && (

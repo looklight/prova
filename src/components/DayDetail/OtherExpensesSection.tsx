@@ -3,7 +3,7 @@
  * Gestisce sia le Altre Spese che le Note del giorno (in due card separate)
  */
 import React from 'react';
-import { X } from 'lucide-react';
+import { X, Coins } from 'lucide-react';
 import CostInput from './ui/CostInput';
 import OfflineDisabled from '../OfflineDisabled';
 
@@ -24,6 +24,10 @@ interface OtherExpensesSectionProps {
   notes?: string;
   onUpdateNotes?: (value: string) => void;
   isNoteHighlighted?: boolean;
+
+  // 🆕 Props per selezione
+  onSelectCategory?: (categoryId: string) => void;
+  selectedCategoryId?: string;
 }
 
 const OtherExpensesSection: React.FC<OtherExpensesSectionProps> = ({
@@ -36,7 +40,9 @@ const OtherExpensesSection: React.FC<OtherExpensesSectionProps> = ({
   isHighlighted = false,
   notes = '',
   onUpdateNotes,
-  isNoteHighlighted = false
+  isNoteHighlighted = false,
+  onSelectCategory,
+  selectedCategoryId
 }) => {
   // ✅ Handler con conferma per rimozione spesa
   const handleRemove = (expenseId: number) => {
@@ -51,10 +57,12 @@ const OtherExpensesSection: React.FC<OtherExpensesSectionProps> = ({
       {/* 💸 Altre Spese */}
       <div
         id="category-otherExpenses"
-        className={`bg-white rounded-lg shadow p-4 ${isHighlighted
-          ? 'ring-2 ring-blue-500'
-          : 'ring-0 ring-transparent'
-          }`}
+        onClick={() => onSelectCategory?.('otherExpenses')}
+        className={`rounded-lg shadow p-4 cursor-pointer ${
+          selectedCategoryId === 'otherExpenses'
+            ? 'ring-2 ring-blue-500'
+            : 'ring-0 ring-transparent'
+        } bg-slate-50`}
       >
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-semibold">💸 Altre Spese</h2>
@@ -94,10 +102,10 @@ const OtherExpensesSection: React.FC<OtherExpensesSectionProps> = ({
                 <OfflineDisabled>
                   <button
                     onClick={() => onOpenCostBreakdown(expense.id)}
-                    className="w-8 h-8 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-full flex items-center justify-center transition-colors"
+                    className="w-8 h-8 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-full flex items-center justify-center border border-gray-200 transition-colors"
                     title="Gestisci spesa"
                   >
-                    💰
+                    <Coins size={16} />
                   </button>
                 </OfflineDisabled>
               )}
@@ -124,10 +132,12 @@ const OtherExpensesSection: React.FC<OtherExpensesSectionProps> = ({
       {onUpdateNotes && (
         <div
           id="category-note"
-          className={`bg-white rounded-lg shadow p-4 ${isNoteHighlighted
-            ? 'ring-2 ring-blue-500'
-            : 'ring-0 ring-transparent'
-            }`}
+          onClick={() => onSelectCategory?.('note')}
+          className={`rounded-lg shadow p-4 cursor-pointer ${
+            selectedCategoryId === 'note'
+              ? 'ring-2 ring-blue-500'
+              : 'ring-0 ring-transparent'
+          } bg-slate-50`}
         >
           <h2 className="text-base font-semibold mb-3 flex items-center gap-2">
             <span>📝</span>
