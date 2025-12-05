@@ -1,5 +1,5 @@
 import React from 'react';
-import { Video, PlusCircle, MapPin } from 'lucide-react';
+import { Video, MapPin } from 'lucide-react';
 import { BookingToggle, CostInput, MediaButton, TransportSelector } from './ui';
 import { LinkCard, ImageCard, NoteCard, VideoEmbed, LinkIcon, ImageIcon, FileTextIcon } from './MediaCards';
 import OfflineDisabled from '../OfflineDisabled';
@@ -67,13 +67,11 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
   onSelect
 }) => {
   const [showBookingToggle, setShowBookingToggle] = React.useState(false);
-  const [showMediaButtons, setShowMediaButtons] = React.useState(false);
 
-  // Chiudi booking toggle e media buttons quando la card non è più attiva
+  // Chiudi booking toggle quando la card non è più attiva
   React.useEffect(() => {
     if (!isActive) {
       setShowBookingToggle(false);
-      setShowMediaButtons(false);
     }
   }, [isActive]);
 
@@ -91,8 +89,8 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
 
   // Mostra pulsante location: quando attivo OPPURE quando ha location
   const showLocationButton = canHaveLocation &&
-  onOpenLocation &&
-  (isActive || hasLocation);
+    onOpenLocation &&
+    (isActive || hasLocation);
 
   // Media presenti
   const hasMedia = categoryData.links?.length > 0 ||
@@ -123,7 +121,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
         onClick={handleCardClick}
       >
         {/* Category Header */}
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-3 h-9">
           <h2 className="text-base font-semibold flex items-center gap-2">
             {(category.id === 'spostamenti1' || category.id === 'spostamenti2') ? (
               <TransportSelector
@@ -141,24 +139,6 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
 
           {/* Gruppo pulsanti a destra */}
           <div className="flex items-center gap-1">
-            {/* Pulsante + Media - solo quando attiva */}
-            {category.id !== 'note' && category.id !== 'base' && isActive && (
-              <OfflineDisabled>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowMediaButtons(!showMediaButtons);
-                  }}
-                  className="slide-in-right w-11 h-11 flex items-center justify-center 
-                    text-gray-400 rounded-full active:scale-90 active:text-gray-600 
-                    transition-transform"
-                  title="Aggiungi media"
-                >
-                  <PlusCircle size={24} strokeWidth={1.5} />
-                </button>
-              </OfflineDisabled>
-            )}
-
             {/* Pulsante Location */}
             {showLocationButton && (
               <OfflineDisabled>
@@ -167,11 +147,14 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
                     e.stopPropagation();
                     onOpenLocation();
                   }}
-                  className={`slide-in-right w-11 h-11 flex items-center justify-center rounded-full 
-  active:scale-90 transition-transform ${hasLocation
-                      ? 'text-red-400 active:text-red-600'
+                  className={`slide-in-right w-11 h-9 flex items-center justify-center rounded-full 
+                    active:scale-90 transition-transform ${
+                    hasLocation 
+                      ? isActive 
+                        ? 'text-red-500 active:text-red-700'
+                        : 'text-red-300'
                       : 'text-gray-400 active:text-gray-600'
-                    }`}
+                  }`}
                   title={hasLocation ? 'Modifica posizione' : 'Aggiungi posizione'}
                 >
                   <MapPin size={24} strokeWidth={hasLocation ? 2 : 1.5} />
@@ -250,7 +233,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
                     e.stopPropagation();
                     setShowBookingToggle(!showBookingToggle);
                   }}
-                  className="absolute left-0 top-1/2 transform -translate-y-1/2 w-11 h-11 flex items-center justify-center cursor-pointer group"
+                  className="absolute left-0 top-1/2 transform -translate-y-1/2 w-11 h-9 flex items-center justify-center cursor-pointer group"
                   title="Gestisci prenotazione"
                 >
                   {/* Pallino visivo piccolo, area touch grande */}
@@ -312,11 +295,11 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
           </div>
         )}
 
-        {/* Media Buttons - si aprono solo cliccando sul + */}
+        {/* Media Buttons - visibili direttamente quando isActive */}
         {category.id !== 'base' && category.id !== 'note' && (
-          <div className={`transition-all duration-200 ease-out overflow-hidden ${showMediaButtons
-            ? 'opacity-100 max-h-20 translate-y-0 mt-1 mb-4'
-            : 'opacity-0 max-h-0 -translate-y-2'
+          <div className={`transition-all duration-200 ease-out overflow-hidden ${isActive
+            ? 'opacity-100 max-h-20 translate-y-0 mt-1 mb-2'
+            : 'opacity-0 max-h-0 -translate-y-2 pointer-events-none'
             }`}>
             <OfflineDisabled>
               <div className="flex justify-around">
@@ -374,7 +357,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
 
         {/* Media Grid - sempre visibile se ci sono media */}
         {category.id !== 'note' && category.id !== 'base' && hasMedia && (
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2 mt-1">
             {categoryData.links.map(link => (
               <LinkCard
                 key={link.id}
