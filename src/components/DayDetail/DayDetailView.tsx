@@ -241,7 +241,6 @@ const DayDetailView = ({
 
   // Handler per selezionare una categoria
   const handleSelectCategory = (categoryId: string) => {
-    collapseEmptyExpanded(categoryId);
     setSelectedCategoryId(categoryId);
     setActiveCategoryId(categoryId);
   };
@@ -278,7 +277,7 @@ const DayDetailView = ({
 
   useEffect(() => {
     hasScrolledRef.current = false;
-  }, [dayIndex, highlightCategoryId]);
+ }, [dayIndex, highlightCategoryId, currentDay.id]);
 
   useEffect(() => {
     if (!highlightCategoryId || hasScrolledRef.current) return;
@@ -582,7 +581,6 @@ const DayDetailView = ({
         <OtherExpensesSection
           expenses={otherExpenses}
           onUpdate={(id, field, value) => {
-            collapseEmptyExpanded();
             updateOtherExpense(id, field, value);
           }}
           onRemove={removeOtherExpense}
@@ -594,7 +592,6 @@ const DayDetailView = ({
           isHighlighted={selectedCategoryId === 'otherExpenses'}
           notes={categoryData['note']?.notes || ''}
           onUpdateNotes={(value) => {
-            collapseEmptyExpanded();
             updateCategory('note', 'notes', value);
           }}
           isNoteHighlighted={selectedCategoryId === 'note'}
