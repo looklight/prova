@@ -81,6 +81,25 @@ const CurrencyConvertModal: React.FC<CurrencyConvertModalProps> = ({
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
 
+  // Blocca scroll body quando modal è aperto
+  useEffect(() => {
+    if (isOpen) {
+      const scrollY = window.scrollY;
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+      document.body.style.overflow = 'hidden';
+
+      return () => {
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.width = '';
+        document.body.style.overflow = '';
+        window.scrollTo(0, scrollY);
+      };
+    }
+  }, [isOpen]);
+
   const handleRefreshRate = async () => {
     if (!selectedCurrency) return;
 
@@ -137,13 +156,12 @@ const CurrencyConvertModal: React.FC<CurrencyConvertModalProps> = ({
             <div className="relative flex-1">
               <input
                 ref={inputRef}
-                type="number"
+                type="text"
                 inputMode="decimal"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => setAmount(e.target.value.replace(',', '.'))}
                 placeholder="0"
                 className="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-base font-semibold focus:border-amber-400 focus:outline-none"
-                onWheel={(e) => e.currentTarget.blur()}
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium pointer-events-none">
                 {selectedCurrency?.symbol}
@@ -175,12 +193,11 @@ const CurrencyConvertModal: React.FC<CurrencyConvertModalProps> = ({
           <div className="flex items-center gap-2 text-sm">
             <span className="text-gray-500">1 {selectedCurrency?.code} =</span>
             <input
-              type="number"
+              type="text"
+              inputMode="decimal"
               value={customRate}
-              onChange={(e) => setCustomRate(e.target.value)}
-              step="0.0001"
+              onChange={(e) => setCustomRate(e.target.value.replace(',', '.'))}
               className="w-20 px-2 py-1.5 border border-gray-200 rounded text-center text-sm focus:border-amber-400 focus:outline-none"
-              onWheel={(e) => e.currentTarget.blur()}
             />
             <span className="text-gray-500">EUR</span>
             <button

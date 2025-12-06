@@ -155,6 +155,25 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
     }
   }, [isOpen, existingBreakdown, existingParticipants, existingParticipantsUpdatedAt, currentUserId, tripMembers, tripSharing]);
 
+  // Blocca scroll body quando modal è aperto
+  useEffect(() => {
+    if (isOpen) {
+      const scrollY = window.scrollY;
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+      document.body.style.overflow = 'hidden';
+
+      return () => {
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.width = '';
+        document.body.style.overflow = '';
+        window.scrollTo(0, scrollY);
+      };
+    }
+  }, [isOpen]);
+
   const addEntry = () => {
     setEntries([...entries, { id: nextId, userId: currentUserId, amount: '' }]);
     setNextId(nextId + 1);
@@ -387,15 +406,13 @@ const CostBreakdownModal: React.FC<CostBreakdownModalProps> = ({
                   <div className="flex items-center gap-1">
                     <div className="relative" style={{ width: '100px' }}>
                       <input
-                        type="number"
+                        type="text"
                         inputMode="decimal"
                         value={entry.amount}
-                        onChange={(e) => updateEntry(entry.id, 'amount', e.target.value)}
+                        onChange={(e) => updateEntry(entry.id, 'amount', e.target.value.replace(',', '.'))}
                         placeholder="0"
-                        className={`w-full px-3 py-2.5 pr-7 border rounded-lg text-sm text-center ${!isParticipant ? 'bg-gray-50 text-gray-400' : ''
-                          }`}
+                        className={`w-full px-3 py-2.5 pr-7 border rounded-lg text-sm text-center ${!isParticipant ? 'bg-gray-50 text-gray-400' : ''}`}
                         disabled={!isParticipant}
-                        onWheel={(e) => e.currentTarget.blur()}
                       />
                       <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm pointer-events-none">
                         €
