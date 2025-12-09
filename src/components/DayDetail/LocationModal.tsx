@@ -286,8 +286,8 @@ const LocationModal: React.FC<LocationModalProps> = ({
       onClick={onClose}
     >
       <div
-        className={`bg-white w-full ${isDesktop ? 'max-w-lg rounded-2xl mx-4' : 'max-w-[430px] rounded-t-3xl'} 
-          max-h-[90vh] flex flex-col transition-transform duration-300 ease-out ${isAnimating ? 'translate-y-0' : 'translate-y-full'
+        className={`bg-white w-full ${isDesktop ? 'max-w-lg rounded-2xl mx-4 max-h-[90vh]' : 'max-w-[430px] rounded-t-3xl max-h-[95vh]'} 
+  flex flex-col transition-transform duration-300 ease-out ${isAnimating ? 'translate-y-0' : 'translate-y-full'
           }`}
         onClick={(e) => e.stopPropagation()}
       >
