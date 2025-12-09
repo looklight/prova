@@ -348,7 +348,7 @@ const LocationModal: React.FC<LocationModalProps> = ({
                     onKeyDown={handleKeyDown}
                     placeholder="Cerca luogo o indirizzo..."
                     className="w-full pl-10 pr-4 py-3 border rounded-xl text-sm"
-                    autoFocus
+                    autoFocus={isDesktop}
                   />
                   <Search
                     size={18}
@@ -469,7 +469,7 @@ const LocationModal: React.FC<LocationModalProps> = ({
                     onKeyDown={(e) => e.key === 'Enter' && handleVerifyManual()}
                     placeholder="es. Via Roma 1, Milano oppure 45.4893, 9.2034"
                     className="w-full px-4 py-3 border rounded-xl text-sm"
-                    autoFocus
+                    autoFocus={isDesktop}
                   />
                 </div>
 
