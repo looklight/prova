@@ -26,6 +26,7 @@ type ViewMode = 'search' | 'manual';
 const parseCoordinates = (input: string): { lat: number; lng: number } | null => {
   const trimmed = input.trim();
 
+  // Formato: "45.4893, 9.2034" o "45.4893,9.2034" o "45.4893 9.2034"
   const regex = /^(-?\d+\.?\d*)\s*[,\s]\s*(-?\d+\.?\d*)$/;
   const match = trimmed.match(regex);
 
@@ -51,6 +52,7 @@ const LocationModal: React.FC<LocationModalProps> = ({
   onConfirm,
   onRemove
 }) => {
+  // Stati
   const [viewMode, setViewMode] = useState<ViewMode>('search');
   const [searchQuery, setSearchQuery] = useState('');
   const [results, setResults] = useState<GeocodingResult[]>([]);
@@ -59,6 +61,10 @@ const LocationModal: React.FC<LocationModalProps> = ({
   const [searchError, setSearchError] = useState<string | null>(null);
   const [useAsTitle, setUseAsTitle] = useState(false);
 
+  // Stato per mostrare il box info sopra il textbox
+  const [showSearchInfo, setShowSearchInfo] = useState(false);
+
+  // Stato per inserimento manuale (campo unico)
   const [manualInput, setManualInput] = useState('');
   const [manualVerified, setManualVerified] = useState<{
     address: string;
@@ -67,12 +73,15 @@ const LocationModal: React.FC<LocationModalProps> = ({
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState<string | null>(null);
 
+  // Animazione
   const [isAnimating, setIsAnimating] = useState(false);
 
+  // Reset e inizializzazione quando si apre il modal
   useEffect(() => {
     if (isOpen) {
       requestAnimationFrame(() => setIsAnimating(true));
 
+      // Pre-compila la ricerca
       if (existingLocation) {
         setSearchQuery(existingLocation.name);
         setSelectedResult({
@@ -102,6 +111,7 @@ const LocationModal: React.FC<LocationModalProps> = ({
         setManualVerified(null);
       }
 
+      // Reset altri stati
       setResults([]);
       setSearchError(null);
       setVerifyError(null);
@@ -113,6 +123,7 @@ const LocationModal: React.FC<LocationModalProps> = ({
     }
   }, [isOpen, categoryTitle, baseLocation, existingLocation]);
 
+  // Blocca scroll body quando modal è aperto
   useEffect(() => {
     if (isOpen) {
       const scrollY = window.scrollY;
@@ -131,6 +142,7 @@ const LocationModal: React.FC<LocationModalProps> = ({
     }
   }, [isOpen]);
 
+  // Handler ricerca
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
 
@@ -153,16 +165,19 @@ const LocationModal: React.FC<LocationModalProps> = ({
     }
   };
 
+  // Ricerca con Enter
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleSearch();
     }
   };
 
+  // Selezione risultato
   const handleSelectResult = (result: GeocodingResult) => {
     setSelectedResult(result);
   };
 
+  // Verifica input manuale (indirizzo o coordinate)
   const handleVerifyManual = async () => {
     if (!manualInput.trim()) return;
 
@@ -170,17 +185,21 @@ const LocationModal: React.FC<LocationModalProps> = ({
     setVerifyError(null);
     setManualVerified(null);
 
+    // Controlla se sono coordinate
     const coords = parseCoordinates(manualInput);
 
     if (coords) {
+      // Sono coordinate → nessuna chiamata API
       setManualVerified({
         address: `${coords.lat}, ${coords.lng}`,
         coordinates: coords
       });
       setIsVerifying(false);
+      console.log('📍 Coordinate riconosciute:', coords);
       return;
     }
 
+    // È un indirizzo → chiama Photon
     try {
       const searchResults = await searchPlaces(manualInput, { limit: 1 });
 
@@ -190,6 +209,7 @@ const LocationModal: React.FC<LocationModalProps> = ({
           address: result.address,
           coordinates: result.coordinates
         });
+        console.log('📍 Indirizzo trovato:', result.address);
       } else {
         setVerifyError('Indirizzo non trovato. Verifica e riprova.');
       }
@@ -201,11 +221,25 @@ const LocationModal: React.FC<LocationModalProps> = ({
     }
   };
 
-  const handleOpenGoogleMaps = (coords: { lat: number; lng: number }, name?: string) => {
-    const url = getGoogleMapsUrl(coords.lat, coords.lng, name);
-    window.open(url, '_blank');
+  // Apri in Google Maps
+  const handleOpenGoogleMaps = () => {
+    if (selectedResult) {
+      const url = getGoogleMapsUrl(
+        selectedResult.coordinates.lat,
+        selectedResult.coordinates.lng,
+        selectedResult.name
+      );
+      window.open(url, '_blank');
+    } else if (manualVerified) {
+      const url = getGoogleMapsUrl(
+        manualVerified.coordinates.lat,
+        manualVerified.coordinates.lng
+      );
+      window.open(url, '_blank');
+    }
   };
 
+  // Conferma salvataggio
   const handleConfirm = () => {
     let locationData: LocationData;
 
@@ -228,6 +262,7 @@ const LocationModal: React.FC<LocationModalProps> = ({
     onConfirm(locationData, useAsTitle);
   };
 
+  // Verifica se possiamo salvare
   const canSave = () => {
     if (viewMode === 'search') {
       return selectedResult !== null;
@@ -236,12 +271,11 @@ const LocationModal: React.FC<LocationModalProps> = ({
     }
   };
 
+  // Reset verifica quando cambia input manuale
   useEffect(() => {
     setManualVerified(null);
     setVerifyError(null);
   }, [manualInput]);
-
-  const sortedResults = results;
 
   if (!isOpen) return null;
 
@@ -269,9 +303,20 @@ const LocationModal: React.FC<LocationModalProps> = ({
               </button>
             )}
             <MapPin size={20} className="text-blue-500" />
-            <h3 className="text-lg font-semibold">
-              {viewMode === 'search' ? 'Posizione' : 'Inserimento manuale'}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold">
+                {viewMode === 'search' ? 'Posizione' : 'Inserimento manuale'}
+              </h3>
+              {viewMode === 'search' && (
+                <button
+                  type="button"
+                  onClick={() => setShowSearchInfo(!showSearchInfo)}
+                  className="w-5 h-5 flex items-center justify-center text-[10px] font-semibold text-gray-500 border border-gray-300 rounded-full hover:bg-gray-100"
+                >
+                  ?
+                </button>
+              )}
+            </div>
           </div>
           <button
             onClick={onClose}
@@ -286,6 +331,14 @@ const LocationModal: React.FC<LocationModalProps> = ({
           {viewMode === 'search' ? (
             <>
               {/* Search input */}
+              {/* Box info tutorial */}
+              {showSearchInfo && (
+                <p className="text-xs text-gray-600 bg-blue-50 p-3 rounded-lg mb-2 leading-relaxed">
+                  💡 Inserisci il luogo o l’indirizzo, i risultati appariranno sotto e saranno collegati a Google Maps.
+                </p>
+              )}
+
+              {/* Search input */}
               <div className="flex gap-2 mb-4">
                 <div className="flex-1 relative">
                   <input
@@ -295,6 +348,7 @@ const LocationModal: React.FC<LocationModalProps> = ({
                     onKeyDown={handleKeyDown}
                     placeholder="Cerca luogo o indirizzo..."
                     className="w-full pl-10 pr-4 py-3 border rounded-xl text-sm"
+                    autoFocus
                   />
                   <Search
                     size={18}
@@ -305,14 +359,14 @@ const LocationModal: React.FC<LocationModalProps> = ({
                   onClick={handleSearch}
                   disabled={isSearching || !searchQuery.trim()}
                   className="px-4 py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 
-                    text-white rounded-xl font-medium transition-colors flex-shrink-0"
+      text-white rounded-xl font-medium transition-colors flex-shrink-0"
                 >
                   {isSearching ? '...' : 'Cerca'}
                 </button>
               </div>
 
               {/* Contesto base */}
-              {baseLocation && !selectedResult && results.length === 0 && (
+              {baseLocation && !selectedResult && (
                 <div className="mb-4 px-3 py-2 bg-blue-50 rounded-lg text-xs text-blue-600">
                   💡 Base del giorno: <span className="font-medium">{baseLocation}</span>
                 </div>
@@ -332,52 +386,57 @@ const LocationModal: React.FC<LocationModalProps> = ({
               )}
 
               {/* Risultati */}
-              {sortedResults.length > 0 && (
+              {results.length > 0 && (
                 <div className="space-y-2 mb-4">
                   <p className="text-xs text-gray-500 mb-2">Risultati:</p>
-                  {sortedResults.map((result) => {
-                    const isSelected = selectedResult?.id === result.id;
-
-                    return (
-                      <div
-                        key={result.id}
-                        onClick={() => handleSelectResult(result)}
-                        className={`w-full text-left p-3 rounded-xl border-2 transition-all cursor-pointer ${isSelected
-                            ? 'border-green-400 bg-green-50'
-                            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                          }`}
-                      >
-                        <div className="flex items-start gap-2">
-                          <span className="text-lg">{result.type}</span>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">{result.name}</p>
-                            <p className="text-xs text-gray-500 truncate">{result.address}</p>
-                            <p className="text-xs text-gray-400 mt-1">
-                              📍 {formatCoordinates(result.coordinates.lat, result.coordinates.lng)}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {isSelected && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpenGoogleMaps(result.coordinates, result.name);
-                                }}
-                                className="flex items-center gap-1 px-2 py-1 bg-white hover:bg-gray-50 
-                                  border border-gray-200 rounded-lg text-xs font-medium transition-colors"
-                              >
-                                <ExternalLink size={12} />
-                                Maps
-                              </button>
-                            )}
-                            {isSelected && (
-                              <span className="text-green-500 text-sm">✓</span>
-                            )}
-                          </div>
+                  {results.map((result) => (
+                    <button
+                      key={result.id}
+                      onClick={() => handleSelectResult(result)}
+                      className={`w-full text-left p-3 rounded-xl border-2 transition-all ${selectedResult?.id === result.id
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                        }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        <span className="text-lg">{result.type}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{result.name}</p>
+                          <p className="text-xs text-gray-500 truncate">{result.address}</p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            📍 {formatCoordinates(result.coordinates.lat, result.coordinates.lng)}
+                          </p>
                         </div>
+                        {selectedResult?.id === result.id && (
+                          <span className="text-blue-500 text-sm">✓</span>
+                        )}
                       </div>
-                    );
-                  })}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Risultato selezionato - Azioni */}
+              {selectedResult && (
+                <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-xl">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{selectedResult.type}</span>
+                      <span className="font-medium text-sm">{selectedResult.name}</span>
+                    </div>
+                    <button
+                      onClick={handleOpenGoogleMaps}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-white hover:bg-gray-50 
+                        border border-gray-200 rounded-lg text-xs font-medium transition-colors"
+                    >
+                      <ExternalLink size={14} />
+                      Apri in Maps
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-600">{selectedResult.address}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    📍 {formatCoordinates(selectedResult.coordinates.lat, selectedResult.coordinates.lng)}
+                  </p>
                 </div>
               )}
 
@@ -392,6 +451,7 @@ const LocationModal: React.FC<LocationModalProps> = ({
               )}
             </>
           ) : (
+            /* Vista inserimento manuale - campo unico */
             <>
               <p className="text-sm text-gray-600 mb-4">
                 Inserisci un indirizzo o le coordinate (es. 45.4893, 9.2034)
@@ -409,9 +469,11 @@ const LocationModal: React.FC<LocationModalProps> = ({
                     onKeyDown={(e) => e.key === 'Enter' && handleVerifyManual()}
                     placeholder="es. Via Roma 1, Milano oppure 45.4893, 9.2034"
                     className="w-full px-4 py-3 border rounded-xl text-sm"
+                    autoFocus
                   />
                 </div>
 
+                {/* Pulsante verifica */}
                 <button
                   onClick={handleVerifyManual}
                   disabled={isVerifying || !manualInput.trim()}
@@ -422,12 +484,14 @@ const LocationModal: React.FC<LocationModalProps> = ({
                   {isVerifying ? 'Verifica in corso...' : 'Trova coordinate'}
                 </button>
 
+                {/* Errore verifica */}
                 {verifyError && (
                   <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
                     <p className="text-sm text-red-700">{verifyError}</p>
                   </div>
                 )}
 
+                {/* Risultato verifica */}
                 {manualVerified && (
                   <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
                     <div className="flex items-center justify-between mb-2">
@@ -435,7 +499,7 @@ const LocationModal: React.FC<LocationModalProps> = ({
                         ✅ Posizione trovata
                       </p>
                       <button
-                        onClick={() => handleOpenGoogleMaps(manualVerified.coordinates)}
+                        onClick={handleOpenGoogleMaps}
                         className="flex items-center gap-1 px-3 py-1.5 bg-white hover:bg-gray-50 
                           border border-gray-200 rounded-lg text-xs font-medium transition-colors"
                       >
@@ -450,6 +514,7 @@ const LocationModal: React.FC<LocationModalProps> = ({
                   </div>
                 )}
 
+                {/* Suggerimento */}
                 <p className="text-xs text-gray-400">
                   💡 Per trovare le coordinate su Google Maps: tasto destro sul punto → copia coordinate
                 </p>
@@ -460,6 +525,7 @@ const LocationModal: React.FC<LocationModalProps> = ({
 
         {/* Footer */}
         <div className="border-t p-4 space-y-3">
+          {/* Checkbox usa come nome */}
           {canSave() && (
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -474,6 +540,7 @@ const LocationModal: React.FC<LocationModalProps> = ({
             </label>
           )}
 
+          {/* Bottoni azione */}
           <div className="flex gap-3">
             <button
               onClick={onClose}
