@@ -389,54 +389,55 @@ const LocationModal: React.FC<LocationModalProps> = ({
               {results.length > 0 && (
                 <div className="space-y-2 mb-4">
                   <p className="text-xs text-gray-500 mb-2">Risultati:</p>
-                  {results.map((result) => (
-                    <button
-                      key={result.id}
-                      onClick={() => handleSelectResult(result)}
-                      className={`w-full text-left p-3 rounded-xl border-2 transition-all ${selectedResult?.id === result.id
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                        }`}
-                    >
-                      <div className="flex items-start gap-2">
-                        <span className="text-lg">{result.type}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">{result.name}</p>
-                          <p className="text-xs text-gray-500 truncate">{result.address}</p>
-                          <p className="text-xs text-gray-400 mt-1">
-                            📍 {formatCoordinates(result.coordinates.lat, result.coordinates.lng)}
-                          </p>
-                        </div>
-                        {selectedResult?.id === result.id && (
-                          <span className="text-blue-500 text-sm">✓</span>
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
+                  {results.map((result) => {
+                    const isSelected = selectedResult?.id === result.id;
 
-              {/* Risultato selezionato - Azioni */}
-              {selectedResult && (
-                <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-xl">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">{selectedResult.type}</span>
-                      <span className="font-medium text-sm">{selectedResult.name}</span>
-                    </div>
-                    <button
-                      onClick={handleOpenGoogleMaps}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-white hover:bg-gray-50 
-                        border border-gray-200 rounded-lg text-xs font-medium transition-colors"
-                    >
-                      <ExternalLink size={14} />
-                      Apri in Maps
-                    </button>
-                  </div>
-                  <p className="text-xs text-gray-600">{selectedResult.address}</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    📍 {formatCoordinates(selectedResult.coordinates.lat, selectedResult.coordinates.lng)}
-                  </p>
+                    return (
+                      <div
+                        key={result.id}
+                        onClick={() => handleSelectResult(result)}
+                        className={`w-full text-left p-3 rounded-xl border-2 transition-all cursor-pointer ${isSelected
+                          ? 'border-green-400 bg-green-50'
+                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                          }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <span className="text-lg">{result.type}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">{result.name}</p>
+                            <p className="text-xs text-gray-500 truncate">{result.address}</p>
+                            <p className="text-xs text-gray-400 mt-1">
+                              📍 {formatCoordinates(result.coordinates.lat, result.coordinates.lng)}
+                            </p>
+                          </div>
+
+                          {isSelected ? (
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const url = getGoogleMapsUrl(
+                                    result.coordinates.lat,
+                                    result.coordinates.lng,
+                                    result.name
+                                  );
+                                  window.open(url, '_blank');
+                                }}
+                                className="flex items-center gap-1 px-3 py-1.5 bg-white hover:bg-gray-50 
+        border border-gray-200 rounded-lg text-xs font-medium transition-colors"
+                              >
+                                <ExternalLink size={14} />
+                                Maps
+                              </button>
+                              <span className="text-green-500 text-lg">✓</span>
+                            </div>
+                          ) : (
+                            <span className="text-gray-300 text-sm">○</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
