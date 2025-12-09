@@ -15,6 +15,7 @@ import { useAnalytics } from '../../hooks/useAnalytics';
 import { deleteImage } from '../../services/storageService';
 import LocationModal from './LocationModal';
 import type { LocationData } from '../../services/geocodingService';
+import { deleteRemindersByCategory } from '../../services/notifications/reminderService';
 
 const DayDetailView = ({
   trip,
@@ -31,7 +32,7 @@ const DayDetailView = ({
   const currentDay = trip.days[dayIndex] || trip.days[0];
 
   // Custom Hooks
-  const { categoryData, otherExpenses, updateCategory, updateOtherExpense, removeOtherExpense, addOtherExpense } =
+  const { categoryData, otherExpenses, updateCategory, updateCategoryMultiple, updateOtherExpense, removeOtherExpense, addOtherExpense } =
     useDayData(trip, currentDay, onUpdateTrip, user.uid);
 
   const mediaHandlers = useMediaHandlers(categoryData, updateCategory, trip.id);
@@ -91,8 +92,14 @@ const DayDetailView = ({
 
   // 🆕 Reset completo di una categoria (riusabile)
   const resetCategory = useCallback((categoryId: string) => {
+
     const key = `${currentDay.id}-${categoryId}`;
     const currentData = trip.data[key] || {};
+
+    // 🆕 Elimina reminder associato
+    if (currentData.reminderId) {
+      deleteRemindersByCategory(String(trip.id), String(currentDay.id), categoryId);
+    }
 
     // 🧹 Elimina immagini da Storage (non bloccante)
     if (currentData.images?.length > 0) {
@@ -252,16 +259,33 @@ const DayDetailView = ({
 
   // Reset expanded categories quando cambia giorno, MA preserva highlightCategoryId
   useEffect(() => {
+    // Controlla dati direttamente da trip.data (evita race condition con categoryData)
+    const checkHasDataFromTrip = (catId: string) => {
+      const key = `${currentDay.id}-${catId}`;
+      const data = trip.data[key];
+      if (!data) return false;
+
+      return Boolean(
+        data.title?.trim() ||
+        data.cost?.trim() ||
+        data.links?.length ||
+        data.images?.length ||
+        data.videos?.length ||
+        data.mediaNotes?.length ||
+        data.notes?.trim()
+      );
+    };
+
     setExpandedCategories(prev => {
       const newSet = new Set<string>();
 
       prev.forEach(catId => {
-        if (categoryHasData(catId)) {
+        if (checkHasDataFromTrip(catId)) {
           newSet.add(catId);
         }
       });
 
-      if (highlightCategoryId && !categoryHasData(highlightCategoryId) && !ALWAYS_VISIBLE.includes(highlightCategoryId)) {
+      if (highlightCategoryId && !checkHasDataFromTrip(highlightCategoryId) && !ALWAYS_VISIBLE.includes(highlightCategoryId)) {
         newSet.add(highlightCategoryId);
       }
 
@@ -270,14 +294,14 @@ const DayDetailView = ({
 
     setSelectedCategoryId(null);
     setActiveCategoryId(null);
-  }, [dayIndex, highlightCategoryId]);
+  }, [dayIndex, highlightCategoryId, currentDay.id]);
 
   const hasScrolledRef = useRef(false);
   const scrollPositionRef = useRef(0);
 
   useEffect(() => {
     hasScrolledRef.current = false;
- }, [dayIndex, highlightCategoryId, currentDay.id]);
+  }, [dayIndex, highlightCategoryId, currentDay.id]);
 
   useEffect(() => {
     if (!highlightCategoryId || hasScrolledRef.current) return;
@@ -543,6 +567,7 @@ const DayDetailView = ({
                   [category.id]: !prev[category.id]
                 }))}
                 onUpdateCategory={updateCategory}
+                onUpdateCategoryMultiple={updateCategoryMultiple}
                 onMediaDialogOpen={(type) => mediaHandlers.setMediaDialogOpen({ type, categoryId: category.id })}
                 onImageUpload={(file) => mediaHandlers.addImage(category.id, file)}
                 onRemoveMedia={(mediaType, itemId) => mediaHandlers.removeMedia(category.id, mediaType, itemId)}
@@ -558,6 +583,10 @@ const DayDetailView = ({
                 isSelected={selectedCategoryId === category.id}
                 isActive={activeCategoryId === category.id}
                 onSelect={() => handleSelectCategory(category.id)}
+                tripId={String(trip.id)}
+                tripName={trip.name || trip.metadata?.name || 'Viaggio'}
+                dayId={String(currentDay.id)}
+                dayNumber={currentDay.number}
               />
             );
           } else {

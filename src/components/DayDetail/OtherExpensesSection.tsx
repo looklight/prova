@@ -62,7 +62,7 @@ const OtherExpensesSection: React.FC<OtherExpensesSectionProps> = ({
           selectedCategoryId === 'otherExpenses'
             ? 'ring-2 ring-blue-500'
             : 'ring-0 ring-transparent'
-        } bg-slate-50`}
+        } bg-lime-50`}
       >
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-semibold">💸 Altre Spese</h2>
@@ -137,7 +137,7 @@ const OtherExpensesSection: React.FC<OtherExpensesSectionProps> = ({
             selectedCategoryId === 'note'
               ? 'ring-2 ring-blue-500'
               : 'ring-0 ring-transparent'
-          } bg-slate-50`}
+          } bg-lime-50`}
         >
           <h2 className="text-base font-semibold mb-3 flex items-center gap-2">
             <span>📝</span>

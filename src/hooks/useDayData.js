@@ -14,6 +14,7 @@
  * - ✅ RESET CHIRURGICO: Breakdown vuoto resetta solo costi, non title/media
  * - 🔧 FIX PARTICIPANTS: Non sovrascrive più i participants quando si aggiorna costBreakdown
  * - 🆕 LOCATION: Supporto per geolocalizzazione categorie
+ * - 🆕 UPDATE MULTIPLO: updateCategoryMultiple per aggiornare più campi atomicamente
  */
 
 import { useState, useEffect, useRef } from 'react';
@@ -56,7 +57,11 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
         videos: cellData.videos || [],
         mediaNotes: cellData.mediaNotes || [],
         notes: cellData.notes || '',
-        location: cellData.location || null  // 🆕 Location
+        location: cellData.location || null,
+        startTime: cellData.startTime || null,
+        endTime: cellData.endTime || null,
+        reminder: cellData.reminder || null,
+        reminderId: cellData.reminderId || null
       };
     });
     return data;
@@ -111,7 +116,11 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
         videos: cellData.videos || [],
         mediaNotes: cellData.mediaNotes || [],
         notes: cellData.notes || '',
-        location: cellData.location || null  // 🆕 Location
+        location: cellData.location || null,
+        startTime: cellData.startTime || null,
+        endTime: cellData.endTime || null,
+        reminder: cellData.reminder || null,
+        reminderId: cellData.reminderId || null
       };
     });
 
@@ -292,6 +301,40 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
     onUpdateTrip({ ...trip, data: updatedData });
   };
 
+  // 🆕 Update multiplo - per aggiornare più campi atomicamente (es. orario + reminder)
+  const updateCategoryMultiple = (catId, fieldsObject) => {
+    const key = `${currentDay.id}-${catId}`;
+    const currentData = trip.data[key] || {};
+
+    // Merge tutti i campi
+    const updatedCellData = {
+      ...currentData,
+      ...fieldsObject
+    };
+
+    // Marca come update locale (evita loop in useEffect)
+    isLocalUpdateRef.current = true;
+
+    // Aggiorna stato locale
+    setCategoryData(prev => ({
+      ...prev,
+      [catId]: {
+        ...prev[catId],
+        ...updatedCellData
+      }
+    }));
+
+    console.log('💾 [updateCategoryMultiple] Stato locale aggiornato:', catId, Object.keys(fieldsObject));
+
+    const updatedData = {
+      ...trip.data,
+      [key]: updatedCellData
+    };
+
+    // Salva su Firebase
+    onUpdateTrip({ ...trip, data: updatedData });
+  };
+
   const updateOtherExpense = (expenseId, field, value) => {
     const key = `${currentDay.id}-otherExpenses`;
 
@@ -455,6 +498,7 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
     categoryData,
     otherExpenses,
     updateCategory,
+    updateCategoryMultiple,
     updateOtherExpense,
     removeOtherExpense,
     addOtherExpense

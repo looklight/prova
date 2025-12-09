@@ -12,6 +12,7 @@ import { normalizeDestination } from '../utils/textUtils';
 import CurrencySelector from './CurrencySelector';
 import { useAnalytics } from '../hooks/useAnalytics';
 
+
 interface TripMetadataModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -108,10 +109,10 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
   const calendarRef = useRef<HTMLDivElement>(null);
   const calendarButtonRef = useRef<HTMLButtonElement>(null);
   const [preferredCurrencies, setPreferredCurrencies] = useState<Record<string, any>>({});
-  
+
   // State per help boxes
   const [showHelp, setShowHelp] = useState<Record<string, boolean>>({});
-  
+
   const analytics = useAnalytics();
 
   const toggleHelp = (section: string) => {
@@ -173,7 +174,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
   }, [isOpen, initialData]);
 
   const addDestination = () => {
-    if (newDestination.trim() && destinations.length < 10) {
+    if (newDestination.trim() && destinations.length < 20) {
       const normalized = normalizeDestination(newDestination.trim());
       setDestinations([...destinations, normalized]);
 
@@ -266,7 +267,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
     onClose();
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       addDestination();
@@ -429,7 +430,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                   {destinations.map((dest, index) => (
                     <span
                       key={index}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 text-blue-800 rounded-full text-sm font-medium group hover:bg-blue-200 transition-colors"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-100 text-blue-800 rounded-full text-xs font-medium group hover:bg-blue-200 transition-colors"
                     >
                       <span>{dest}</span>
                       <button
@@ -449,23 +450,23 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                   type="text"
                   value={newDestination}
                   onChange={(e) => setNewDestination(e.target.value)}
-                  onKeyPress={handleKeyPress}
+                  onKeyDown={handleKeyDown}
                   placeholder="es. Tokyo"
                   className="flex-1 px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors text-sm"
                 />
                 <button
                   type="button"
                   onClick={addDestination}
-                  disabled={!newDestination.trim() || destinations.length >= 10}
+                  disabled={!newDestination.trim() || destinations.length >= 20}
                   className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium text-sm whitespace-nowrap"
                 >
                   + Inserisci
                 </button>
               </div>
 
-              {destinations.length >= 10 && (
+              {destinations.length >= 20 && (
                 <p className="text-xs text-amber-600 mt-2">
-                  ⚠️ Massimo 10 destinazioni
+                  ⚠️ Massimo 20 destinazioni
                 </p>
               )}
 
@@ -756,7 +757,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
               {showHelp['organizers'] && (
                 <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
                   <p className="text-xs text-gray-600 leading-relaxed">
-                    💡 {mode === 'create' 
+                    💡 {mode === 'create'
                       ? 'Dopo aver creato il viaggio potrai invitare altri collaboratori direttamente dal Menu del Viaggio.'
                       : 'Clicca su un partecipante per vedere il suo profilo. Solo l\'owner può invitare nuovi membri.'}
                   </p>

@@ -45,6 +45,32 @@ const getDaysUntilExpiry = (expiresAt) => {
 // 🆕 Messaggi per tipo notifica
 const getNotificationMessage = (item) => {
   switch (item.type) {
+    case 'activity_reminder':
+      return (
+        <>
+          <span className="text-sm">
+            <span className="font-semibold text-amber-700">Reminder</span>
+            {item.createdAt && (
+              <span className="text-xs text-gray-500">
+                {' · '}
+                {item.createdAt.toLocaleDateString('it-IT', {
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric'
+                })}
+              </span>
+            )}
+          </span>
+          <span className="block text-sm text-gray-900 mt-0.5">
+            {item.tripName}
+            {item.dayNumber && ` - Giorno ${item.dayNumber}`}
+            {item.activityTitle && ` - ${item.activityTitle}`}
+          </span>
+          {item.note && (
+            <span className="block text-xs text-gray-600 mt-1 italic">{item.note}</span>
+          )}
+        </>
+      );
     case 'member_left':
       return (
         <>
@@ -140,7 +166,7 @@ export default function NotificationCenter({ userProfile }) {
   // 🆕 Apri dropdown e segna tutto come letto
   const handleOpenDropdown = async () => {
     setShowDropdown(true);
-    
+
     // Segna come lette quando APRI (non quando chiudi)
     if (unreadNotifications > 0 && currentUser?.uid) {
       try {
@@ -179,10 +205,19 @@ export default function NotificationCenter({ userProfile }) {
   }, [showDropdown]);
 
   const handleNotificationClick = (notification) => {
-    // 🆕 Non navigare se è una notifica di rimozione (non hai più accesso al viaggio)
-    if (notification.type !== 'member_removed') {
+    // Non navigare se è una notifica di rimozione
+    if (notification.type === 'member_removed') {
+      setShowDropdown(false);
+      return;
+    }
+
+    // 🆕 Naviga al viaggio specifico
+    if (notification.tripId) {
+      navigate(`/trip/${notification.tripId}`);
+    } else {
       navigate('/');
     }
+
     setShowDropdown(false);
   };
 
@@ -347,11 +382,17 @@ export default function NotificationCenter({ userProfile }) {
                     className={`p-4 border-b border-gray-100 cursor-pointer transition-colors flex items-start gap-3 ${isUnread ? 'bg-blue-50' : 'bg-white hover:bg-gray-50'
                       }`}
                   >
-                    <Avatar
-                      src={item.actorAvatar}
-                      name={item.actorName || 'Utente'}
-                      size="sm"
-                    />
+                    {item.type === 'activity_reminder' ? (
+                      <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                        <Bell size={16} className="text-amber-600" />
+                      </div>
+                    ) : (
+                      <Avatar
+                        src={item.actorAvatar}
+                        name={item.actorName || 'Utente'}
+                        size="sm"
+                      />
+                    )}
 
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-gray-900">

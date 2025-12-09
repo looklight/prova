@@ -21,8 +21,11 @@ import { calculateTripCost } from "../utils/costsUtils";
 import { exportTripAsJSON, exportTripAsCSV, importTrip } from '../services/exportService';
 import { cleanupOldNotifications } from "../services/notifications/notificationService";
 import { cleanupExpiredInvites } from "../services/invites/linkInvites";
+import { useParams, useNavigate } from 'react-router-dom';
 
 const TravelPlannerApp = ({ user }) => {
+  const { tripId: urlTripId } = useParams();
+  const navigate = useNavigate();
   const [currentView, setCurrentView] = useState('home');
   const [trips, setTrips] = useState([]);
   const [currentTripId, setCurrentTripId] = useState(null);
@@ -144,6 +147,17 @@ const TravelPlannerApp = ({ user }) => {
     });
   }, [trips.length, user?.uid, userProfile]);
 
+  // 🆕 Apri viaggio da URL se presente
+  useEffect(() => {
+    if (urlTripId && trips.length > 0 && !loading) {
+      const tripToOpen = trips.find(t => String(t.id) === urlTripId);
+      if (tripToOpen) {
+        setCurrentTripId(tripToOpen.id);
+        setCurrentView('trip');
+      }
+    }
+  }, [urlTripId, trips, loading]);
+
   // 🚀 OTTIMIZZAZIONE 3: Memoize currentTrip per evitare ricalcoli
   const currentTrip = useMemo(() => {
     return trips.find(t => t.id === currentTripId);
@@ -237,33 +251,33 @@ const TravelPlannerApp = ({ user }) => {
     try {
       console.log('🗑️ Eliminazione viaggio...');
       const trip = trips.find(t => t.id === tripId);
-      
+
       if (trip) {
         const memberCount = Object.keys(trip.sharing?.members || {}).length;
         const action = memberCount > 1 ? 'left' : 'deleted';
         analytics.trackTripDeleted(tripId, trip.name, action, memberCount, isSeriousTrip(trip));
-        
+
         // 🆕 Se sta uscendo (non eliminando), prepara dati per notifica owner
         const isLeaving = action === 'left';
         let ownerId = null;
-        
+
         if (isLeaving) {
           // Trova l'owner del viaggio
           ownerId = Object.entries(trip.sharing.members)
             .find(([_, m]) => m.role === 'owner')?.[0];
         }
-        
+
         // Esegui operazione DB
         await deleteTripForUser(user.uid, tripId);
         console.log('✅ Viaggio eliminato/lasciato');
-        
+
         // 🆕 Invia notifica all'owner DOPO successo operazione
         if (isLeaving && ownerId && ownerId !== user.uid) {
           const effectiveProfile = userProfile || {
             displayName: user.displayName || 'Utente',
             avatar: user.photoURL
           };
-          
+
           await createMemberLeftNotification(
             ownerId,
             tripId,

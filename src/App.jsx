@@ -33,12 +33,12 @@ function AppContent() {
     // Ascolta i cambiamenti dello stato di autenticazione
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       console.log('👤 Utente corrente:', currentUser);
-      
+
       // 🆕 Controlla email verification (se abilitata)
       const requireVerification = import.meta.env.VITE_REQUIRE_EMAIL_VERIFICATION === 'true';
       const testEmails = ['test@looktravel.app', 'demo@looktravel.app'];
       const isTestEmail = currentUser?.email && testEmails.includes(currentUser.email.toLowerCase());
-      
+
       if (currentUser && requireVerification && !isTestEmail && !currentUser.emailVerified) {
         console.log('⚠️ Email non verificata, logout automatico');
         await auth.signOut();
@@ -47,7 +47,7 @@ function AppContent() {
         setLoading(false);
         return;
       }
-      
+
       setUser(currentUser);
 
       // Carica profilo utente se loggato
@@ -88,7 +88,7 @@ function AppContent() {
   return (
     <>
       {/* 🆕 COOKIE BANNER - Mostra su tutte le pagine */}
-      <CookieBanner 
+      <CookieBanner
         onAccept={() => {
           console.log('🍪 Cookie analitici accettati');
         }}
@@ -99,22 +99,34 @@ function AppContent() {
 
       <Routes>
         {/* Route principale */}
-        <Route 
-          path="/" 
+        <Route
+          path="/"
           element={
             user ? (
               <TravelPlannerApp user={user} />
             ) : (
               <AuthPage onAuthSuccess={() => console.log('Login effettuato!')} />
             )
-          } 
+          }
+        />
+
+        {/* 🆕 Route per aprire viaggio diretto */}
+        <Route
+          path="/trip/:tripId"
+          element={
+            user ? (
+              <TravelPlannerApp user={user} />
+            ) : (
+              <AuthPage onAuthSuccess={() => console.log('Login effettuato!')} />
+            )
+          }
         />
 
         {/* ⭐ ROUTE: Gestione inviti via link */}
-        <Route 
-          path="/invite/:token" 
+        <Route
+          path="/invite/:token"
           element={
-            <InviteHandler 
+            <InviteHandler
               userProfile={userProfile && user ? {
                 uid: user.uid,
                 displayName: userProfile.displayName,
@@ -122,7 +134,7 @@ function AppContent() {
                 avatar: userProfile.avatar
               } : undefined}
             />
-          } 
+          }
         />
 
         {/* 🆕 ROUTES LEGALI */}
@@ -131,22 +143,22 @@ function AppContent() {
         <Route path="/cookies" element={<CookiePage />} />
 
         {/* Route 404 - catch all */}
-        <Route 
-          path="*" 
+        <Route
+          path="*"
           element={
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
               <div className="text-center">
                 <h1 className="text-6xl font-bold text-gray-300 mb-4">404</h1>
                 <p className="text-xl text-gray-600 mb-6">Pagina non trovata</p>
-                <a 
-                  href="/" 
+                <a
+                  href="/"
                   className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 inline-block"
                 >
                   Torna alla Home
                 </a>
               </div>
             </div>
-          } 
+          }
         />
       </Routes>
     </>

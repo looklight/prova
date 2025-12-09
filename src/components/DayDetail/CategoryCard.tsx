@@ -3,6 +3,7 @@ import { Video, MapPin } from 'lucide-react';
 import { BookingToggle, CostInput, MediaButton, TransportSelector } from './ui';
 import { LinkCard, ImageCard, NoteCard, VideoEmbed, LinkIcon, ImageIcon, FileTextIcon } from './MediaCards';
 import OfflineDisabled from '../OfflineDisabled';
+import ActivitySchedule from './ui/ActivitySchedule';
 
 const BOOKING_COLORS = {
   na: 'bg-gray-400',
@@ -34,6 +35,7 @@ interface CategoryCardProps {
   transportSelectorOpen: boolean;
   onToggleTransportSelector: () => void;
   onUpdateCategory: (catId: string, field: string, value: any) => void;
+  onUpdateCategoryMultiple?: (catId: string, fields: Record<string, any>) => void;
   onMediaDialogOpen: (type: string) => void;
   onImageUpload: (file: File) => void;
   onRemoveMedia: (mediaType: string, itemId: number) => void;
@@ -45,6 +47,10 @@ interface CategoryCardProps {
   isSelected?: boolean;
   isActive?: boolean;
   onSelect?: () => void;
+  tripId?: string;
+  tripName?: string;
+  dayId?: string;
+  dayNumber?: number;
 }
 
 const CategoryCard: React.FC<CategoryCardProps> = ({
@@ -54,6 +60,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
   transportSelectorOpen,
   onToggleTransportSelector,
   onUpdateCategory,
+  onUpdateCategoryMultiple,
   onMediaDialogOpen,
   onImageUpload,
   onRemoveMedia,
@@ -64,7 +71,11 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
   tripMembers,
   isSelected = false,
   isActive = false,
-  onSelect
+  onSelect,
+  tripId,
+  tripName,
+  dayId,
+  dayNumber
 }) => {
   const [showBookingToggle, setShowBookingToggle] = React.useState(false);
 
@@ -97,6 +108,9 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
     categoryData.images?.length > 0 ||
     categoryData.videos?.length > 0 ||
     categoryData.mediaNotes?.length > 0;
+
+  // Orario presente
+  const hasTime = categoryData.startTime || categoryData.endTime;
 
   // Handler click sulla card
   const handleCardClick = (e: React.MouseEvent) => {
@@ -148,13 +162,12 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
                     onOpenLocation();
                   }}
                   className={`slide-in-right w-11 h-9 flex items-center justify-center rounded-full 
-                    active:scale-90 transition-transform ${
-                    hasLocation 
-                      ? isActive 
+                    active:scale-90 transition-transform ${hasLocation
+                      ? isActive
                         ? 'text-red-500 active:text-red-700'
                         : 'text-red-300'
                       : 'text-gray-400 active:text-gray-600'
-                  }`}
+                    }`}
                   title={hasLocation ? 'Modifica posizione' : 'Aggiungi posizione'}
                 >
                   <MapPin size={24} strokeWidth={hasLocation ? 2 : 1.5} />
@@ -236,10 +249,12 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
                   className="absolute left-0 top-1/2 transform -translate-y-1/2 w-11 h-9 flex items-center justify-center cursor-pointer group"
                   title="Gestisci prenotazione"
                 >
-                  {/* Pallino visivo piccolo, area touch grande */}
+                  {/* Pallino visivo piccolo, area touch grande - con centro bianco se ha orario */}
                   <span
-                    className={`w-3 h-3 rounded-full transition-all group-hover:scale-125 ${BOOKING_COLORS[categoryData.bookingStatus]}`}
-                  />
+                    className={`w-3 h-3 rounded-full transition-all group-hover:scale-125 ${BOOKING_COLORS[categoryData.bookingStatus]} ${hasTime ? 'flex items-center justify-center' : ''}`}
+                  >
+                    {hasTime && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                  </span>
                 </button>
               )}
               <OfflineDisabled>
@@ -280,16 +295,42 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
           )}
         </div>
 
-        {/* Booking Toggle - si apre solo cliccando sul pallino */}
+        {/* Booking Toggle + ActivitySchedule */}
         {category.id !== 'base' && category.id !== 'note' && (
           <div className={`transition-all duration-200 ease-out overflow-hidden ${showBookingToggle
             ? 'opacity-100 max-h-20 translate-y-0 mb-3'
             : 'opacity-0 max-h-0 -translate-y-2'
             }`}>
-            <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
               <BookingToggle
                 value={categoryData.bookingStatus}
                 onChange={(val) => onUpdateCategory(category.id, 'bookingStatus', val)}
+              />
+              <ActivitySchedule
+                startTime={categoryData.startTime || null}
+                endTime={categoryData.endTime || null}
+                reminder={categoryData.reminder || null}
+                reminderId={categoryData.reminderId || null}
+                onSave={(data) => {
+                  if (onUpdateCategoryMultiple) {
+                    onUpdateCategoryMultiple(category.id, {
+                      startTime: data.startTime,
+                      endTime: data.endTime,
+                      reminder: data.reminder,
+                      reminderId: data.reminderId
+                    });
+                  }
+                }}
+                tripId={tripId}
+                tripName={tripName}
+                dayId={dayId}
+                dayNumber={dayNumber}
+                categoryId={category.id}
+                categoryLabel={category.label}
+                activityTitle={categoryData.title || ''}
+                participants={categoryData.participants || null}
+                tripMembers={Object.keys(tripMembers || {}).filter(uid => tripMembers[uid]?.status === 'active')}
+                currentUserId={currentUserId}
               />
             </div>
           </div>

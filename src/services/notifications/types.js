@@ -6,9 +6,11 @@
 export const NOTIFICATION_TYPES = {
   LINK_INVITE_ACCEPTED: 'link_invite_accepted',
   USERNAME_INVITE_ACCEPTED: 'username_invite_accepted',
-  // 🆕 Notifiche uscita/rimozione membro
-  MEMBER_LEFT: 'member_left',           // Membro esce volontariamente → notifica all'owner
-  MEMBER_REMOVED: 'member_removed'      // Membro rimosso dall'owner → notifica al membro rimosso
+  // Notifiche uscita/rimozione membro
+  MEMBER_LEFT: 'member_left',
+  MEMBER_REMOVED: 'member_removed',
+  // 🆕 Notifiche reminder attività
+  ACTIVITY_REMINDER: 'activity_reminder'
 };
 
 /**
@@ -25,7 +27,6 @@ export const NOTIFICATION_CONFIG = {
     color: 'green',
     defaultTitle: (actorName) => `${actorName} ha accettato l'invito`
   },
-  // 🆕 Config per nuovi tipi
   [NOTIFICATION_TYPES.MEMBER_LEFT]: {
     icon: '👋',
     color: 'orange',
@@ -35,5 +36,26 @@ export const NOTIFICATION_CONFIG = {
     icon: '🚫',
     color: 'red',
     defaultTitle: () => `Sei stato rimosso dal viaggio`
+  },
+  // 🆕 Config per reminder attività
+  [NOTIFICATION_TYPES.ACTIVITY_REMINDER]: {
+    icon: '🔔',
+    color: 'amber',
+    defaultTitle: (data) => {
+      if (data?.activityTitle) {
+        return `Promemoria: ${data.activityTitle}`;
+      }
+      return 'Promemoria attività';
+    },
+    // Subtitle con nota se presente
+    subtitle: (data) => {
+      if (data?.note) {
+        return data.note;
+      }
+      if (data?.tripName && data?.dayNumber) {
+        return `${data.tripName} - Giorno ${data.dayNumber}`;
+      }
+      return null;
+    }
   }
 };

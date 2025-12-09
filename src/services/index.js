@@ -60,3 +60,13 @@ export {
   archiveTrip,
   unarchiveTrip
 } from './profileService';
+
+// Reminder service
+export {
+  createReminder,
+  updateReminder,
+  deleteReminder,
+  deleteRemindersByCategory,
+  deleteRemindersByTrip,
+  getReminderByCategory
+} from './notifications/reminderService';

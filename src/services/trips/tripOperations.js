@@ -1,11 +1,11 @@
 import { db } from '../../firebase';
-import { 
-  collection, 
-  doc, 
-  getDoc, 
-  getDocs, 
-  setDoc, 
-  updateDoc, 
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  updateDoc,
   deleteDoc,
   query,
   where,
@@ -18,6 +18,7 @@ import {
 import { canEdit } from './permissions';
 import { calculateUserSnapshot, removeUserFromBreakdowns } from '../../utils/costsUtils';
 import { cleanupTripImages, cleanupTripCover } from '../../utils/storageCleanup';
+import { deleteRemindersByTrip } from '../notifications/reminderService';
 
 // ============= HELPER PER CONVERSIONE DATE =============
 
@@ -26,9 +27,9 @@ import { cleanupTripImages, cleanupTripCover } from '../../utils/storageCleanup'
  */
 const safeConvertToDate = (timestamp) => {
   if (!timestamp) return new Date();
-  
+
   if (timestamp instanceof Date) return timestamp;
-  
+
   if (timestamp.toDate && typeof timestamp.toDate === 'function') {
     try {
       return timestamp.toDate();
@@ -37,16 +38,16 @@ const safeConvertToDate = (timestamp) => {
       return new Date();
     }
   }
-  
+
   if (typeof timestamp === 'string' || typeof timestamp === 'number') {
     const date = new Date(timestamp);
     if (!isNaN(date.getTime())) return date;
   }
-  
+
   if (timestamp.seconds !== undefined) {
     return new Date(timestamp.seconds * 1000);
   }
-  
+
   console.warn('⚠️ Formato timestamp non riconosciuto:', timestamp);
   return new Date();
 };
@@ -59,13 +60,13 @@ const safeConvertToDate = (timestamp) => {
 export const subscribeToUserTrips = (userId, onTripsUpdate, onError) => {
   try {
     const tripsRef = collection(db, 'trips');
-    
+
     const q = query(
       tripsRef,
       where('sharing.memberIds', 'array-contains', userId),
       orderBy('updatedAt', 'desc')
     );
-    
+
     const unsubscribe = onSnapshot(
       q,
       { includeMetadataChanges: false },
@@ -73,7 +74,7 @@ export const subscribeToUserTrips = (userId, onTripsUpdate, onError) => {
         const trips = [];
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
-          
+
           const member = data.sharing?.members?.[userId];
           if (member && member.status === 'active') {
             trips.push({
@@ -89,7 +90,7 @@ export const subscribeToUserTrips = (userId, onTripsUpdate, onError) => {
             });
           }
         });
-        
+
         console.log('🔄 Viaggi aggiornati in tempo reale:', trips.length);
         onTripsUpdate(trips);
       },
@@ -98,7 +99,7 @@ export const subscribeToUserTrips = (userId, onTripsUpdate, onError) => {
         if (onError) onError(error);
       }
     );
-    
+
     return unsubscribe;
   } catch (error) {
     console.error('❌ Errore sottoscrizione viaggi:', error);
@@ -112,14 +113,14 @@ export const subscribeToUserTrips = (userId, onTripsUpdate, onError) => {
 export const createTrip = async (trip, userProfile) => {
   try {
     const tripRef = doc(db, 'trips', trip.id.toString());
-    
+
     const metadata = trip.metadata || {
       name: trip.name || 'Nuovo Viaggio',
       image: trip.image || null,
       destinations: [],
       description: ''
     };
-    
+
     const sharing = {
       memberIds: [userProfile.uid],
       members: {
@@ -136,7 +137,7 @@ export const createTrip = async (trip, userProfile) => {
       invitations: {},
       shareLink: null
     };
-    
+
     const tripData = {
       ...trip,
       metadata,
@@ -152,7 +153,7 @@ export const createTrip = async (trip, userProfile) => {
         date: day.date
       }))
     };
-    
+
     await setDoc(tripRef, tripData);
     console.log('✅ Viaggio creato in /trips:', trip.id);
     return trip;
@@ -171,34 +172,34 @@ export const updateTrip = async (userId, tripId, updates) => {
     if (!hasPermission) {
       throw new Error('Non hai i permessi per modificare questo viaggio');
     }
-    
+
     const tripRef = doc(db, 'trips', tripId.toString());
-    
+
     const updateData = {
       ...updates,
       updatedAt: new Date()
     };
-    
+
     if (updates.days) {
       updateData.days = updates.days.map(day => ({
         ...day,
         date: day.date
       }));
     }
-    
+
     // 🔧 FIX: Rimuovi campi undefined (Firebase non li accetta)
     const cleanUpdateData = Object.fromEntries(
       Object.entries(updateData).filter(([_, value]) => value !== undefined)
     );
-    
+
     const docSnap = await getDoc(tripRef);
-    
+
     if (docSnap.exists()) {
       await updateDoc(tripRef, cleanUpdateData);
     } else {
       await setDoc(tripRef, cleanUpdateData);
     }
-    
+
     console.log('✅ Viaggio aggiornato:', tripId);
   } catch (error) {
     console.error('❌ Errore aggiornamento viaggio:', error);
@@ -215,16 +216,16 @@ export const updateTripMetadata = async (userId, tripId, metadata) => {
     if (!hasPermission) {
       throw new Error('Non hai i permessi per modificare questo viaggio');
     }
-    
+
     const tripRef = doc(db, 'trips', tripId.toString());
-    
+
     await updateDoc(tripRef, {
       'metadata': metadata,
       'name': metadata.name || 'Nuovo Viaggio',
       'image': metadata.image || null,
       'updatedAt': new Date()
     });
-    
+
     console.log('✅ Metadata viaggio aggiornati:', tripId);
   } catch (error) {
     console.error('❌ Errore aggiornamento metadata:', error);
@@ -297,6 +298,14 @@ export const leaveTrip = async (tripId, userId) => {
           console.log(`🗑️ Eliminati ${invitesSnap.size} inviti link`);
         }
 
+        // 🆕 Cleanup reminder
+        try {
+          await deleteRemindersByTrip(String(tripId));
+          console.log('🧹 Reminder viaggio eliminati');
+        } catch (reminderError) {
+          console.error('⚠️ Errore cleanup reminder:', reminderError);
+        }
+
         transaction.delete(tripRef);
         console.log('✅ Viaggio eliminato definitivamente');
         return { action: 'deleted' };
@@ -316,7 +325,7 @@ export const leaveTrip = async (tripId, userId) => {
           // 📸 Calcola snapshot spese (con dettaglio completo)
           console.log('📸 Calcolo snapshot spese...');
           const expenseSnapshot = calculateUserSnapshot(trip, userId);
-          
+
           console.log('🔍 DEBUG - Snapshot calcolato:', {
             total: expenseSnapshot.total,
             categoriesCount: Object.keys(expenseSnapshot.byCategory).length,
@@ -334,14 +343,14 @@ export const leaveTrip = async (tripId, userId) => {
           let remainingReferences = 0;
           Object.keys(cleanedData).forEach(key => {
             const cellData = cleanedData[key];
-            
+
             if (cellData?.costBreakdown && Array.isArray(cellData.costBreakdown)) {
               if (cellData.costBreakdown.some(entry => entry.userId === userId)) {
                 console.warn(`⚠️ Riferimento residuo trovato in ${key}`);
                 remainingReferences++;
               }
             }
-            
+
             if (key.endsWith('-otherExpenses') && Array.isArray(cellData)) {
               cellData.forEach((expense, idx) => {
                 if (expense?.costBreakdown && Array.isArray(expense.costBreakdown)) {
@@ -361,7 +370,7 @@ export const leaveTrip = async (tripId, userId) => {
           }
 
           const memberInfo = members[userId];
-          
+
           // ⭐ SALVA SNAPSHOT COMPLETO (con dettaglio items per categoria)
           const snapshotEntry = {
             userId,
@@ -417,7 +426,7 @@ export const leaveTrip = async (tripId, userId) => {
 
           try {
             await cleanupTripImages(trip);
-            
+
             if (trip.metadata?.imagePath || trip.metadata?.image) {
               const coverReference = trip.metadata.imagePath || trip.metadata.image;
               await cleanupTripCover(coverReference);
@@ -436,6 +445,14 @@ export const leaveTrip = async (tripId, userId) => {
             await batch.commit();
           }
 
+          // 🆕 Cleanup reminder
+          try {
+            await deleteRemindersByTrip(String(tripId));
+            console.log('🧹 Reminder viaggio eliminati');
+          } catch (reminderError) {
+            console.error('⚠️ Errore cleanup reminder:', reminderError);
+          }
+
           transaction.delete(tripRef);
           console.log('✅ Viaggio eliminato definitivamente');
           return { action: 'deleted' };
@@ -445,7 +462,7 @@ export const leaveTrip = async (tripId, userId) => {
       // ⭐ CASO 3: Member normale che abbandona
       console.log('📸 Calcolo snapshot spese...');
       const expenseSnapshot = calculateUserSnapshot(trip, userId);
-      
+
       console.log('🔍 DEBUG - Snapshot calcolato:', {
         total: expenseSnapshot.total,
         categoriesCount: Object.keys(expenseSnapshot.byCategory).length,
@@ -462,14 +479,14 @@ export const leaveTrip = async (tripId, userId) => {
       let remainingReferences = 0;
       Object.keys(cleanedData).forEach(key => {
         const cellData = cleanedData[key];
-        
+
         if (cellData?.costBreakdown && Array.isArray(cellData.costBreakdown)) {
           if (cellData.costBreakdown.some(entry => entry.userId === userId)) {
             console.warn(`⚠️ Riferimento residuo trovato in ${key}`);
             remainingReferences++;
           }
         }
-        
+
         if (key.endsWith('-otherExpenses') && Array.isArray(cellData)) {
           cellData.forEach((expense, idx) => {
             if (expense?.costBreakdown && Array.isArray(expense.costBreakdown)) {
@@ -489,7 +506,7 @@ export const leaveTrip = async (tripId, userId) => {
       }
 
       const memberInfo = members[userId];
-      
+
       // ⭐ SALVA SNAPSHOT COMPLETO
       const snapshotEntry = {
         userId,
@@ -556,18 +573,18 @@ export const loadTrip = async (userId, tripId) => {
   try {
     const tripRef = doc(db, 'trips', tripId.toString());
     const snapshot = await getDoc(tripRef);
-    
+
     if (!snapshot.exists()) {
       throw new Error('Viaggio non trovato');
     }
-    
+
     const data = snapshot.data();
-    
+
     const member = data.sharing?.members?.[userId];
     if (!member || member.status !== 'active') {
       throw new Error('Non hai accesso a questo viaggio');
     }
-    
+
     return {
       id: snapshot.id,
       ...data,
@@ -632,25 +649,25 @@ export const loadUserTrips = async (userId) => {
 export const updateUserProfileInTrips = async (userId, updates) => {
   try {
     const tripsRef = collection(db, 'trips');
-    
+
     const q = query(
       tripsRef,
       where('sharing.memberIds', 'array-contains', userId)
     );
-    
+
     const snapshot = await getDocs(q);
-    
+
     const batch = writeBatch(db);
     let updatedCount = 0;
-    
+
     snapshot.docs.forEach((docSnap) => {
       const data = docSnap.data();
       const member = data.sharing?.members?.[userId];
-      
+
       if (member && member.status === 'active') {
         const tripRef = docSnap.ref;
         const updatePath = { updatedAt: new Date() };
-        
+
         if (updates.displayName !== undefined) {
           updatePath[`sharing.members.${userId}.displayName`] = updates.displayName;
         }
@@ -660,14 +677,14 @@ export const updateUserProfileInTrips = async (userId, updates) => {
         if (updates.avatar !== undefined) {
           updatePath[`sharing.members.${userId}.avatar`] = updates.avatar;
         }
-        
+
         batch.update(tripRef, updatePath);
         updatedCount++;
       }
     });
-    
+
     await batch.commit();
-    
+
     console.log(`✅ Profilo aggiornato in ${updatedCount} viaggi`);
     return updatedCount;
   } catch (error) {
