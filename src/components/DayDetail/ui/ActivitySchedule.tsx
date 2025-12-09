@@ -268,7 +268,7 @@ const ActivitySchedule: React.FC<ActivityScheduleProps> = ({
                   type="time"
                   value={tempStartTime}
                   onChange={(e) => setTempStartTime(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  className="w-full px-3 py-2 h-10 border border-gray-200 rounded-lg text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white appearance-none"
                 />
               </div>
               <div className="flex-1">
@@ -277,7 +277,7 @@ const ActivitySchedule: React.FC<ActivityScheduleProps> = ({
                   type="time"
                   value={tempEndTime}
                   onChange={(e) => setTempEndTime(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  className="w-full px-3 py-2 h-10 border border-gray-200 rounded-lg text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white appearance-none"
                 />
               </div>
             </div>
@@ -305,7 +305,7 @@ const ActivitySchedule: React.FC<ActivityScheduleProps> = ({
               </button>
             </div>
 
-            {/* Testo che appare sotto, identico allo stile dell’altro modal */}
+            {/* Testo che appare sotto */}
             {showReminderInfo && (
               <p className="text-xs text-gray-600 bg-blue-50 p-3 rounded-lg leading-relaxed mb-2">
                 💡 Imposta un promemoria per ricordare scadenze, check-in, prenotazioni o dettagli importanti legati all’attività. Riceverai una notifica direttamente dalla app.
@@ -330,7 +330,7 @@ const ActivitySchedule: React.FC<ActivityScheduleProps> = ({
                     value={tempReminderTime}
                     onChange={(e) => setTempReminderTime(e.target.value)}
                     disabled={!tempReminderDate}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 disabled:bg-gray-50 disabled:text-gray-400"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 bg-white disabled:text-gray-400"
                   />
                 </div>
               </div>
