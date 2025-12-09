@@ -257,28 +257,42 @@ const ActivitySchedule: React.FC<ActivityScheduleProps> = ({
 
           {/* Sezione Orario */}
           <div>
-            <label className="block text-sm font-medium mb-1 text-[var(--primary-10)] flex items-center gap-1">
+            <label className="block text-sm font-medium mb-2 text-gray-700 flex items-center gap-1">
               <span>Orario</span>
               <span className="text-xs font-normal text-gray-400">(opzionale)</span>
             </label>
             <div className="flex items-center gap-3">
               <div className="flex-1">
                 <label className="text-xs text-gray-500 mb-1 block">Inizio</label>
-                <input
-                  type="time"
-                  value={tempStartTime}
-                  onChange={(e) => setTempStartTime(e.target.value)}
-                  className="w-full px-3 py-2 h-10 border border-gray-200 rounded-lg text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white appearance-none"
-                />
+                <div className="relative">
+                  <input
+                    type="time"
+                    value={tempStartTime}
+                    onChange={(e) => setTempStartTime(e.target.value)}
+                    className={`w-full px-3 py-2.5 h-11 border border-gray-200 rounded-lg text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white ${!tempStartTime ? 'text-transparent' : 'text-gray-900'}`}
+                  />
+                  {!tempStartTime && (
+                    <span className="absolute inset-0 flex items-center px-3 text-sm text-gray-400 pointer-events-none">
+                      --:--
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="flex-1">
                 <label className="text-xs text-gray-500 mb-1 block">Fine</label>
-                <input
-                  type="time"
-                  value={tempEndTime}
-                  onChange={(e) => setTempEndTime(e.target.value)}
-                  className="w-full px-3 py-2 h-10 border border-gray-200 rounded-lg text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white appearance-none"
-                />
+                <div className="relative">
+                  <input
+                    type="time"
+                    value={tempEndTime}
+                    onChange={(e) => setTempEndTime(e.target.value)}
+                    className={`w-full px-3 py-2.5 h-11 border border-gray-200 rounded-lg text-sm focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white ${!tempEndTime ? 'text-transparent' : 'text-gray-900'}`}
+                  />
+                  {!tempEndTime && (
+                    <span className="absolute inset-0 flex items-center px-3 text-sm text-gray-400 pointer-events-none">
+                      --:--
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -316,22 +330,36 @@ const ActivitySchedule: React.FC<ActivityScheduleProps> = ({
               <div className="flex gap-3">
                 <div className="flex-1">
                   <label className="text-xs text-gray-500 mb-1 block">Data</label>
-                  <input
-                    type="date"
-                    value={tempReminderDate}
-                    onChange={(e) => setTempReminderDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
-                  />
+                  <div className="relative">
+                    <input
+                      type="date"
+                      value={tempReminderDate}
+                      onChange={(e) => setTempReminderDate(e.target.value)}
+                      className={`w-full px-3 py-2.5 h-11 border border-gray-200 rounded-lg text-sm focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 bg-white ${!tempReminderDate ? 'text-transparent' : 'text-gray-900'}`}
+                    />
+                    {!tempReminderDate && (
+                      <span className="absolute inset-0 flex items-center px-3 text-sm text-gray-400 pointer-events-none">
+                        gg/mm/aaaa
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="w-28">
                   <label className="text-xs text-gray-500 mb-1 block">Ora</label>
-                  <input
-                    type="time"
-                    value={tempReminderTime}
-                    onChange={(e) => setTempReminderTime(e.target.value)}
-                    disabled={!tempReminderDate}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 bg-white disabled:text-gray-400"
-                  />
+                  <div className="relative">
+                    <input
+                      type="time"
+                      value={tempReminderTime}
+                      onChange={(e) => setTempReminderTime(e.target.value)}
+                      disabled={!tempReminderDate}
+                      className={`w-full px-3 py-2.5 h-11 border border-gray-200 rounded-lg text-sm focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 bg-white disabled:bg-gray-50 ${!tempReminderTime ? 'text-transparent' : ''} ${!tempReminderDate ? 'text-gray-400' : 'text-gray-900'}`}
+                    />
+                    {!tempReminderTime && tempReminderDate && (
+                      <span className="absolute inset-0 flex items-center px-3 text-sm text-gray-400 pointer-events-none">
+                        --:--
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
