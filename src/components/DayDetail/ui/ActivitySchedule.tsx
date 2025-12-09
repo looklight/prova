@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Bell, X } from 'lucide-react';
+import { Bell, X, Calendar, ChevronDown } from 'lucide-react';
+import { DayPicker } from 'react-day-picker';
+import { it } from 'date-fns/locale';
+import 'react-day-picker/dist/style.css';
 import {
   createReminder,
   updateReminder,
@@ -36,6 +39,64 @@ interface ActivityScheduleProps {
   currentUserId: string;
 }
 
+// Componente TimePicker custom con due select
+const TimePicker: React.FC<{
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  placeholder?: string;
+}> = ({ value, onChange, disabled = false, placeholder = '--:--' }) => {
+  const [hours, minutes] = value ? value.split(':') : ['', ''];
+
+  const handleHoursChange = (newHours: string) => {
+    const newMinutes = minutes || '00';
+    if (newHours) {
+      onChange(`${newHours}:${newMinutes}`);
+    } else {
+      onChange('');
+    }
+  };
+
+  const handleMinutesChange = (newMinutes: string) => {
+    const newHours = hours || '09';
+    if (hours || newMinutes) {
+      onChange(`${newHours}:${newMinutes}`);
+    }
+  };
+
+  const hoursOptions = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
+  const minutesOptions = ['00', '15', '30', '45'];
+
+  return (
+    <div className={`flex items-center gap-1 px-2 py-2 border-2 border-gray-200 rounded-lg bg-white ${disabled ? 'bg-gray-100 opacity-60' : ''}`}>
+      <select
+        value={hours}
+        onChange={(e) => handleHoursChange(e.target.value)}
+        disabled={disabled}
+        className="bg-transparent text-sm focus:outline-none cursor-pointer appearance-none text-center w-8"
+      >
+        <option value="">--</option>
+        {hoursOptions.map((h) => (
+          <option key={h} value={h}>{h}</option>
+        ))}
+      </select>
+      <span className="text-gray-400">:</span>
+      <select
+        value={minutes}
+        onChange={(e) => handleMinutesChange(e.target.value)}
+        disabled={disabled || !hours}
+        className="bg-transparent text-sm focus:outline-none cursor-pointer appearance-none text-center w-8"
+      >
+        <option value="">--</option>
+        {minutesOptions.map((m) => (
+          <option key={m} value={m}>{m}</option>
+        ))}
+      </select>
+      <ChevronDown size={14} className="text-gray-400 ml-auto" />
+    </div>
+  );
+};
+
 const ActivitySchedule: React.FC<ActivityScheduleProps> = ({
   startTime,
   endTime,
@@ -63,6 +124,9 @@ const ActivitySchedule: React.FC<ActivityScheduleProps> = ({
   const [tempReminderTime, setTempReminderTime] = useState('09:00');
   const [tempReminderNote, setTempReminderNote] = useState('');
   const [showReminderInfo, setShowReminderInfo] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const datePickerRef = useRef<HTMLDivElement>(null);
 
   // Calcola durata in formato leggibile
   const calculateDuration = (start: string, end: string): string | null => {
@@ -91,6 +155,24 @@ const ActivitySchedule: React.FC<ActivityScheduleProps> = ({
     return `${day}/${month}`;
   };
 
+  // Formatta data per display nel button
+  const formatDateDisplay = (dateString: string): string => {
+    if (!dateString) return 'Seleziona data';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+
+  // Converti stringa ISO a Date
+  const parseDate = (dateString: string): Date | undefined => {
+    if (!dateString) return undefined;
+    return new Date(dateString);
+  };
+
+  // Converti Date a stringa ISO (YYYY-MM-DD)
+  const formatDateISO = (date: Date): string => {
+    return date.toISOString().split('T')[0];
+  };
+
   // Sincronizza stati quando si apre il modal
   useEffect(() => {
     if (isModalOpen) {
@@ -99,6 +181,7 @@ const ActivitySchedule: React.FC<ActivityScheduleProps> = ({
       setTempReminderDate(reminder?.date || '');
       setTempReminderTime(reminder?.time || '09:00');
       setTempReminderNote(reminder?.note || '');
+      setShowDatePicker(false);
     }
   }, [isModalOpen, startTime, endTime, reminder]);
 
@@ -106,11 +189,29 @@ const ActivitySchedule: React.FC<ActivityScheduleProps> = ({
   useEffect(() => {
     if (!isModalOpen) return;
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsModalOpen(false);
+      if (e.key === 'Escape') {
+        if (showDatePicker) {
+          setShowDatePicker(false);
+        } else {
+          setIsModalOpen(false);
+        }
+      }
     };
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [isModalOpen]);
+  }, [isModalOpen, showDatePicker]);
+
+  // Click fuori dal date picker lo chiude
+  useEffect(() => {
+    if (!showDatePicker) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (datePickerRef.current && !datePickerRef.current.contains(e.target as Node)) {
+        setShowDatePicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showDatePicker]);
 
   // Blocca scroll body quando modal è aperto
   useEffect(() => {
@@ -133,6 +234,13 @@ const ActivitySchedule: React.FC<ActivityScheduleProps> = ({
   const handleOpenModal = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsModalOpen(true);
+  };
+
+  const handleDateSelect = (date: Date | undefined) => {
+    if (date) {
+      setTempReminderDate(formatDateISO(date));
+      setShowDatePicker(false);
+    }
   };
 
   const handleConfirm = async () => {
@@ -194,7 +302,7 @@ const ActivitySchedule: React.FC<ActivityScheduleProps> = ({
 
       setIsModalOpen(false);
     } catch (error) {
-      console.error('❌ Errore salvataggio:', error);
+      console.error('Errore salvataggio:', error);
       alert('Errore nel salvataggio');
     } finally {
       setIsLoading(false);
@@ -219,7 +327,7 @@ const ActivitySchedule: React.FC<ActivityScheduleProps> = ({
 
       setIsModalOpen(false);
     } catch (error) {
-      console.error('❌ Errore rimozione:', error);
+      console.error('Errore rimozione:', error);
     } finally {
       setIsLoading(false);
     }
@@ -238,7 +346,7 @@ const ActivitySchedule: React.FC<ActivityScheduleProps> = ({
       onClick={() => setIsModalOpen(false)}
     >
       <div
-        className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden"
+        className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -253,7 +361,7 @@ const ActivitySchedule: React.FC<ActivityScheduleProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-4 overflow-y-auto flex-1">
 
           {/* Sezione Orario */}
           <div>
@@ -264,22 +372,16 @@ const ActivitySchedule: React.FC<ActivityScheduleProps> = ({
             <div className="flex items-center gap-3">
               <div className="flex-1">
                 <label className="text-xs text-gray-500 mb-1 block">Inizio</label>
-                <input
-                  type="time"
+                <TimePicker
                   value={tempStartTime}
-                  onChange={(e) => setTempStartTime(e.target.value)}
-                  placeholder="--:--"
-                  className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm focus:border-blue-400 focus:outline-none transition-colors bg-white"
+                  onChange={setTempStartTime}
                 />
               </div>
               <div className="flex-1">
                 <label className="text-xs text-gray-500 mb-1 block">Fine</label>
-                <input
-                  type="time"
+                <TimePicker
                   value={tempEndTime}
-                  onChange={(e) => setTempEndTime(e.target.value)}
-                  placeholder="--:--"
-                  className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm focus:border-blue-400 focus:outline-none transition-colors bg-white"
+                  onChange={setTempEndTime}
                 />
               </div>
             </div>
@@ -297,7 +399,6 @@ const ActivitySchedule: React.FC<ActivityScheduleProps> = ({
                 <span className="text-xs font-normal text-gray-400">(opzionale)</span>
               </label>
 
-              {/* Icona "?" come nel TripMetadataModal */}
               <button
                 type="button"
                 onClick={() => setShowReminderInfo(!showReminderInfo)}
@@ -307,32 +408,79 @@ const ActivitySchedule: React.FC<ActivityScheduleProps> = ({
               </button>
             </div>
 
-            {/* Testo che appare sotto */}
             {showReminderInfo && (
               <p className="text-xs text-gray-600 bg-blue-50 p-3 rounded-lg leading-relaxed mb-2">
-                💡 Imposta un promemoria per ricordare scadenze, check-in, prenotazioni o dettagli importanti legati all’attività. Riceverai una notifica direttamente dalla app.
+                Imposta un promemoria per ricordare scadenze, check-in, prenotazioni o dettagli importanti legati all'attività. Riceverai una notifica direttamente dalla app.
               </p>
             )}
 
             <div className="space-y-3">
               <div className="flex gap-3">
-                <div className="flex-1">
+                {/* Date Picker */}
+                <div className="flex-1 relative" ref={datePickerRef}>
                   <label className="text-xs text-gray-500 mb-1 block">Data</label>
-                  <input
-                    type="date"
-                    value={tempReminderDate}
-                    onChange={(e) => setTempReminderDate(e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm focus:border-amber-400 focus:outline-none transition-colors bg-white"
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowDatePicker(!showDatePicker)}
+                    className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm text-left bg-white flex items-center justify-between hover:border-gray-300 transition-colors"
+                  >
+                    <span className={tempReminderDate ? 'text-gray-900' : 'text-gray-400'}>
+                      {formatDateDisplay(tempReminderDate)}
+                    </span>
+                    <Calendar size={16} className="text-gray-400" />
+                  </button>
+
+                  {showDatePicker && (
+                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                      <style>{`
+                        .activity-calendar {
+                          --rdp-accent-color: #f59e0b;
+                          --rdp-accent-background-color: #fef3c7;
+                          font-size: 0.875rem;
+                        }
+                        .activity-calendar .rdp-day_button {
+                          border-radius: 50%;
+                        }
+                        .activity-calendar .rdp-selected .rdp-day_button {
+                          background-color: #f59e0b;
+                          color: white;
+                        }
+                        .activity-calendar .rdp-today:not(.rdp-selected) .rdp-day_button {
+                          border: 2px solid #f59e0b;
+                        }
+                      `}</style>
+                      <DayPicker
+                        className="activity-calendar p-2"
+                        mode="single"
+                        selected={parseDate(tempReminderDate)}
+                        onSelect={handleDateSelect}
+                        locale={it}
+                      />
+                      {tempReminderDate && (
+                        <div className="px-3 pb-2 border-t border-gray-100 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTempReminderDate('');
+                              setShowDatePicker(false);
+                            }}
+                            className="text-xs text-red-500 hover:text-red-600"
+                          >
+                            Rimuovi data
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div className="w-24">
+
+                {/* Time Picker per reminder */}
+                <div className="w-28">
                   <label className="text-xs text-gray-500 mb-1 block">Ora</label>
-                  <input
-                    type="time"
+                  <TimePicker
                     value={tempReminderTime}
-                    onChange={(e) => setTempReminderTime(e.target.value)}
+                    onChange={setTempReminderTime}
                     disabled={!tempReminderDate}
-                    className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm focus:border-amber-400 focus:outline-none transition-colors bg-white disabled:bg-gray-100 disabled:text-gray-400"
                   />
                 </div>
               </div>
@@ -344,7 +492,7 @@ const ActivitySchedule: React.FC<ActivityScheduleProps> = ({
                   onChange={(e) => setTempReminderNote(e.target.value)}
                   disabled={!tempReminderDate}
                   placeholder="Es: Cancellazione gratuita entro oggi"
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none h-16 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 disabled:bg-gray-50 disabled:text-gray-400 disabled:placeholder-gray-300"
+                  className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-sm resize-none h-16 focus:border-amber-400 focus:outline-none transition-colors disabled:bg-gray-100 disabled:text-gray-400 disabled:placeholder-gray-300"
                 />
               </div>
             </div>
@@ -400,7 +548,7 @@ const ActivitySchedule: React.FC<ActivityScheduleProps> = ({
                   {startTime && <span>{startTime}</span>}
                   {endTime && (
                     <span className="flex items-center gap-1">
-                      <span className="text-gray-400">→</span>
+                      <span className="text-gray-400">-</span>
                       <span>{endTime}</span>
                     </span>
                   )}
