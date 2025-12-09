@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Upload, UserPlus, Crown, Calendar, HelpCircle } from 'lucide-react';
+import { X, Upload, UserPlus, Crown, Calendar, HelpCircle, MapPin } from 'lucide-react';
 import { DayPicker, DateRange } from 'react-day-picker';
 import { it } from 'date-fns/locale';
 import 'react-day-picker/dist/style.css';
@@ -11,6 +11,7 @@ import Avatar from './Avatar';
 import { normalizeDestination } from '../utils/textUtils';
 import CurrencySelector from './CurrencySelector';
 import { useAnalytics } from '../hooks/useAnalytics';
+import DestinationAutocomplete, { Destination } from './DestinationAutocomplete';
 
 
 interface TripMetadataModalProps {
@@ -48,7 +49,7 @@ export interface TripMetadata {
   name: string;
   image: string | null;
   imagePath?: string | null;
-  destinations: string[];
+  destinations: Destination[];
   description: string;
   startDate?: Date;
   endDate?: Date;
@@ -95,8 +96,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
   onInviteClick
 }) => {
   const [tripName, setTripName] = useState('');
-  const [destinations, setDestinations] = useState<string[]>([]);
-  const [newDestination, setNewDestination] = useState('');
+  const [destinations, setDestinations] = useState<Destination[]>([]);
   const [description, setDescription] = useState('');
   const [image, setImage] = useState<string | null>(null);
   const [imagePath, setImagePath] = useState<string | null>(null);
@@ -173,24 +173,11 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
     }
   }, [isOpen, initialData]);
 
-  const addDestination = () => {
-    if (newDestination.trim() && destinations.length < 20) {
-      const normalized = normalizeDestination(newDestination.trim());
-      setDestinations([...destinations, normalized]);
-
-      if (mode === 'edit' && initialData?.tripId) {
-        analytics.trackDestinationAdded(normalized, initialData.tripId, 'edit');
-      }
-
-      setNewDestination('');
-    }
-  };
-
   const removeDestination = (index: number) => {
     const removedDest = destinations[index];
 
     if (mode === 'edit' && initialData?.tripId && removedDest) {
-      analytics.trackDestinationRemoved(removedDest, initialData.tripId);
+      analytics.trackDestinationRemoved(removedDest.name, initialData.tripId);
     }
 
     setDestinations(destinations.filter((_, i) => i !== index));
@@ -265,13 +252,6 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
     }
 
     onClose();
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      addDestination();
-    }
   };
 
   // Calcola numero giorni
@@ -432,7 +412,10 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                       key={index}
                       className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-100 text-blue-800 rounded-full text-xs font-medium group hover:bg-blue-200 transition-colors"
                     >
-                      <span>{dest}</span>
+                      {dest.coordinates && (
+                        <MapPin size={12} className="text-blue-600" />
+                      )}
+                      <span>{dest.name}</span>
                       <button
                         type="button"
                         onClick={() => removeDestination(index)}
@@ -445,24 +428,19 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                 </div>
               )}
 
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newDestination}
-                  onChange={(e) => setNewDestination(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="es. Tokyo"
-                  className="flex-1 px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors text-sm"
-                />
-                <button
-                  type="button"
-                  onClick={addDestination}
-                  disabled={!newDestination.trim() || destinations.length >= 20}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium text-sm whitespace-nowrap"
-                >
-                  + Inserisci
-                </button>
-              </div>
+              <DestinationAutocomplete
+                onSelect={(destination) => {
+                  if (destinations.length < 20) {
+                    setDestinations([...destinations, destination]);
+
+                    if (mode === 'edit' && initialData?.tripId) {
+                      analytics.trackDestinationAdded(destination.name, initialData.tripId, 'edit');
+                    }
+                  }
+                }}
+                placeholder="es. Tokyo"
+                disabled={destinations.length >= 20}
+              />
 
               {destinations.length >= 20 && (
                 <p className="text-xs text-amber-600 mt-2">

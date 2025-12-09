@@ -95,8 +95,8 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
   // Location presente
   const hasLocation = categoryData.location?.coordinates != null;
 
-  // Categorie che possono avere location (escludi base, note, otherExpenses)
-  const canHaveLocation = !['base', 'note', 'otherExpenses'].includes(category.id);
+  // Categorie che possono avere location (escludi note, otherExpenses)
+  const canHaveLocation = !['note', 'otherExpenses'].includes(category.id);
 
   // Mostra pulsante location: quando attivo OPPURE quando ha location
   const showLocationButton = canHaveLocation &&

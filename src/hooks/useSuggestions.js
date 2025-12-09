@@ -52,9 +52,12 @@ export const useSuggestions = (trip, dayIndex, categoryData) => {
 
     const destinations = trip.metadata?.destinations || [];
     destinations.forEach(dest => {
-      if (!suggestions.some(s => s.value === dest)) {
+      // Gestisci sia oggetti {name, coordinates} che stringhe legacy
+      const destName = typeof dest === 'string' ? dest : dest.name;
+
+      if (destName && !suggestions.some(s => s.value === destName)) {
         suggestions.push({
-          value: dest,
+          value: destName,
           icon: '🗺️',
           type: 'destination',
           label: 'destinazione'
