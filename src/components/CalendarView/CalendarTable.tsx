@@ -21,6 +21,7 @@ interface CalendarTableProps {
   showCosts: boolean;
   expandedNotes: boolean;
   expandedOtherExpenses: boolean;
+  showLocationIndicators: boolean;
   hoveredCell: string | null;
   currentUserId: string;
   getCellData: (dayId: number, categoryId: string) => any;
@@ -36,6 +37,7 @@ interface CalendarTableProps {
   onToggleCosts: () => void;
   onToggleNotes: () => void;
   onToggleOtherExpenses: () => void;
+  onToggleLocationIndicators: () => void;
 }
 
 const CalendarTable: React.FC<CalendarTableProps> = ({
@@ -52,6 +54,7 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
   showCosts,
   expandedNotes,
   expandedOtherExpenses,
+  showLocationIndicators,
   hoveredCell,
   currentUserId,
   getCellData,
@@ -66,7 +69,8 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
   onOpenCostSummary,
   onToggleCosts,
   onToggleNotes,
-  onToggleOtherExpenses
+  onToggleOtherExpenses,
+  onToggleLocationIndicators
 }) => {
   const isDragMode = editMode && editTarget === 'categories';
   const isDaysEditMode = editMode && editTarget === 'days';
@@ -179,6 +183,7 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
             showCosts={showCosts}
             expandedNotes={expandedNotes}
             expandedOtherExpenses={expandedOtherExpenses}
+            showLocationIndicators={showLocationIndicators}
             hoveredCell={hoveredCell}
             currentUserId={currentUserId}
             getCellData={getCellData}
@@ -189,6 +194,7 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
             onCellHoverLeave={onCellHoverLeave}
             onToggleNotes={onToggleNotes}
             onToggleOtherExpenses={onToggleOtherExpenses}
+            onToggleLocationIndicators={onToggleLocationIndicators}
           />
         ) : (
           // Modalità normale: usa CategoryRow con ordine
@@ -206,6 +212,7 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
               showCosts={showCosts}
               expandedNotes={expandedNotes}
               expandedOtherExpenses={expandedOtherExpenses}
+              showLocationIndicators={showLocationIndicators}
               hoveredCell={hoveredCell}
               currentUserId={currentUserId}
               getCellData={getCellData}
@@ -216,6 +223,7 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
               onCellHoverLeave={onCellHoverLeave}
               onToggleNotes={onToggleNotes}
               onToggleOtherExpenses={onToggleOtherExpenses}
+              onToggleLocationIndicators={onToggleLocationIndicators}
             />
           ))
         )}

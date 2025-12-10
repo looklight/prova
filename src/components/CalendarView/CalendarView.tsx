@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import TripMetadataModal from '../TripMetadataModal';
 import CostSummaryByUserView from '../DayDetail/CostSummaryByUserView';
 import CalendarHeader from './CalendarHeader';
 import CalendarTable from './CalendarTable';
 import { useCalendarScroll } from '../../hooks/useCalendarScroll';
 import { useDayOperations } from '../../hooks/useDayOperations';
+import { useDynamicCellHeight } from '../../hooks/useDynamicCellHeight';
 import { CATEGORIES } from '../../utils/constants';
 
 /**
@@ -76,8 +77,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [showCosts, setShowCosts] = useState(false);
   const [expandedNotes, setExpandedNotes] = useState(false);
   const [expandedOtherExpenses, setExpandedOtherExpenses] = useState(false);
+  const [showLocationIndicators, setShowLocationIndicators] = useState(false);
   const [hoveredCell, setHoveredCell] = useState<string | null>(null);
-  const isLandscape = useMediaQuery('(orientation: landscape) and (max-width: 1023px)')
+  const isLandscape = useMediaQuery('(orientation: landscape) and (max-width: 1023px)');
+
+  // Ref per misurare l'header e calcolare altezza dinamica celle
+  const headerRef = useRef<HTMLDivElement>(null);
+  const cellHeight = useDynamicCellHeight(headerRef, CATEGORIES.length);
 
   // 🆕 Category order: stato locale per update ottimistico
   const [localCategoryOrder, setLocalCategoryOrder] = useState<string[] | null>(null);
@@ -269,21 +275,23 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         onInviteClick={onInviteClick}
       />
 
-      <CalendarHeader
-        trip={trip}
-        editMode={editMode}
-        editTarget={editTarget}
-        selectedDays={selectedDays}
-        moveAfterIndex={moveAfterIndex}
-        onBack={onBack}
-        onMetadataClick={() => setShowMetadataModal(true)}
-        onEditModeToggle={handleEditModeToggle}
-        onEditTargetChange={setEditTarget}
-        onRemoveSelectedDays={removeSelectedDays}
-        onAddDay={addDay}
-        onMoveAfterChange={setMoveAfterIndex}
-        onMoveDays={moveDaysAfter}
-      />
+      <div ref={headerRef}>
+        <CalendarHeader
+          trip={trip}
+          editMode={editMode}
+          editTarget={editTarget}
+          selectedDays={selectedDays}
+          moveAfterIndex={moveAfterIndex}
+          onBack={onBack}
+          onMetadataClick={() => setShowMetadataModal(true)}
+          onEditModeToggle={handleEditModeToggle}
+          onEditTargetChange={setEditTarget}
+          onRemoveSelectedDays={removeSelectedDays}
+          onAddDay={addDay}
+          onMoveAfterChange={setMoveAfterIndex}
+          onMoveDays={moveDaysAfter}
+        />
+      </div>
 
       <div
         ref={scrollContainerRef}
@@ -304,8 +312,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           showCosts={showCosts}
           expandedNotes={expandedNotes}
           expandedOtherExpenses={expandedOtherExpenses}
+          showLocationIndicators={showLocationIndicators}
           hoveredCell={hoveredCell}
           currentUserId={currentUser.uid}
+          cellHeight={cellHeight}
           getCellData={getCellData}
           getColorForContent={getColorForContent}
           getCategoryBgColor={getCategoryBgColor}
@@ -319,6 +329,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           onToggleCosts={() => setShowCosts(!showCosts)}
           onToggleNotes={() => setExpandedNotes(!expandedNotes)}
           onToggleOtherExpenses={() => setExpandedOtherExpenses(!expandedOtherExpenses)}
+          onToggleLocationIndicators={() => setShowLocationIndicators(!showLocationIndicators)}
         />
       </div>
     </div>

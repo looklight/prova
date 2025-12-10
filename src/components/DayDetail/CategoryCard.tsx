@@ -51,6 +51,7 @@ interface CategoryCardProps {
   tripName?: string;
   dayId?: string;
   dayNumber?: number;
+  tripDestinations?: Array<{ name: string; coordinates?: { lat: number; lng: number } } | string>;
 }
 
 const CategoryCard: React.FC<CategoryCardProps> = ({
@@ -75,7 +76,8 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
   tripId,
   tripName,
   dayId,
-  dayNumber
+  dayNumber,
+  tripDestinations = []
 }) => {
   const [showBookingToggle, setShowBookingToggle] = React.useState(false);
 
@@ -197,19 +199,41 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
           <div className="mb-3">
             <div className="text-xs text-gray-500 mb-2">💡 Suggerimenti:</div>
             <div className="flex flex-wrap gap-2">
-              {suggestion.map((sugg, idx) => (
-                <button
-                  key={idx}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onUpdateCategory('base', 'title', sugg.value);
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded-full text-sm font-medium transition-colors"
-                >
-                  <span>{sugg.icon}</span>
-                  <span>{sugg.value}</span>
-                </button>
-              ))}
+              {suggestion.map((sugg, idx) => {
+                // Cerca se questa destinazione ha coordinate
+                const destinationWithCoords = tripDestinations?.find(
+                  d => (typeof d === 'string' ? d : d.name) === sugg.value
+                );
+                const hasCoords = destinationWithCoords && typeof destinationWithCoords !== 'string' && destinationWithCoords.coordinates;
+
+                return (
+                  <button
+                    key={idx}
+                    onClick={(e) => {
+                      e.stopPropagation();
+
+                      // Se ha coordinate, aggiorna title e location insieme
+                      if (hasCoords && onUpdateCategoryMultiple) {
+                        onUpdateCategoryMultiple('base', {
+                          title: sugg.value,
+                          location: {
+                            name: sugg.value,
+                            address: sugg.value,
+                            coordinates: destinationWithCoords.coordinates
+                          }
+                        });
+                      } else {
+                        onUpdateCategory('base', 'title', sugg.value);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded-full text-sm font-medium transition-colors"
+                  >
+                    <span>{sugg.icon}</span>
+                    <span>{sugg.value}</span>
+                    {hasCoords && <MapPin size={12} className="text-blue-600" />}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
@@ -261,7 +285,17 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
                 <input
                   type="text"
                   value={categoryData.title}
-                  onChange={(e) => onUpdateCategory(category.id, 'title', e.target.value)}
+                  onChange={(e) => {
+                    // Se è la Base e ha una location, aggiorna entrambi atomicamente
+                    if (category.id === 'base' && categoryData.location && onUpdateCategoryMultiple) {
+                      onUpdateCategoryMultiple('base', {
+                        title: e.target.value,
+                        location: null
+                      });
+                    } else {
+                      onUpdateCategory(category.id, 'title', e.target.value);
+                    }
+                  }}
                   onFocus={() => onSelect?.()}
                   placeholder={`Nome ${category.label.toLowerCase()}`}
                   className={`w-full px-4 py-2.5 border rounded-full text-sm ${category.id !== 'base' && category.id !== 'note' && hasContent

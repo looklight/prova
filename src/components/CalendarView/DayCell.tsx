@@ -1,4 +1,5 @@
 import React from 'react';
+import { MapPin, Bell } from 'lucide-react';
 import { TRANSPORT_OPTIONS } from '../../utils/constants';
 
 /**
@@ -34,7 +35,7 @@ const getCostColor = (cellData, currentUserId, tripMembers) => {
 
   // Singola (1 utente attivo solo, anche con più contributi)
   const singlePayer = activeBreakdown[0].userId;
-  
+
   if (singlePayer === currentUserId) {
     return 'text-blue-500'; // 🔵 Pagato da ME
   } else {
@@ -47,12 +48,12 @@ const getCostColor = (cellData, currentUserId, tripMembers) => {
  */
 const hasMediaAttachments = (cellData) => {
   if (!cellData) return false;
-  
+
   const hasLinks = cellData.links && cellData.links.length > 0;
   const hasImages = cellData.images && cellData.images.length > 0;
   const hasVideos = cellData.videos && cellData.videos.length > 0;
   const hasMediaNotes = cellData.mediaNotes && cellData.mediaNotes.length > 0;
-  
+
   return hasLinks || hasImages || hasVideos || hasMediaNotes;
 };
 
@@ -69,6 +70,7 @@ interface DayCellProps {
   costVisible: boolean;
   expandedNotes: boolean;
   expandedOtherExpenses: boolean;
+  showLocationIndicators: boolean;
   currentUserId: string;
   trip: any;
   onCellClick: (dayIndex: number, categoryId: string) => void;
@@ -89,6 +91,7 @@ const DayCell: React.FC<DayCellProps> = ({
   costVisible,
   expandedNotes,
   expandedOtherExpenses,
+  showLocationIndicators,
   currentUserId,
   trip,
   onCellClick,
@@ -100,15 +103,15 @@ const DayCell: React.FC<DayCellProps> = ({
   if (category.id === 'otherExpenses') {
     const key = `${day.id}-otherExpenses`;
     const expensesRaw = trip.data[key];
-    
+
     // Assicurati che sia un array
     const expenses = Array.isArray(expensesRaw) ? expensesRaw : [];
-    
+
     // Conta solo spese con contenuto (titolo o costo) e breakdown attivo
     const realExpenses = expenses.filter((exp: any) => {
       const hasContent = (exp.title && exp.title.trim() !== '') || (exp.cost && exp.cost.trim() !== '');
       if (!hasContent) return false;
-      
+
       // Se ha breakdown, verifica che ci siano membri attivi
       if (exp.costBreakdown && Array.isArray(exp.costBreakdown)) {
         const hasActiveMembers = exp.costBreakdown.some(entry => {
@@ -117,18 +120,18 @@ const DayCell: React.FC<DayCellProps> = ({
         });
         return hasActiveMembers;
       }
-      
+
       return true;
     });
-    
+
     const count = realExpenses.length;
-    
+
     // Calcola totale solo da breakdown di membri attivi
     const total = realExpenses.reduce((sum: number, exp: any) => {
       if (!exp.costBreakdown || !Array.isArray(exp.costBreakdown)) {
         return sum + (exp.cost ? parseFloat(exp.cost) : 0);
       }
-      
+
       // Somma solo contributi di membri attivi
       const activeTotal = exp.costBreakdown
         .filter(entry => {
@@ -136,17 +139,17 @@ const DayCell: React.FC<DayCellProps> = ({
           return member && member.status === 'active';
         })
         .reduce((subSum, entry) => subSum + (parseFloat(entry.amount) || 0), 0);
-      
+
       return sum + activeTotal;
     }, 0);
-    
+
     otherExpensesData = { count, total };
   }
 
-  const hasContent = category.id === 'otherExpenses' 
+  const hasContent = category.id === 'otherExpenses'
     ? otherExpensesData && otherExpensesData.count > 0
     : cellData && (cellData.title || cellData.cost || cellData.notes);
-  
+
   const cellKey = `${dayIndex}-${category.id}`;
 
   // Calcola il costo visualizzato (solo da membri attivi)
@@ -162,11 +165,23 @@ const DayCell: React.FC<DayCellProps> = ({
   }
 
   // 📸 Verifica se la cella ha media (solo per categorie rilevanti)
-  const showMediaIndicator = expandedNotes && 
-    category.id !== 'base' && 
-    category.id !== 'note' && 
+  const showMediaIndicator = expandedNotes &&
+    category.id !== 'base' &&
+    category.id !== 'note' &&
     category.id !== 'otherExpenses' &&
     hasMediaAttachments(cellData);
+
+  // 📍 Verifica se la cella ha location (per tutte le categorie che possono averla)
+  const hasLocation = showLocationIndicators &&
+    cellData?.location &&
+    (cellData.location.coordinates || cellData.location.address);
+
+  // 🕐 Verifica orari (startTime, endTime)
+  const hasStartTime = expandedNotes && cellData?.startTime;
+  const hasEndTime = expandedNotes && cellData?.endTime;
+
+  // 🔔 Verifica reminder (ha date impostata)
+  const hasReminder = expandedNotes && cellData?.reminder?.date;
 
   return (
     <td
@@ -174,69 +189,108 @@ const DayCell: React.FC<DayCellProps> = ({
       onClick={() => onCellClick(dayIndex, category.id)}
       onMouseEnter={() => onCellHoverEnter(cellKey)}
       onMouseLeave={onCellHoverLeave}
-      className={`px-1 py-0.5 text-center border-l ${
-        selectedDays.includes(dayIndex) ? 'bg-blue-50' : highlightColor || ''
-      } ${editMode ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50'} ${
-        isDesktop && selectedDayIndex === dayIndex ? 'bg-blue-50' : ''}
+      className={`px-1 py-0.5 text-center border-l ${selectedDays.includes(dayIndex) ? 'bg-blue-50' : highlightColor || ''
+        } ${editMode ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50'} ${isDesktop && selectedDayIndex === dayIndex ? 'bg-blue-50' : ''}
       `}
-      style={{ 
-        height: category.id === 'note' ? (expandedNotes ? '80px' : '48px') : 
-                category.id === 'otherExpenses' ? (expandedOtherExpenses ? '80px' : '48px') : 
-                '48px', 
-        width: '140px', 
-        minWidth: '140px', 
-        maxWidth: '140px' 
+      style={{
+        height: category.id === 'note' ? (expandedNotes ? '80px' : '48px') :
+          category.id === 'otherExpenses' ? (expandedOtherExpenses ? '80px' : '48px') :
+            '48px',
+        width: '140px',
+        minWidth: '140px',
+        maxWidth: '140px'
       }}
     >
       {hasContent ? (
-        <div className={`text-xs relative overflow-hidden h-full flex flex-col ${
-          category.id === 'note' && expandedNotes ? 'justify-center py-0.5' : 'justify-center'
-        }`}>
-          {/* 📸 Pallino MEDIA in ALTO a SINISTRA - visibile solo con toggle Note attivo */}
-          {showMediaIndicator && (
-            <div className="absolute top-0.5 left-0.5 w-2 h-2 rounded-full bg-purple-400" 
-                 title="Contiene media allegati" />
+        <div className={`text-xs relative overflow-hidden h-full flex flex-col ${category.id === 'note' && expandedNotes ? 'justify-center py-0.5' : 'justify-center'
+          }`}>
+          {/* ═══════════════════════════════════════════════════════════
+              RIGA SUPERIORE: Orario+Reminder (sx) | Media (centro) | Location+Booking (dx)
+              ═══════════════════════════════════════════════════════════ */}
+
+          {/* 🕐 ORARIO INIZIO + 🔔 REMINDER - ALTO SINISTRA */}
+          {hasStartTime && (
+            <div className="absolute top-0 left-0.5 flex items-start gap-0.5">
+              <span className="text-[9px] text-gray-400 leading-none">
+                {cellData.startTime}
+              </span>
+              {hasReminder && (
+                <Bell size={8} className="text-orange-400" />
+              )}
+            </div>
           )}
 
-          {/* Emoji trasporto in BASSO a SINISTRA */}
-          {(category.id === 'spostamenti1' || category.id === 'spostamenti2') && 
-           cellData.transportMode && cellData.transportMode !== 'none' && (
-            <div className="absolute bottom-0.5 left-0.5 text-sm">
-              {TRANSPORT_OPTIONS.find(t => t.value === cellData.transportMode)?.emoji}
+          {/* 📸 PALLINO MEDIA - ALTO CENTRO */}
+          {showMediaIndicator && (
+            <div className="absolute top-0 left-1/2 -translate-x-1/2">
+              <div className="w-2 h-2 rounded-full bg-purple-400"
+                title="Contiene media allegati" />
             </div>
           )}
-          
-          {/* Pallino booking in ALTO a DESTRA */}
-          {category.id !== 'base' && category.id !== 'note' && 
-           cellData.bookingStatus && cellData.bookingStatus !== 'na' && (
-            <div className={`absolute top-0.5 right-0.5 w-2 h-2 rounded-full ${
-              cellData.bookingStatus === 'yes' ? 'bg-green-500' : 'bg-orange-500'
-            }`} />
+
+          {/* 📍 LOCATION + Pallino BOOKING - ALTO DESTRA */}
+          {(hasLocation || (category.id !== 'base' && category.id !== 'note' && cellData?.bookingStatus && cellData.bookingStatus !== 'na')) && (
+            <div className="absolute top-0 right-0 flex items-start justify-end gap-1">
+              {hasLocation && (
+                <MapPin size={10} className="text-red-500" />
+              )}
+              {category.id !== 'base' && category.id !== 'note' &&
+                cellData?.bookingStatus && cellData.bookingStatus !== 'na' && (
+                  <div className="h-[10px] flex items-start">
+                    <div className={`w-2 h-2 rounded-full ${cellData.bookingStatus === 'yes' ? 'bg-green-500' : 'bg-orange-500'
+                      }`} />
+                  </div>
+                )}
+            </div>
           )}
-          
-          {/* 💰 COSTO in BASSO a DESTRA - visibile solo durante scroll/hover */}
+
+          {/* ═══════════════════════════════════════════════════════════
+              RIGA INFERIORE: Trasporto+Orario fine (sx) | Costi (dx)
+              ═══════════════════════════════════════════════════════════ */}
+
+          {/* 🚗 TRASPORTO + 🕐 ORARIO FINE - BASSO SINISTRA */}
+          {(((category.id === 'spostamenti1' || category.id === 'spostamenti2') &&
+            cellData?.transportMode && cellData.transportMode !== 'none') || hasEndTime) && (
+              <div className="absolute bottom-0 left-0.5 flex items-end gap-0.5">
+                {(category.id === 'spostamenti1' || category.id === 'spostamenti2') &&
+                  cellData?.transportMode && cellData.transportMode !== 'none' && (
+                    <span className="text-xs leading-none">
+                      {TRANSPORT_OPTIONS.find(t => t.value === cellData.transportMode)?.emoji}
+                    </span>
+                  )}
+                {hasEndTime && (
+                  <span className="text-[9px] text-gray-400 leading-none">
+                    {cellData.endTime}
+                  </span>
+                )}
+              </div>
+            )}
+
+          {/* 💰 COSTO - BASSO DESTRA */}
           {category.id !== 'base' && category.id !== 'note' && category.id !== 'otherExpenses' &&
-           displayCost > 0 && (
-            <div 
-              className={`absolute bottom-[1px] right-0.5 text-[9px] font-semibold leading-none transition-opacity duration-150 ${
-                getCostColor(cellData, currentUserId, trip.sharing?.members)
-              } ${costVisible ? 'opacity-100' : 'opacity-0'}`}
-            >
-              {displayCost.toFixed(0)}€
-            </div>
-          )}
-          
-          {/* 💸 COSTO ALTRE SPESE in BASSO a DESTRA (grigio, solo con toggle) */}
+            displayCost > 0 && (
+              <div
+                className={`absolute bottom-0 right-0.5 text-[9px] font-semibold leading-none transition-opacity duration-150 ${getCostColor(cellData, currentUserId, trip.sharing?.members)
+                  } ${costVisible ? 'opacity-100' : 'opacity-0'}`}
+              >
+                {displayCost.toFixed(0)}€
+              </div>
+            )}
+
+          {/* 💸 COSTO ALTRE SPESE - BASSO DESTRA (grigio, solo con toggle) */}
           {category.id === 'otherExpenses' && otherExpensesData.total > 0 && (
-            <div 
-              className={`absolute bottom-[1px] right-0.5 text-[9px] font-semibold leading-none transition-opacity duration-150 text-gray-500 ${
-                costVisible ? 'opacity-100' : 'opacity-0'
-              }`}
+            <div
+              className={`absolute bottom-[1px] right-0.5 text-[9px] font-semibold leading-none transition-opacity duration-150 text-gray-500 ${costVisible ? 'opacity-100' : 'opacity-0'
+                }`}
             >
               {otherExpensesData.total.toFixed(0)}€
             </div>
           )}
-          
+
+          {/* ═══════════════════════════════════════════════════════════
+              CONTENUTO CENTRALE
+              ═══════════════════════════════════════════════════════════ */}
+
           {/* 💸 ALTRE SPESE: numero compresso, lista espansa */}
           {category.id === 'otherExpenses' ? (
             expandedOtherExpenses ? (
@@ -247,12 +301,12 @@ const DayCell: React.FC<DayCellProps> = ({
                     const key = `${day.id}-otherExpenses`;
                     const expensesRaw = trip.data[key];
                     const expenses = Array.isArray(expensesRaw) ? expensesRaw : [];
-                    
+
                     // Filtra spese con contenuto e membri attivi
                     const realExpenses = expenses.filter((exp: any) => {
                       const hasContent = (exp.title && exp.title.trim() !== '') || (exp.cost && exp.cost.trim() !== '');
                       if (!hasContent) return false;
-                      
+
                       if (exp.costBreakdown && Array.isArray(exp.costBreakdown)) {
                         const hasActiveMembers = exp.costBreakdown.some(entry => {
                           const member = trip.sharing?.members?.[entry.userId];
@@ -260,14 +314,14 @@ const DayCell: React.FC<DayCellProps> = ({
                         });
                         return hasActiveMembers;
                       }
-                      
+
                       return true;
                     });
-                    
+
                     const maxVisible = 3;
                     const visibleExpenses = realExpenses.slice(0, maxVisible);
                     const remainingCount = realExpenses.length - maxVisible;
-                    
+
                     return (
                       <>
                         {visibleExpenses.map((exp: any, idx: number) => {
@@ -283,7 +337,7 @@ const DayCell: React.FC<DayCellProps> = ({
                           } else if (exp.cost) {
                             expCost = parseFloat(exp.cost) || 0;
                           }
-                          
+
                           return (
                             <div key={idx} className="flex justify-between items-center text-[10px] leading-tight">
                               <span className="truncate flex-1 text-left text-gray-700">
@@ -316,9 +370,9 @@ const DayCell: React.FC<DayCellProps> = ({
               </div>
             )
           ) : category.id === 'note' ? (
-            <div 
+            <div
               className="text-[11px] text-gray-700 px-1 overflow-hidden w-full"
-              style={{ 
+              style={{
                 display: '-webkit-box',
                 WebkitLineClamp: expandedNotes ? '6' : '2',
                 WebkitBoxOrient: 'vertical',
@@ -330,9 +384,9 @@ const DayCell: React.FC<DayCellProps> = ({
               {cellData.notes}
             </div>
           ) : (
-            <div 
-              className="text-[11px] font-medium px-1" 
-              style={{ 
+            <div
+              className="text-[11px] font-medium px-1"
+              style={{
                 display: '-webkit-box',
                 WebkitLineClamp: '2',
                 WebkitBoxOrient: 'vertical',

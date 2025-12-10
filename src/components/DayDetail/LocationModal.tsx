@@ -385,6 +385,41 @@ const LocationModal: React.FC<LocationModalProps> = ({
                 </div>
               )}
 
+              {/* Location esistente (già salvata) */}
+              {selectedResult && results.length === 0 && (
+                <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-xl">
+                  <div className="flex items-start gap-2">
+                    <span className="text-lg">{selectedResult.type}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm">{selectedResult.name}</p>
+                      <p className="text-xs text-gray-500 truncate">{selectedResult.address}</p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        📍 {formatCoordinates(selectedResult.coordinates.lat, selectedResult.coordinates.lng)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const url = getGoogleMapsUrl(
+                            selectedResult.coordinates.lat,
+                            selectedResult.coordinates.lng,
+                            selectedResult.name
+                          );
+                          window.open(url, '_blank');
+                        }}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-white hover:bg-gray-50 
+            border border-gray-200 rounded-lg text-xs font-medium transition-colors"
+                      >
+                        <ExternalLink size={14} />
+                        Maps
+                      </button>
+                      <span className="text-green-500 text-lg">✓</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Risultati */}
               {results.length > 0 && (
                 <div className="space-y-2 mb-4">

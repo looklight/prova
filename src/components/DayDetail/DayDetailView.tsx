@@ -587,6 +587,7 @@ const DayDetailView = ({
                 tripName={trip.name || trip.metadata?.name || 'Viaggio'}
                 dayId={String(currentDay.id)}
                 dayNumber={currentDay.number}
+                tripDestinations={trip.metadata?.destinations || []}
               />
             );
           } else {
