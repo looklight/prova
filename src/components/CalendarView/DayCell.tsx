@@ -251,13 +251,16 @@ const DayCell: React.FC<DayCellProps> = ({
           {/* 🚗 TRASPORTO + 🕐 ORARIO FINE - BASSO SINISTRA */}
           {(((category.id === 'spostamenti1' || category.id === 'spostamenti2') &&
             cellData?.transportMode && cellData.transportMode !== 'none') || hasEndTime) && (
-              <div className="absolute bottom-0 left-0.5 flex items-end gap-0.5">
+              <div className="absolute bottom-0 left-0 flex items-end gap-0.5">
+                {/* 🚗 Trasporto con distanza dal bordo di 0.5 */}
                 {(category.id === 'spostamenti1' || category.id === 'spostamenti2') &&
                   cellData?.transportMode && cellData.transportMode !== 'none' && (
-                    <span className="text-xs leading-none">
+                    <span className="ml-0.5 text-xs leading-none">
                       {TRANSPORT_OPTIONS.find(t => t.value === cellData.transportMode)?.emoji}
                     </span>
                   )}
+
+                {/* 🕐 Orario con distanza dal bordo 0 */}
                 {hasEndTime && (
                   <span className="text-[9px] text-gray-400 leading-none">
                     {cellData.endTime}
