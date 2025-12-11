@@ -79,7 +79,7 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
 }) => {
   const isDragMode = editMode && editTarget === 'categories';
   const isDaysEditMode = editMode && editTarget === 'days';
-  
+
   // 🆕 Il drag delle celle è abilitato quando NON siamo in edit mode
   const isCellDragEnabled = !editMode && !!onUpdateCellData;
 
@@ -108,7 +108,7 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
   }, [categoryOrder]);
 
   const tableContent = (
-    <table className="w-full border-collapse bg-white rounded-lg shadow">
+    <table className="w-full border-collapse bg-white rounded-lg shadow select-none">
       <thead>
         <tr className="bg-gray-100">
           {/* 🆕 Colonna extra per drag handle */}
@@ -161,11 +161,11 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
                 />
               ) : (
                 <>
-                  <div className="font-bold text-sm">
-                    {day.date.toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' })}
-                  </div>
                   <div className="text-xs text-gray-600 mt-1">
                     Giorno {day.number}
+                  </div>
+                  <div className="font-bold text-sm">
+                    {day.date.toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' })}
                   </div>
                 </>
               )}

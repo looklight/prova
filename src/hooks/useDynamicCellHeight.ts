@@ -21,7 +21,7 @@ export const useDynamicCellHeight = (
       const headerHeight = headerRef.current?.offsetHeight || 100;
       const theadHeight = 50; // Header giorni
       const totalRowHeight = 48;
-      const padding = Math.max(24, viewportHeight * 0.04); // 4% dello schermo, minimo 24px
+      const padding = Math.max(24, viewportHeight * 0.05); // 5% dello schermo, minimo 24px
       
       const availableHeight = viewportHeight - headerHeight - theadHeight - totalRowHeight - padding;
       const calculated = Math.floor(availableHeight / categoryCount);

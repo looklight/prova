@@ -231,9 +231,9 @@ const DayCell: React.FC<DayCellProps> = ({
     if (isSelectionMode && !isSelected) {
       // Tutte le altre celle durante selezione (possibili target)
       if (hasContent) {
-        return 'ring-1 ring-orange-100 ring-inset bg-orange-50/30';
+        return 'ring-1 ring-orange-100 ring-inset bg-orange-50/40';
       } else {
-        return 'ring-1 ring-green-100 ring-inset bg-green-50/30';
+        return 'ring-1 ring-green-100 ring-inset bg-green-50/40';
       }
     }
 
