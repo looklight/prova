@@ -206,7 +206,7 @@ const DayCell: React.FC<DayCellProps> = ({
 
     // Usa il context per decidere cosa fare
     const result = dragContext.handleCellClick({ dayId: day.id, categoryId: category.id });
-    
+
     if (result === 'open') {
       // Apri la cella normalmente
       onCellClick(dayIndex, category.id);
@@ -227,19 +227,23 @@ const DayCell: React.FC<DayCellProps> = ({
       // Cella selezionata (origine)
       return 'ring-2 ring-blue-500 ring-inset bg-blue-100';
     }
-    
-    if (isSelectionMode && hasContent) {
-      // Altre celle con contenuto durante selezione (possibili target)
-      return 'ring-1 ring-dashed ring-gray-300';
+
+    if (isSelectionMode && !isSelected) {
+      // Tutte le altre celle durante selezione (possibili target)
+      if (hasContent) {
+        return 'ring-1 ring-orange-100 ring-inset bg-orange-50/30';
+      } else {
+        return 'ring-1 ring-green-100 ring-inset bg-green-50/30';
+      }
     }
-    
+
     return '';
   };
 
   // Calcola altezza cella
-  const calculatedHeight = category.id === 'note' 
+  const calculatedHeight = category.id === 'note'
     ? (expandedNotes ? Math.round(cellHeight * 1.5) : cellHeight)
-    : category.id === 'otherExpenses' 
+    : category.id === 'otherExpenses'
       ? (expandedOtherExpenses ? Math.round(cellHeight * 1.5) : cellHeight)
       : cellHeight;
 
@@ -253,11 +257,9 @@ const DayCell: React.FC<DayCellProps> = ({
       onClick={shouldUseLongPress ? undefined : () => onCellClick(dayIndex, category.id)}
       onMouseEnter={() => onCellHoverEnter(cellKey)}
       onMouseLeave={onCellHoverLeave}
-      className={`px-1 py-0.5 text-center border-l transition-all duration-150 ${
-        selectedDays.includes(dayIndex) ? 'bg-blue-50' : highlightColor || ''
-      } ${editMode ? 'cursor-not-allowed' : 'cursor-pointer'} ${
-        !editMode && !isSelectionMode ? 'hover:bg-gray-50' : ''
-      } ${isDesktop && selectedDayIndex === dayIndex ? 'bg-blue-50' : ''} ${getSelectionClasses()}`}
+      className={`px-1 py-0.5 text-center border-l transition-all duration-150 ${selectedDays.includes(dayIndex) ? 'bg-blue-50' : highlightColor || ''
+        } ${editMode ? 'cursor-not-allowed' : 'cursor-pointer'} ${!editMode && !isSelectionMode ? 'hover:bg-gray-50' : ''
+        } ${isDesktop && selectedDayIndex === dayIndex ? 'bg-blue-50' : ''} ${getSelectionClasses()}`}
       style={{
         height: `${calculatedHeight}px`,
         width: '140px',
@@ -269,7 +271,7 @@ const DayCell: React.FC<DayCellProps> = ({
         <div className={`text-xs relative overflow-hidden h-full flex flex-col ${category.id === 'note' && expandedNotes ? 'justify-center py-0.5' : 'justify-center'
           }`}>
           {/* RIGA SUPERIORE */}
-          
+
           {/* Orario inizio + Reminder */}
           {hasStartTime && (
             <div className="absolute top-0 left-0.5 flex items-start gap-0.5">
