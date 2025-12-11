@@ -4,6 +4,7 @@ import { CATEGORIES } from '../../utils/constants';
 import CategoryRow from './CategoryRow';
 import CategoryRowsDrag, { CategoryDndProvider } from './CategoryRowsDrag';
 import TotalRow from './TotalRow';
+import { CellDragProvider } from './CellDragDrop';
 
 type EditTarget = 'days' | 'categories';
 
@@ -24,6 +25,7 @@ interface CalendarTableProps {
   showLocationIndicators: boolean;
   hoveredCell: string | null;
   currentUserId: string;
+  cellHeight?: number;
   getCellData: (dayId: number, categoryId: string) => any;
   getColorForContent: (categoryId: string, content: string) => string | null;
   getCategoryBgColor: (color: string) => string;
@@ -38,6 +40,7 @@ interface CalendarTableProps {
   onToggleNotes: () => void;
   onToggleOtherExpenses: () => void;
   onToggleLocationIndicators: () => void;
+  onUpdateCellData?: (updates: Record<string, any>) => Promise<void>;
 }
 
 const CalendarTable: React.FC<CalendarTableProps> = ({
@@ -57,6 +60,7 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
   showLocationIndicators,
   hoveredCell,
   currentUserId,
+  cellHeight,
   getCellData,
   getColorForContent,
   getCategoryBgColor,
@@ -70,10 +74,14 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
   onToggleCosts,
   onToggleNotes,
   onToggleOtherExpenses,
-  onToggleLocationIndicators
+  onToggleLocationIndicators,
+  onUpdateCellData
 }) => {
   const isDragMode = editMode && editTarget === 'categories';
   const isDaysEditMode = editMode && editTarget === 'days';
+  
+  // 🆕 Il drag delle celle è abilitato quando NON siamo in edit mode
+  const isCellDragEnabled = !editMode && !!onUpdateCellData;
 
   // Ordina CATEGORIES secondo categoryOrder
   const sortedCategories = React.useMemo(() => {
@@ -186,6 +194,7 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
             showLocationIndicators={showLocationIndicators}
             hoveredCell={hoveredCell}
             currentUserId={currentUserId}
+            cellHeight={cellHeight}
             getCellData={getCellData}
             getColorForContent={getColorForContent}
             getCategoryBgColor={getCategoryBgColor}
@@ -215,6 +224,7 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
               showLocationIndicators={showLocationIndicators}
               hoveredCell={hoveredCell}
               currentUserId={currentUserId}
+              cellHeight={cellHeight}
               getCellData={getCellData}
               getColorForContent={getColorForContent}
               getCategoryBgColor={getCategoryBgColor}
@@ -224,6 +234,7 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
               onToggleNotes={onToggleNotes}
               onToggleOtherExpenses={onToggleOtherExpenses}
               onToggleLocationIndicators={onToggleLocationIndicators}
+              isCellDragEnabled={isCellDragEnabled}
             />
           ))
         )}
@@ -234,6 +245,7 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
           justMounted={justMounted}
           isDesktop={isDesktop}
           showCosts={showCosts}
+          cellHeight={cellHeight}
           onOpenCostSummary={onOpenCostSummary}
           onToggleCosts={onToggleCosts}
         />
@@ -241,7 +253,7 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
     </table>
   );
 
-  // In drag mode, wrappa la table con DndContext (fuori dalla table per evitare DOM nesting issues)
+  // In drag mode categorie, wrappa con CategoryDndProvider
   if (isDragMode) {
     return (
       <CategoryDndProvider
@@ -251,6 +263,20 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
       >
         {tableContent}
       </CategoryDndProvider>
+    );
+  }
+
+  // 🆕 In modalità normale con drag celle abilitato, wrappa con CellDragProvider
+  if (isCellDragEnabled && onUpdateCellData) {
+    return (
+      <CellDragProvider
+        tripData={trip.data}
+        onUpdateTripData={onUpdateCellData}
+        getCellData={getCellData}
+        isDragEnabled={isCellDragEnabled}
+      >
+        {tableContent}
+      </CellDragProvider>
     );
   }
 

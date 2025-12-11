@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import TripMetadataModal from '../TripMetadataModal';
 import CostSummaryByUserView from '../DayDetail/CostSummaryByUserView';
 import CalendarHeader from './CalendarHeader';
@@ -123,9 +123,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       date.getFullYear() === today.getFullYear();
   };
 
-  const getCellData = (dayId: number, categoryId: string) => {
+  const getCellData = useCallback((dayId: number, categoryId: string) => {
     return trip.data[`${dayId}-${categoryId}`] || null;
-  };
+  }, [trip.data]);
 
   // 🎨 Mappa deterministica dei colori per base/pernottamento
   const contentColorMap = useMemo(() => {
@@ -150,7 +150,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     });
 
     return map;
-  }, [trip.days, trip.data]);
+  }, [trip.days, trip.data, getCellData]);
 
   const getColorForContent = (categoryId: string, content: string) => {
     if (categoryId !== 'base' && categoryId !== 'pernottamento') return null;
@@ -238,6 +238,35 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     }
   };
 
+  // 🆕 Handler per aggiornare i dati delle celle (usato da CellDragDrop)
+  const handleUpdateCellData = useCallback(async (updates: Record<string, any>) => {
+    console.log('🔄 Aggiornamento dati celle:', updates);
+
+    // Prepara l'oggetto data aggiornato
+    const newData = { ...trip.data };
+
+    for (const [key, value] of Object.entries(updates)) {
+      if (value === null) {
+        // Rimuovi la cella (imposta a oggetto vuoto o elimina)
+        delete newData[key];
+      } else {
+        // Aggiorna/crea la cella
+        newData[key] = value;
+      }
+    }
+
+    try {
+      await onUpdateTrip({
+        data: newData,
+        updatedAt: new Date()
+      });
+      console.log('✅ Dati celle aggiornati');
+    } catch (error) {
+      console.error('❌ Errore aggiornamento dati celle:', error);
+      throw error; // Rilancia per gestire nel chiamante
+    }
+  }, [trip.data, onUpdateTrip]);
+
   // Se mostra riepilogo costi, renderizza quella vista
   if (showCostSummary) {
     return (
@@ -295,7 +324,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
       <div
         ref={scrollContainerRef}
-        className="overflow-x-auto px-2 mt-2"
+        className="overflow-x-auto overflow-y-auto px-2 mt-2"
+        style={{ maxHeight: 'calc(100vh - 100px)' }} // regola questo valore in base a header + eventuali margini
         onScroll={(e) => setIsScrolled((e.target as HTMLDivElement).scrollLeft > 10)}
       >
         <CalendarTable
@@ -330,6 +360,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           onToggleNotes={() => setExpandedNotes(!expandedNotes)}
           onToggleOtherExpenses={() => setExpandedOtherExpenses(!expandedOtherExpenses)}
           onToggleLocationIndicators={() => setShowLocationIndicators(!showLocationIndicators)}
+          onUpdateCellData={handleUpdateCellData}
         />
       </div>
     </div>

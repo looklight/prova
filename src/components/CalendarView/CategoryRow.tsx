@@ -16,6 +16,8 @@ interface CategoryRowProps {
   showLocationIndicators: boolean;
   hoveredCell: string | null;
   currentUserId: string;
+  cellHeight?: number;
+  isCellDragEnabled?: boolean; // 🆕 Per drag celle
   getCellData: (dayId: number, categoryId: string) => any;
   getColorForContent: (categoryId: string, content: string) => string | null;
   getCategoryBgColor: (color: string) => string;
@@ -42,6 +44,8 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
   showLocationIndicators,
   hoveredCell,
   currentUserId,
+  cellHeight = 48,
+  isCellDragEnabled = false, // 🆕
   getCellData,
   getColorForContent,
   getCategoryBgColor,
@@ -54,9 +58,9 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
 }) => {
   // Calcola altezza dinamica per Note e Altre Spese
   const getRowHeight = () => {
-    if (category.id === 'note') return expandedNotes ? '80px' : '48px';
-    if (category.id === 'otherExpenses') return expandedOtherExpenses ? '80px' : '48px';
-    return '48px';
+    if (category.id === 'note') return expandedNotes ? Math.round(cellHeight * 1.5) : cellHeight;
+    if (category.id === 'otherExpenses') return expandedOtherExpenses ? Math.round(cellHeight * 1.5) : cellHeight;
+    return cellHeight;
   };
   
   const rowHeight = getRowHeight();
@@ -100,7 +104,7 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
   };
   
   return (
-    <tr className="border-t" style={{ height: rowHeight }}>
+    <tr className="border-t" style={{ height: `${rowHeight}px` }}>
       <td 
         onClick={isClickableChip ? handleChipClick : undefined}
         className={`p-0.5 font-medium sticky left-0 z-10 ${
@@ -110,7 +114,7 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
           width: isScrolled ? '60px' : '120px', 
           minWidth: isScrolled ? '60px' : '120px', 
           maxWidth: isScrolled ? '60px' : '120px', 
-          height: rowHeight,
+          height: `${rowHeight}px`,
           transition: justMounted ? 'none' : 'all 0.3s'
         }}
         title={getChipTitle()}
@@ -163,6 +167,8 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
             showLocationIndicators={showLocationIndicators}
             currentUserId={currentUserId}
             trip={trip}
+            cellHeight={cellHeight}
+            isCellDragEnabled={isCellDragEnabled}
             onCellClick={onCellClick}
             onCellHoverEnter={onCellHoverEnter}
             onCellHoverLeave={onCellHoverLeave}

@@ -1,50 +1,44 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { MapPin, Bell } from 'lucide-react';
 import { TRANSPORT_OPTIONS } from '../../utils/constants';
+import { useLongPress } from '../../hooks/useLongPress';
+import { useCellDrag } from './CellDragDrop';
 
 /**
- * 🔧 FIX: Helper per determinare il colore del costo basato su UTENTI UNICI ATTIVI
- * 🔵 BLU    → Pagato interamente da ME (1 utente attivo = io, anche più contributi)
- * 🟠 ARANCIO → Spesa condivisa (2+ utenti attivi diversi)
- * ⚪ GRIGIO  → Pagato interamente da ALTRI attivi (1 utente attivo ≠ io)
+ * Helper per determinare il colore del costo basato su UTENTI UNICI ATTIVI
  */
 const getCostColor = (cellData, currentUserId, tripMembers) => {
   if (!cellData.costBreakdown || cellData.costBreakdown.length === 0 || !tripMembers) {
-    return 'text-gray-400'; // Default
+    return 'text-gray-400';
   }
 
-  // 🔧 FIX: Filtra solo membri ATTIVI nel breakdown
   const activeBreakdown = cellData.costBreakdown.filter(entry => {
     const member = tripMembers[entry.userId];
     return member && member.status === 'active';
   });
 
-  // Se non ci sono membri attivi che hanno pagato
   if (activeBreakdown.length === 0) {
     return 'text-gray-400';
   }
 
-  // 🔧 Conta utenti UNICI ATTIVI che hanno pagato
   const uniquePayers = new Set(activeBreakdown.map(e => e.userId));
   const uniquePayersCount = uniquePayers.size;
 
-  // Condivisa (2+ utenti attivi diversi)
   if (uniquePayersCount > 1) {
     return 'text-orange-400';
   }
 
-  // Singola (1 utente attivo solo, anche con più contributi)
   const singlePayer = activeBreakdown[0].userId;
 
   if (singlePayer === currentUserId) {
-    return 'text-blue-500'; // 🔵 Pagato da ME
+    return 'text-blue-500';
   } else {
-    return 'text-gray-400'; // ⚪ Pagato da ALTRI
+    return 'text-gray-400';
   }
 };
 
 /**
- * 📸 Helper per verificare se una cella ha media allegati
+ * Helper per verificare se una cella ha media allegati
  */
 const hasMediaAttachments = (cellData) => {
   if (!cellData) return false;
@@ -55,6 +49,16 @@ const hasMediaAttachments = (cellData) => {
   const hasMediaNotes = cellData.mediaNotes && cellData.mediaNotes.length > 0;
 
   return hasLinks || hasImages || hasVideos || hasMediaNotes;
+};
+
+/**
+ * Helper per verificare se la cella ha contenuto
+ */
+const cellHasContentCheck = (cellData, categoryId, otherExpensesData) => {
+  if (categoryId === 'otherExpenses') {
+    return otherExpensesData && otherExpensesData.count > 0;
+  }
+  return cellData && (cellData.title || cellData.cost || cellData.notes);
 };
 
 interface DayCellProps {
@@ -73,6 +77,8 @@ interface DayCellProps {
   showLocationIndicators: boolean;
   currentUserId: string;
   trip: any;
+  cellHeight?: number;
+  isCellDragEnabled?: boolean;
   onCellClick: (dayIndex: number, categoryId: string) => void;
   onCellHoverEnter: (cellKey: string) => void;
   onCellHoverLeave: () => void;
@@ -94,25 +100,31 @@ const DayCell: React.FC<DayCellProps> = ({
   showLocationIndicators,
   currentUserId,
   trip,
+  cellHeight = 48,
+  isCellDragEnabled = false,
   onCellClick,
   onCellHoverEnter,
   onCellHoverLeave
 }) => {
+  // 🆕 Accedi al contesto drag (se disponibile)
+  let dragContext = null;
+  try {
+    dragContext = useCellDrag();
+  } catch {
+    // Non siamo dentro un CellDragProvider, ok
+  }
+
   // 💸 Se è la riga "Altre Spese", calcola il totale (solo membri attivi)
   let otherExpensesData = null;
   if (category.id === 'otherExpenses') {
     const key = `${day.id}-otherExpenses`;
     const expensesRaw = trip.data[key];
-
-    // Assicurati che sia un array
     const expenses = Array.isArray(expensesRaw) ? expensesRaw : [];
 
-    // Conta solo spese con contenuto (titolo o costo) e breakdown attivo
     const realExpenses = expenses.filter((exp: any) => {
       const hasContent = (exp.title && exp.title.trim() !== '') || (exp.cost && exp.cost.trim() !== '');
       if (!hasContent) return false;
 
-      // Se ha breakdown, verifica che ci siano membri attivi
       if (exp.costBreakdown && Array.isArray(exp.costBreakdown)) {
         const hasActiveMembers = exp.costBreakdown.some(entry => {
           const member = trip.sharing?.members?.[entry.userId];
@@ -125,21 +137,16 @@ const DayCell: React.FC<DayCellProps> = ({
     });
 
     const count = realExpenses.length;
-
-    // Calcola totale solo da breakdown di membri attivi
     const total = realExpenses.reduce((sum: number, exp: any) => {
       if (!exp.costBreakdown || !Array.isArray(exp.costBreakdown)) {
         return sum + (exp.cost ? parseFloat(exp.cost) : 0);
       }
-
-      // Somma solo contributi di membri attivi
       const activeTotal = exp.costBreakdown
         .filter(entry => {
           const member = trip.sharing?.members?.[entry.userId];
           return member && member.status === 'active';
         })
         .reduce((subSum, entry) => subSum + (parseFloat(entry.amount) || 0), 0);
-
       return sum + activeTotal;
     }, 0);
 
@@ -164,38 +171,95 @@ const DayCell: React.FC<DayCellProps> = ({
     displayCost = parseFloat(cellData.cost) || 0;
   }
 
-  // 📸 Verifica se la cella ha media (solo per categorie rilevanti)
+  // Indicatori
   const showMediaIndicator = expandedNotes &&
     category.id !== 'base' &&
     category.id !== 'note' &&
     category.id !== 'otherExpenses' &&
     hasMediaAttachments(cellData);
 
-  // 📍 Verifica se la cella ha location (per tutte le categorie che possono averla)
   const hasLocation = showLocationIndicators &&
     cellData?.location &&
     (cellData.location.coordinates || cellData.location.address);
 
-  // 🕐 Verifica orari (startTime, endTime)
   const hasStartTime = expandedNotes && cellData?.startTime;
   const hasEndTime = expandedNotes && cellData?.endTime;
-
-  // 🔔 Verifica reminder (ha date impostata)
   const hasReminder = expandedNotes && cellData?.reminder?.date;
+
+  // 🆕 Stato selezione per questa cella
+  const isSelected = dragContext?.isSelectedCell(day.id, category.id) ?? false;
+  const isSelectionMode = dragContext?.isSelectionMode() ?? false;
+
+  // 🆕 Handler per long-press (seleziona cella)
+  const handleLongPress = useCallback(() => {
+    if (!isCellDragEnabled || !dragContext || !hasContent) return;
+    dragContext.selectCell({ dayId: day.id, categoryId: category.id });
+  }, [isCellDragEnabled, dragContext, hasContent, day.id, category.id]);
+
+  // 🆕 Handler per click
+  const handleClick = useCallback(() => {
+    if (!isCellDragEnabled || !dragContext) {
+      // Nessun drag context, apri normalmente
+      onCellClick(dayIndex, category.id);
+      return;
+    }
+
+    // Usa il context per decidere cosa fare
+    const result = dragContext.handleCellClick({ dayId: day.id, categoryId: category.id });
+    
+    if (result === 'open') {
+      // Apri la cella normalmente
+      onCellClick(dayIndex, category.id);
+    }
+    // 'action' e 'ignore' non fanno nulla qui (gestiti dal context)
+  }, [isCellDragEnabled, dragContext, onCellClick, dayIndex, category.id, day.id]);
+
+  // 🆕 Long press hook
+  const longPressHandlers = useLongPress(
+    handleLongPress,
+    handleClick,
+    { delay: 400 }
+  );
+
+  // 🆕 Calcola classi per stato selezione
+  const getSelectionClasses = () => {
+    if (isSelected) {
+      // Cella selezionata (origine)
+      return 'ring-2 ring-blue-500 ring-inset bg-blue-100';
+    }
+    
+    if (isSelectionMode && hasContent) {
+      // Altre celle con contenuto durante selezione (possibili target)
+      return 'ring-1 ring-dashed ring-gray-300';
+    }
+    
+    return '';
+  };
+
+  // Calcola altezza cella
+  const calculatedHeight = category.id === 'note' 
+    ? (expandedNotes ? Math.round(cellHeight * 1.5) : cellHeight)
+    : category.id === 'otherExpenses' 
+      ? (expandedOtherExpenses ? Math.round(cellHeight * 1.5) : cellHeight)
+      : cellHeight;
+
+  // Determina se usare long-press handlers
+  const shouldUseLongPress = isCellDragEnabled && !editMode;
 
   return (
     <td
       key={`${day.id}-${category.id}`}
-      onClick={() => onCellClick(dayIndex, category.id)}
+      {...(shouldUseLongPress ? longPressHandlers : {})}
+      onClick={shouldUseLongPress ? undefined : () => onCellClick(dayIndex, category.id)}
       onMouseEnter={() => onCellHoverEnter(cellKey)}
       onMouseLeave={onCellHoverLeave}
-      className={`px-1 py-0.5 text-center border-l ${selectedDays.includes(dayIndex) ? 'bg-blue-50' : highlightColor || ''
-        } ${editMode ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50'} ${isDesktop && selectedDayIndex === dayIndex ? 'bg-blue-50' : ''}
-      `}
+      className={`px-1 py-0.5 text-center border-l transition-all duration-150 ${
+        selectedDays.includes(dayIndex) ? 'bg-blue-50' : highlightColor || ''
+      } ${editMode ? 'cursor-not-allowed' : 'cursor-pointer'} ${
+        !editMode && !isSelectionMode ? 'hover:bg-gray-50' : ''
+      } ${isDesktop && selectedDayIndex === dayIndex ? 'bg-blue-50' : ''} ${getSelectionClasses()}`}
       style={{
-        height: category.id === 'note' ? (expandedNotes ? '80px' : '48px') :
-          category.id === 'otherExpenses' ? (expandedOtherExpenses ? '80px' : '48px') :
-            '48px',
+        height: `${calculatedHeight}px`,
         width: '140px',
         minWidth: '140px',
         maxWidth: '140px'
@@ -204,11 +268,9 @@ const DayCell: React.FC<DayCellProps> = ({
       {hasContent ? (
         <div className={`text-xs relative overflow-hidden h-full flex flex-col ${category.id === 'note' && expandedNotes ? 'justify-center py-0.5' : 'justify-center'
           }`}>
-          {/* ═══════════════════════════════════════════════════════════
-              RIGA SUPERIORE: Orario+Reminder (sx) | Media (centro) | Location+Booking (dx)
-              ═══════════════════════════════════════════════════════════ */}
-
-          {/* 🕐 ORARIO INIZIO + 🔔 REMINDER - ALTO SINISTRA */}
+          {/* RIGA SUPERIORE */}
+          
+          {/* Orario inizio + Reminder */}
           {hasStartTime && (
             <div className="absolute top-0 left-0.5 flex items-start gap-0.5">
               <span className="text-[9px] text-gray-400 leading-none">
@@ -220,7 +282,7 @@ const DayCell: React.FC<DayCellProps> = ({
             </div>
           )}
 
-          {/* 📸 PALLINO MEDIA - ALTO CENTRO */}
+          {/* Pallino media */}
           {showMediaIndicator && (
             <div className="absolute top-0 left-1/2 -translate-x-1/2">
               <div className="w-2 h-2 rounded-full bg-purple-400"
@@ -228,7 +290,7 @@ const DayCell: React.FC<DayCellProps> = ({
             </div>
           )}
 
-          {/* 📍 LOCATION + Pallino BOOKING - ALTO DESTRA */}
+          {/* Location + Booking */}
           {(hasLocation || (category.id !== 'base' && category.id !== 'note' && cellData?.bookingStatus && cellData.bookingStatus !== 'na')) && (
             <div className="absolute top-0 right-0 flex items-start justify-end gap-1">
               {hasLocation && (
@@ -244,23 +306,18 @@ const DayCell: React.FC<DayCellProps> = ({
             </div>
           )}
 
-          {/* ═══════════════════════════════════════════════════════════
-              RIGA INFERIORE: Trasporto+Orario fine (sx) | Costi (dx)
-              ═══════════════════════════════════════════════════════════ */}
+          {/* RIGA INFERIORE */}
 
-          {/* 🚗 TRASPORTO + 🕐 ORARIO FINE - BASSO SINISTRA */}
+          {/* Trasporto + Orario fine */}
           {(((category.id === 'spostamenti1' || category.id === 'spostamenti2') &&
             cellData?.transportMode && cellData.transportMode !== 'none') || hasEndTime) && (
               <div className="absolute bottom-0 left-0 flex items-end gap-0.5">
-                {/* 🚗 Trasporto con distanza dal bordo di 0.5 */}
                 {(category.id === 'spostamenti1' || category.id === 'spostamenti2') &&
                   cellData?.transportMode && cellData.transportMode !== 'none' && (
                     <span className="ml-0.5 text-xs leading-none">
                       {TRANSPORT_OPTIONS.find(t => t.value === cellData.transportMode)?.emoji}
                     </span>
                   )}
-
-                {/* 🕐 Orario con distanza dal bordo 0 */}
                 {hasEndTime && (
                   <span className="text-[9px] text-gray-400 leading-none">
                     {cellData.endTime}
@@ -269,7 +326,7 @@ const DayCell: React.FC<DayCellProps> = ({
               </div>
             )}
 
-          {/* 💰 COSTO - BASSO DESTRA */}
+          {/* Costo */}
           {category.id !== 'base' && category.id !== 'note' && category.id !== 'otherExpenses' &&
             displayCost > 0 && (
               <div
@@ -280,8 +337,8 @@ const DayCell: React.FC<DayCellProps> = ({
               </div>
             )}
 
-          {/* 💸 COSTO ALTRE SPESE - BASSO DESTRA (grigio, solo con toggle) */}
-          {category.id === 'otherExpenses' && otherExpensesData.total > 0 && (
+          {/* Costo Altre Spese */}
+          {category.id === 'otherExpenses' && otherExpensesData && otherExpensesData.total > 0 && (
             <div
               className={`absolute bottom-[1px] right-0.5 text-[9px] font-semibold leading-none transition-opacity duration-150 text-gray-500 ${costVisible ? 'opacity-100' : 'opacity-0'
                 }`}
@@ -290,25 +347,19 @@ const DayCell: React.FC<DayCellProps> = ({
             </div>
           )}
 
-          {/* ═══════════════════════════════════════════════════════════
-              CONTENUTO CENTRALE
-              ═══════════════════════════════════════════════════════════ */}
-
-          {/* 💸 ALTRE SPESE: numero compresso, lista espansa */}
+          {/* CONTENUTO CENTRALE */}
           {category.id === 'otherExpenses' ? (
             expandedOtherExpenses ? (
-              // Vista ESPANSA: Lista titolo + costo
               <div className="flex flex-col gap-0.5 px-2 py-1 h-full justify-center overflow-hidden">
-                {otherExpensesData.count > 0 ? (
+                {otherExpensesData && otherExpensesData.count > 0 ? (
                   (() => {
                     const key = `${day.id}-otherExpenses`;
                     const expensesRaw = trip.data[key];
                     const expenses = Array.isArray(expensesRaw) ? expensesRaw : [];
 
-                    // Filtra spese con contenuto e membri attivi
                     const realExpenses = expenses.filter((exp: any) => {
-                      const hasContent = (exp.title && exp.title.trim() !== '') || (exp.cost && exp.cost.trim() !== '');
-                      if (!hasContent) return false;
+                      const hasExpContent = (exp.title && exp.title.trim() !== '') || (exp.cost && exp.cost.trim() !== '');
+                      if (!hasExpContent) return false;
 
                       if (exp.costBreakdown && Array.isArray(exp.costBreakdown)) {
                         const hasActiveMembers = exp.costBreakdown.some(entry => {
@@ -328,7 +379,6 @@ const DayCell: React.FC<DayCellProps> = ({
                     return (
                       <>
                         {visibleExpenses.map((exp: any, idx: number) => {
-                          // Calcola costo da membri attivi
                           let expCost = 0;
                           if (exp.costBreakdown && Array.isArray(exp.costBreakdown)) {
                             expCost = exp.costBreakdown
@@ -367,9 +417,8 @@ const DayCell: React.FC<DayCellProps> = ({
                 )}
               </div>
             ) : (
-              // Vista COMPRESSA: Solo numero
               <div className="text-xs font-medium text-gray-700">
-                ({otherExpensesData.count})
+                ({otherExpensesData ? otherExpensesData.count : 0})
               </div>
             )
           ) : category.id === 'note' ? (
