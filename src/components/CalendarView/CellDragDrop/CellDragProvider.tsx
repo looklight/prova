@@ -1,10 +1,11 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
-import { 
-  CellLocation, 
-  CellAction, 
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import {
+  CellLocation,
+  CellAction,
   cellHasContent,
   executeCellAction,
-  requiresCategoryChangeWarning 
+  requiresCategoryChangeWarning
 } from '../../../utils/cellDataUtils';
 import { useCellDragDrop, SelectionState } from '../../../hooks/useCellDragDrop';
 import CellActionModal from './CellActionModal';
@@ -42,6 +43,49 @@ interface CellDragProviderProps {
 }
 
 /**
+ * Toast component per mostrare istruzioni dopo la selezione
+ */
+const SelectionToast: React.FC<{ visible: boolean }> = ({ visible }) => {
+  const [shouldRender, setShouldRender] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      setShouldRender(true);
+      // Piccolo delay per triggherare l'animazione
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setIsAnimating(true);
+        });
+      });
+    } else {
+      setIsAnimating(false);
+      // Aspetta fine animazione prima di smontare
+      const timer = setTimeout(() => setShouldRender(false), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [visible]);
+
+  if (!shouldRender) return null;
+
+  const toast = (
+    <div
+      className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[9998] transition-all duration-600 ease-out ${isAnimating
+          ? 'opacity-100 translate-y-0'
+          : 'opacity-0 translate-y-4'
+        }`}
+    >
+      <div className="bg-gray-800 text-white px-4 py-3 rounded-xl shadow-lg flex flex-col items-start gap-1 min-w-[300px] max-w-[90vw]">
+        <span className="text-sm font-medium">📍 Seleziona la cella di destinazione</span>
+        <span className="text-xs opacity-70">(puoi spostare intere giornate dal menu edit)</span>
+      </div>
+    </div>
+  );
+
+  return createPortal(toast, document.body);
+};
+
+/**
  * Provider che gestisce la selezione e spostamento celle.
  * 
  * Flusso:
@@ -68,8 +112,19 @@ export const CellDragProvider: React.FC<CellDragProviderProps> = ({
     target: null
   });
 
+  // Stato per il toast
+  const [showToast, setShowToast] = useState(false);
+  const toastTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // Handler quando viene selezionata una destinazione
   const handleTargetSelected = useCallback((source: CellLocation, target: CellLocation) => {
+    // Nascondi toast quando si seleziona destinazione
+    setShowToast(false);
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = null;
+    }
+
     setModalState({
       isOpen: true,
       source,
@@ -81,19 +136,53 @@ export const CellDragProvider: React.FC<CellDragProviderProps> = ({
     selectionState,
     selectCell: selectCellInternal,
     handleCellClick: handleCellClickInternal,
-    cancelSelection,
+    cancelSelection: cancelSelectionInternal,
     isSelectedCell,
     isSelectionMode
   } = useCellDragDrop({
     getCellData,
     onSelect: () => {
       console.log('🎯 Cella selezionata');
+      // Mostra toast per 5 secondi
+      setShowToast(true);
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
+      toastTimerRef.current = setTimeout(() => {
+        setShowToast(false);
+        toastTimerRef.current = null;
+      }, 5000);
     },
     onDeselect: () => {
       console.log('🎯 Selezione annullata');
+      // Nascondi toast
+      setShowToast(false);
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = null;
+      }
     },
     onTargetSelected: handleTargetSelected
   });
+
+  // Wrapper per cancelSelection che pulisce anche il toast
+  const cancelSelection = useCallback(() => {
+    setShowToast(false);
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = null;
+    }
+    cancelSelectionInternal();
+  }, [cancelSelectionInternal]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
 
   // Wrapper per selectCell che controlla se è abilitato
   const selectCell = useCallback((source: CellLocation) => {
@@ -122,7 +211,7 @@ export const CellDragProvider: React.FC<CellDragProviderProps> = ({
   // Handler quando l'utente sceglie un'azione nel modal
   const handleAction = useCallback(async (action: CellAction) => {
     const { source, target } = modalState;
-    
+
     if (!source || !target) {
       setModalState({ isOpen: false, source: null, target: null });
       return;
@@ -166,7 +255,7 @@ export const CellDragProvider: React.FC<CellDragProviderProps> = ({
   };
 
   // Verifica se target ha contenuto
-  const targetHasContent = modalState.target 
+  const targetHasContent = modalState.target
     ? cellHasContent(getCellData(modalState.target.dayId, modalState.target.categoryId))
     : false;
 
@@ -188,7 +277,10 @@ export const CellDragProvider: React.FC<CellDragProviderProps> = ({
   return (
     <CellDragContext.Provider value={contextValue}>
       {children}
-      
+
+      {/* Toast istruzioni dopo selezione */}
+      <SelectionToast visible={showToast} />
+
       {/* Modal per scegliere l'azione */}
       <CellActionModal
         isOpen={modalState.isOpen}
@@ -208,11 +300,11 @@ export const CellDragProvider: React.FC<CellDragProviderProps> = ({
  */
 export const useCellDrag = (): CellDragContextValue => {
   const context = useContext(CellDragContext);
-  
+
   if (!context) {
     throw new Error('useCellDrag must be used within a CellDragProvider');
   }
-  
+
   return context;
 };
 

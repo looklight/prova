@@ -25,8 +25,11 @@ export const useSuggestions = (trip, dayIndex, categoryData) => {
       const currentBase = categoryData.base.title;
       const prevBase = trip.data[`${prevDay.id}-base`]?.title;
 
-      if (currentBase && prevBase && currentBase === prevBase) {
-        return prevData?.title || null;
+      if (currentBase && prevBase && currentBase === prevBase && prevData?.title) {
+        return {
+          title: prevData.title,
+          location: prevData.location || null
+        };
       }
     }
 

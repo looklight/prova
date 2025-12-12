@@ -50,6 +50,7 @@ export const useLongPress = (
         moveThreshold = 10
     } = options;
 
+    const blockClickRef = useRef(false);
     const timerRef = useRef<NodeJS.Timeout | null>(null);
     const isLongPressRef = useRef(false);
     const startPosRef = useRef<{ x: number; y: number } | null>(null);
@@ -69,6 +70,7 @@ export const useLongPress = (
         // Avvia timer
         timerRef.current = setTimeout(() => {
             isLongPressRef.current = true;
+            blockClickRef.current = true;
             onLongPressStart?.();
             onLongPress();
         }, delay);
@@ -98,7 +100,7 @@ export const useLongPress = (
         clearTimer();
 
         // Se non era un long-press E non ci siamo mossi troppo, è un click normale
-        if (!isLongPressRef.current && onClick && startPosRef.current) {
+        if (!isLongPressRef.current && !blockClickRef.current && onClick && startPosRef.current) {
             onClick();
         }
 
@@ -108,6 +110,11 @@ export const useLongPress = (
 
         isLongPressRef.current = false;
         startPosRef.current = null;
+
+        // Reset block dopo un breve delay (per bloccare click sintetici)
+        setTimeout(() => {
+            blockClickRef.current = false;
+        }, 100);
     }, [clearTimer, onClick, onLongPressEnd]);
 
     // Mouse handlers

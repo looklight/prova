@@ -119,7 +119,7 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
             />
           )}
           <th
-            className={`px-2 py-3 text-left font-medium sticky z-10 text-xs ${isScrolled ? 'bg-transparent' : 'bg-gray-100'
+            className={`px-2 py-2 text-left font-medium sticky z-10 text-xs ${isScrolled ? 'bg-transparent' : 'bg-gray-100'
               }`}
             style={{
               left: isDragMode ? '32px' : '0px',
@@ -135,7 +135,7 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
             <th
               key={day.id}
               data-day-id={day.id}
-              className={`px-2 py-3 text-center font-medium relative text-xs ${selectedDays.includes(index) ? 'bg-blue-100' : ''
+              className={`px-2 py-2 text-center font-medium relative text-xs ${selectedDays.includes(index) ? 'bg-blue-100' : ''
                 } ${isToday(day.date) ? 'ring-2 ring-blue-400 ring-inset bg-blue-50' : ''} ${isDesktop && selectedDayIndex === index ? 'bg-blue-200 ring-2 ring-blue-500' : ''}
               `}
               style={{ width: '140px', minWidth: '140px', maxWidth: '140px' }}
