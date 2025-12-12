@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { HelpCircle, FileText, LinkIcon, Video } from 'lucide-react';
 
 interface MediaDialogProps {
   isOpen: boolean;
@@ -43,6 +44,11 @@ const MediaDialog: React.FC<MediaDialogProps> = ({
 }) => {
   const [isAnimating, setIsAnimating] = useState(false);
 
+  const [showHelp, setShowHelp] = useState<Record<string, boolean>>({});
+  const toggleHelp = (section: string) => {
+    setShowHelp(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
   // 🎬 Animazione entrata
   useEffect(() => {
     if (isOpen) {
@@ -60,20 +66,20 @@ const MediaDialog: React.FC<MediaDialogProps> = ({
     if (isOpen) {
       // Salva posizione scroll corrente
       const scrollY = window.scrollY;
-      
+
       // Blocca scroll del body
       document.body.style.position = 'fixed';
       document.body.style.top = `-${scrollY}px`;
       document.body.style.width = '100%';
       document.body.style.overflow = 'hidden';
-      
+
       // Cleanup: ripristina scroll quando si chiude
       return () => {
         document.body.style.position = '';
         document.body.style.top = '';
         document.body.style.width = '';
         document.body.style.overflow = '';
-        
+
         // Ripristina posizione scroll
         window.scrollTo(0, scrollY);
       };
@@ -83,17 +89,33 @@ const MediaDialog: React.FC<MediaDialogProps> = ({
   if (!isOpen || !type) return null;
 
   return (
-    <div 
+    <div
       className={`fixed inset-0 flex items-end z-50 transition-colors duration-300 ${isAnimating ? 'bg-black bg-opacity-50' : 'bg-transparent'}`}
       onClick={onClose}
     >
-      <div 
+      <div
         className={`bg-white rounded-t-3xl w-full p-6 ${isDesktop ? 'max-w-md' : 'max-w-[430px]'} mx-auto transition-transform duration-300 ease-out ${isAnimating ? 'translate-y-0' : 'translate-y-full'}`}
         onClick={(e) => e.stopPropagation()}
       >
         {type === 'link' && (
           <>
-            <h3 className="text-lg font-bold mb-4">Aggiungi Link</h3>
+            <div className="flex items-center gap-2 mb-2">
+              <LinkIcon size={20} className="text-blue-500" />
+              <h3 className="text-lg font-bold flex items-center gap-1">
+                Aggiungi Link
+                <button
+                  onClick={() => toggleHelp('link')}
+                  className="p-1 text-gray-400 hover:text-blue-500 transition-colors"
+                >
+                  <HelpCircle size={16} />
+                </button>
+              </h3>
+            </div>
+            {showHelp['link'] && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs text-gray-600">
+                💡 Inserisci il link completo e, se vuoi, un titolo descrittivo. Per aprire il link basterà toccare la card.
+              </div>
+            )}
             <input
               type="url"
               value={linkInput}
@@ -125,11 +147,16 @@ const MediaDialog: React.FC<MediaDialogProps> = ({
             </div>
           </>
         )}
-        
+
         {type === 'video' && (
           <>
-            <h3 className="text-lg font-bold mb-2">Aggiungi Video</h3>
-            <p className="text-xs text-gray-500 mb-4">Incolla il link da Instagram, TikTok o YouTube</p>
+            <div className="flex items-center gap-2 mb-2">
+              <Video size={20} className="text-purple-500" />
+              <h3 className="text-lg font-bold flex items-center gap-1">
+                Aggiungi Video
+              </h3>
+            </div>
+            <p className="text-xs text-gray-500 mb-4">Incolla il link del post da Instagram, TikTok o YouTube</p>
             <input
               type="url"
               value={videoInput}
@@ -161,10 +188,30 @@ const MediaDialog: React.FC<MediaDialogProps> = ({
             </div>
           </>
         )}
-        
+
         {type === 'note' && (
           <>
-            <h3 className="text-lg font-bold mb-4">📝 Nota</h3>
+            <div className="flex items-center gap-2 mb-2">
+              {/* Icona nota a sinistra */}
+              <FileText size={20} className="text-amber-500" />
+
+              {/* Titolo */}
+              <h3 className="text-lg font-bold flex items-center gap-1">
+                Aggiungi Nota
+                {/* Bottone help accanto al titolo */}
+                <button
+                  onClick={() => toggleHelp('note')}
+                  className="p-1 text-gray-400 hover:text-blue-500 transition-colors"
+                >
+                  <HelpCircle size={16} />
+                </button>
+              </h3>
+            </div>
+            {showHelp['note'] && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs text-gray-600">
+                💡 Usa questo spazio per annotare informazioni importanti o appunti rapidi.
+              </div>
+            )}
             {editingNote && !isNoteEditing ? (
               <>
                 <div className="w-full px-4 py-3 border rounded-lg mb-4 h-64 overflow-y-auto bg-gray-50 text-sm text-gray-700 whitespace-pre-wrap">

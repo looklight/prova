@@ -16,6 +16,8 @@ import { deleteImage } from '../../services/storageService';
 import LocationModal from './LocationModal';
 import type { LocationData } from '../../services/geocodingService';
 import { deleteRemindersByCategory } from '../../services/notifications/reminderService';
+import WaypointsModal from './ui/WaypointsModal';
+import type { Waypoint } from './ui/WaypointsModal';
 
 const DayDetailView = ({
   trip,
@@ -56,6 +58,12 @@ const DayDetailView = ({
     categoryId: string | null;
   }>({ isOpen: false, categoryId: null });
 
+  // 🆕 Stato per WaypointsModal
+  const [waypointsModal, setWaypointsModal] = useState<{
+    isOpen: boolean;
+    categoryId: string | null;
+  }>({ isOpen: false, categoryId: null });
+
   const analytics = useAnalytics();
 
   // Categorie sempre visibili (non collassabili)
@@ -73,7 +81,8 @@ const DayDetailView = ({
       data.images?.length ||
       data.videos?.length ||
       data.mediaNotes?.length ||
-      data.notes?.trim()
+      data.notes?.trim() ||
+      data.waypoints?.length
     );
   }, [categoryData]);
 
@@ -191,6 +200,27 @@ const DayDetailView = ({
     updateCategory(locationModal.categoryId, 'location', null);
     console.log('📍 [Location] Rimossa:', locationModal.categoryId);
     setLocationModal({ isOpen: false, categoryId: null });
+  };
+
+  // 🆕 Handler per salvare waypoints
+  const handleWaypointsSave = (waypoints: Waypoint[], mainLocation: any) => {
+    if (!waypointsModal.categoryId) return;
+
+    const catId = waypointsModal.categoryId;
+
+    // La prima tappa diventa title + location della categoria
+    const firstWaypoint = waypoints[0];
+    const otherWaypoints = waypoints.slice(1);
+
+    if (updateCategoryMultiple) {
+      // Salva TUTTI i waypoints senza toccare il title
+      updateCategoryMultiple(catId, {
+        waypoints: waypoints  // Salva tutti, non solo otherWaypoints
+      });
+    }
+
+    console.log('📍 [Waypoints] Salvati:', { categoryId: catId, waypoints, mainLocation });
+    setWaypointsModal({ isOpen: false, categoryId: null });
   };
 
   // 🆕 Shortcut Delete per reset categoria (solo desktop)
@@ -588,6 +618,7 @@ const DayDetailView = ({
                 dayId={String(currentDay.id)}
                 dayNumber={currentDay.number}
                 tripDestinations={trip.metadata?.destinations || []}
+                onOpenWaypoints={() => setWaypointsModal({ isOpen: true, categoryId: category.id })}
               />
             );
           } else {
@@ -703,6 +734,18 @@ const DayDetailView = ({
         onClose={() => setLocationModal({ isOpen: false, categoryId: null })}
         onConfirm={handleLocationConfirm}
         onRemove={handleLocationRemove}
+      />
+
+      {/* 🆕 Waypoints Modal */}
+      <WaypointsModal
+        isOpen={waypointsModal.isOpen}
+        isDesktop={isDesktop}
+        onClose={() => setWaypointsModal({ isOpen: false, categoryId: null })}
+        onSave={handleWaypointsSave}
+        categoryTitle={waypointsModal.categoryId ? categoryData[waypointsModal.categoryId]?.title || '' : ''}
+        categoryLocation={waypointsModal.categoryId ? categoryData[waypointsModal.categoryId]?.location || null : null}
+        existingWaypoints={waypointsModal.categoryId ? categoryData[waypointsModal.categoryId]?.waypoints || [] : []}
+        baseLocation={categoryData['base']?.title || null}
       />
     </div>
   );

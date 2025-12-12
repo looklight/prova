@@ -61,7 +61,8 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
         startTime: cellData.startTime || null,
         endTime: cellData.endTime || null,
         reminder: cellData.reminder || null,
-        reminderId: cellData.reminderId || null
+        reminderId: cellData.reminderId || null,
+        waypoints: cellData.waypoints || []
       };
     });
     return data;
@@ -120,7 +121,8 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
         startTime: cellData.startTime || null,
         endTime: cellData.endTime || null,
         reminder: cellData.reminder || null,
-        reminderId: cellData.reminderId || null
+        reminderId: cellData.reminderId || null,
+        waypoints: cellData.waypoints || []
       };
     });
 

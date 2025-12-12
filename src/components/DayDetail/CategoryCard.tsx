@@ -2,6 +2,7 @@ import React from 'react';
 import { Video, MapPin } from 'lucide-react';
 import { BookingToggle, CostInput, MediaButton, TransportSelector } from './ui';
 import { LinkCard, ImageCard, NoteCard, VideoEmbed, LinkIcon, ImageIcon, FileTextIcon } from './MediaCards';
+import WaypointsCard from './WaypointsCard';
 import OfflineDisabled from '../OfflineDisabled';
 import ActivitySchedule from './ui/ActivitySchedule';
 
@@ -42,6 +43,7 @@ interface CategoryCardProps {
   onEditNote: (note: any) => void;
   onOpenCostBreakdown?: () => void;
   onOpenLocation?: () => void;
+  onOpenWaypoints?: () => void;
   currentUserId?: string;
   tripMembers?: Record<string, { status: string; displayName: string; avatar?: string }>;
   isSelected?: boolean;
@@ -68,6 +70,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
   onEditNote,
   onOpenCostBreakdown,
   onOpenLocation,
+  onOpenWaypoints,
   currentUserId,
   tripMembers,
   isSelected = false,
@@ -94,22 +97,39 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
   // Contenuto presente (per mostrare pallino booking)
   const hasContent = categoryData.title?.trim() !== '' || categoryData.cost?.trim() !== '';
 
-  // Location presente
-  const hasLocation = categoryData.location?.coordinates != null;
+  // Location presente (principale o nei waypoints)
+  const hasMainLocation = categoryData.location?.coordinates != null;
+  const hasWaypoints = categoryData.waypoints && categoryData.waypoints.length > 0;
+  const waypointsWithLocation = hasWaypoints 
+    ? categoryData.waypoints.filter((w: any) => w.location?.coordinates).length 
+    : 0;
+  const hasAnyLocation = hasMainLocation || waypointsWithLocation > 0;
 
   // Categorie che possono avere location (escludi note, otherExpenses)
   const canHaveLocation = !['note', 'otherExpenses'].includes(category.id);
 
+  // Categorie che possono avere waypoints (escludi base, note, otherExpenses)
+  const canHaveWaypoints = !['base', 'note', 'otherExpenses'].includes(category.id);
+
   // Mostra pulsante location: quando attivo OPPURE quando ha location
   const showLocationButton = canHaveLocation &&
     onOpenLocation &&
-    (isActive || hasLocation);
+    (isActive || hasAnyLocation);
 
   // Media presenti
   const hasMedia = categoryData.links?.length > 0 ||
     categoryData.images?.length > 0 ||
     categoryData.videos?.length > 0 ||
     categoryData.mediaNotes?.length > 0;
+
+  // Waypoints validi (con nome)
+  const validWaypoints = hasWaypoints 
+    ? categoryData.waypoints.filter((w: any) => w.name?.trim() !== '')
+    : [];
+  const hasValidWaypoints = validWaypoints.length > 0;
+
+  // Conta tutte le tappe valide (per il badge)
+  const totalWaypointsCount = validWaypoints.length;
 
   // Orario presente
   const hasTime = categoryData.startTime || categoryData.endTime;
@@ -122,6 +142,19 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
 
     if (!isInteractive && onSelect) {
       onSelect();
+    }
+  };
+
+  // Handler click su MapPin
+  const handleLocationClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    // Se ci sono waypoints, apri WaypointsModal
+    if (hasWaypoints && onOpenWaypoints) {
+      onOpenWaypoints();
+    } else if (onOpenLocation) {
+      // Altrimenti apri LocationModal diretto
+      onOpenLocation();
     }
   };
 
@@ -155,24 +188,31 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
 
           {/* Gruppo pulsanti a destra */}
           <div className="flex items-center gap-1">
-            {/* Pulsante Location */}
+            {/* Pulsante Location con badge */}
             {showLocationButton && (
               <OfflineDisabled>
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onOpenLocation();
-                  }}
+                  onClick={handleLocationClick}
                   className={`slide-in-right w-11 h-9 flex items-center justify-center rounded-full 
-                    active:scale-90 transition-transform ${hasLocation
+                    active:scale-90 transition-transform relative ${hasAnyLocation
                       ? isActive
                         ? 'text-red-500 active:text-red-700'
                         : 'text-red-300'
                       : 'text-gray-400 active:text-gray-600'
                     }`}
-                  title={hasLocation ? 'Modifica posizione' : 'Aggiungi posizione'}
+                  title={hasAnyLocation ? 'Modifica posizione' : 'Aggiungi posizione'}
                 >
-                  <MapPin size={24} strokeWidth={hasLocation ? 2 : 1.5} />
+                  <MapPin size={24} strokeWidth={hasAnyLocation ? 2 : 1.5} />
+                  {/* Badge con numero tappe - discreto quando non attivo */}
+                  {totalWaypointsCount > 0 && (
+                    <span className={`absolute -top-0 -right-0 text-[9px] font-semibold ${
+                      isActive 
+                        ? 'text-cyan-500'
+                        : 'text-gray-300'
+                    }`}>
+                      +{totalWaypointsCount}
+                    </span>
+                  )}
                 </button>
               </OfflineDisabled>
             )}
@@ -243,15 +283,31 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
           <div
             onClick={(e) => {
               e.stopPropagation();
-              onUpdateCategory(category.id, 'title', suggestion);
+              if (typeof suggestion === 'object' && suggestion.title) {
+                if (suggestion.location && onUpdateCategoryMultiple) {
+                  onUpdateCategoryMultiple(category.id, {
+                    title: suggestion.title,
+                    location: suggestion.location
+                  });
+                } else {
+                  onUpdateCategory(category.id, 'title', suggestion.title);
+                }
+              } else {
+                onUpdateCategory(category.id, 'title', suggestion);
+              }
             }}
             className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors"
           >
             <div className="flex items-center justify-between">
               <div className="flex-1">
                 <div className="text-xs text-blue-600 font-medium mb-1">Suggerimento</div>
-                <div className="text-sm font-semibold text-blue-900">{suggestion}</div>
+                <div className="text-sm font-semibold text-blue-900">
+                  {typeof suggestion === 'object' ? suggestion.title : suggestion}
+                </div>
               </div>
+              {typeof suggestion === 'object' && suggestion.location && (
+                <MapPin size={14} className="text-blue-500 mr-2" />
+              )}
               <div className="ml-3 px-3 py-1 bg-blue-500 text-white text-xs rounded-full font-medium">
                 Usa
               </div>
@@ -412,6 +468,17 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
                   color="amber"
                   onClick={() => onMediaDialogOpen('note')}
                 />
+
+                {/* Pulsante Tappe */}
+                {canHaveWaypoints && onOpenWaypoints && (
+                  <MediaButton
+                    icon={MapPin}
+                    label="Tappe"
+                    color="cyan"
+                    onClick={onOpenWaypoints}
+                    badge={hasValidWaypoints ? validWaypoints.length : null}
+                  />
+                )}
               </div>
             </OfflineDisabled>
           </div>
@@ -430,31 +497,31 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
           </OfflineDisabled>
         )}
 
-        {/* Media Grid - sempre visibile se ci sono media */}
-        {category.id !== 'note' && category.id !== 'base' && hasMedia && (
+        {/* Media Grid - sempre visibile se ci sono media o waypoints */}
+        {category.id !== 'note' && category.id !== 'base' && (hasMedia || hasValidWaypoints) && (
           <div className="grid grid-cols-3 gap-2 mt-1">
-            {categoryData.links.map(link => (
+            {categoryData.links?.map(link => (
               <LinkCard
                 key={link.id}
                 link={link}
                 onRemove={() => onRemoveMedia('links', link.id)}
               />
             ))}
-            {categoryData.images.map(image => (
+            {categoryData.images?.map(image => (
               <ImageCard
                 key={image.id}
                 image={image}
                 onRemove={() => onRemoveMedia('images', image.id)}
               />
             ))}
-            {categoryData.videos.map(video => (
+            {categoryData.videos?.map(video => (
               <VideoEmbed
                 key={video.id}
                 video={video}
                 onRemove={() => onRemoveMedia('videos', video.id)}
               />
             ))}
-            {categoryData.mediaNotes.map(note => (
+            {categoryData.mediaNotes?.map(note => (
               <NoteCard
                 key={note.id}
                 note={note}
@@ -462,6 +529,14 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
                 onClick={() => onEditNote(note)}
               />
             ))}
+            {/* Waypoints Card */}
+            {hasValidWaypoints && onOpenWaypoints && (
+              <WaypointsCard
+                waypoints={validWaypoints}
+                onClick={onOpenWaypoints}
+                onRemove={() => onUpdateCategory(category.id, 'waypoints', [])}
+              />
+            )}
           </div>
         )}
       </div>
