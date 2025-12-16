@@ -1,0 +1,99 @@
+/* MapView styles */
+
+/* Reset stile default marker Leaflet */
+.custom-map-pin {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Popup styling */
+.leaflet-popup-content-wrapper {
+  border-radius: 12px;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.leaflet-popup-content {
+  margin: 12px;
+  min-width: 160px;
+}
+
+.leaflet-popup-tip {
+  background: white;
+}
+
+/* Nascondi l'ombra del marker default */
+.leaflet-marker-shadow {
+  display: none !important;
+}
+
+/* Animazione marker hover */
+.custom-map-pin > div {
+  transition: transform 0.15s ease;
+}
+
+.custom-map-pin:hover > div {
+  transform: scale(1.1) translateY(-2px);
+}
+
+/* Fix per evitare che il contenitore mappa abbia bordi strani */
+.leaflet-container {
+  font-family: inherit;
+  background: #f8fafc;
+}
+
+/* Stile controlli zoom */
+.leaflet-control-zoom {
+  border: none !important;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15) !important;
+  border-radius: 8px !important;
+  overflow: hidden;
+}
+
+.leaflet-control-zoom a {
+  width: 36px !important;
+  height: 36px !important;
+  line-height: 36px !important;
+  font-size: 18px !important;
+  color: #374151 !important;
+  background: white !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background-color: #f3f4f6 !important;
+}
+
+.leaflet-control-zoom-in {
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+/* Attribution più discreta */
+.leaflet-control-attribution {
+  font-size: 9px !important;
+  background: rgba(255, 255, 255, 0.8) !important;
+  padding: 2px 6px !important;
+}
+
+/* Fix per z-index popup */
+.leaflet-popup {
+  z-index: 1000 !important;
+}
+
+/* Smooth transition per la mappa */
+.leaflet-fade-anim .leaflet-popup {
+  transition: opacity 0.2s linear;
+}
+
+/* Mobile touch improvements */
+@media (max-width: 640px) {
+  .leaflet-popup-content {
+    margin: 10px;
+  }
+  
+  .leaflet-control-zoom a {
+    width: 40px !important;
+    height: 40px !important;
+    line-height: 40px !important;
+  }
+}

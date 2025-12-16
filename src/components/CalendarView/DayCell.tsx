@@ -182,9 +182,9 @@ const DayCell: React.FC<DayCellProps> = ({
     cellData?.location &&
     (cellData.location.coordinates || cellData.location.address);
 
-  const hasStartTime = expandedNotes && cellData?.startTime;
-  const hasEndTime = expandedNotes && cellData?.endTime;
-  const hasReminder = expandedNotes && cellData?.reminder?.date;
+  const hasStartTime = showLocationIndicators && cellData?.startTime;
+  const hasEndTime = showLocationIndicators && cellData?.endTime;
+  const hasReminder = showLocationIndicators && cellData?.reminder?.date;
 
   // 🆕 Stato selezione per questa cella
   const isSelected = dragContext?.isSelectedCell(day.id, category.id) ?? false;
@@ -274,7 +274,7 @@ const DayCell: React.FC<DayCellProps> = ({
 
           {/* Orario inizio + Reminder */}
           {hasStartTime && (
-            <div className="absolute top-0 left-0.5 flex items-start gap-0.5">
+            <div className="absolute top-0 left-0 flex items-start gap-0.5">
               <span className="text-[9px] text-gray-400 leading-none">
                 {cellData.startTime}
               </span>

@@ -3,6 +3,7 @@ import TripMetadataModal from '../TripMetadataModal';
 import CostSummaryByUserView from '../DayDetail/CostSummaryByUserView';
 import CalendarHeader from './CalendarHeader';
 import CalendarTable from './CalendarTable';
+import { DayMapView } from '../MapView';
 import { useCalendarScroll } from '../../hooks/useCalendarScroll';
 import { useDayOperations } from '../../hooks/useDayOperations';
 import { useDynamicCellHeight } from '../../hooks/useDynamicCellHeight';
@@ -80,6 +81,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [showLocationIndicators, setShowLocationIndicators] = useState(false);
   const [hoveredCell, setHoveredCell] = useState<string | null>(null);
   const isLandscape = useMediaQuery('(orientation: landscape) and (max-width: 1023px)');
+
+  // 🆕 Stato per la mappa (con viewMode)
+  const [mapView, setMapView] = useState<{
+    isOpen: boolean;
+    dayIndex: number;
+    initialViewMode: 'day' | 'trip';
+  }>({ isOpen: false, dayIndex: 0, initialViewMode: 'day' });
 
   // Ref per misurare l'header e calcolare altezza dinamica celle
   const headerRef = useRef<HTMLDivElement>(null);
@@ -267,6 +275,31 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     }
   }, [trip.data, onUpdateTrip]);
 
+  // 🆕 Handler per aprire la mappa (con viewMode)
+  const handleOpenMap = (dayIndex: number, viewMode: 'day' | 'trip') => {
+    setMapView({ isOpen: true, dayIndex, initialViewMode: viewMode });
+  };
+
+  // 🆕 Handler per navigare a un giorno dalla mappa
+  const handleNavigateToDay = (dayIndex: number) => {
+    const currentScrollPosition = scrollContainerRef.current?.scrollLeft || 0;
+    onOpenDay(dayIndex, currentScrollPosition);
+  };
+
+  // 🆕 Se la mappa è aperta, mostra quella
+  if (mapView.isOpen) {
+    return (
+      <DayMapView
+        trip={trip}
+        initialDayIndex={mapView.dayIndex}
+        initialViewMode={mapView.initialViewMode}
+        onBack={() => setMapView({ isOpen: false, dayIndex: 0, initialViewMode: 'day' })}
+        onNavigateToDay={handleNavigateToDay}
+        isDesktop={isDesktop}
+      />
+    );
+  }
+
   // Se mostra riepilogo costi, renderizza quella vista
   if (showCostSummary) {
     return (
@@ -325,7 +358,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       <div
         ref={scrollContainerRef}
         className="overflow-x-auto overflow-y-auto px-2 mt-2"
-        style={{ maxHeight: 'calc(100vh - 100px)' }} // regola questo valore in base a header + eventuali margini
+        style={{ maxHeight: 'calc(100vh - 100px)' }}
         onScroll={(e) => setIsScrolled((e.target as HTMLDivElement).scrollLeft > 10)}
       >
         <CalendarTable
@@ -361,6 +394,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           onToggleOtherExpenses={() => setExpandedOtherExpenses(!expandedOtherExpenses)}
           onToggleLocationIndicators={() => setShowLocationIndicators(!showLocationIndicators)}
           onUpdateCellData={handleUpdateCellData}
+          onOpenMap={handleOpenMap}
         />
       </div>
     </div>

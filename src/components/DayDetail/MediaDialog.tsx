@@ -122,7 +122,7 @@ const MediaDialog: React.FC<MediaDialogProps> = ({
               onChange={(e) => onLinkInputChange(e.target.value)}
               placeholder="https://..."
               className="w-full px-4 py-3 border rounded-lg mb-3"
-              autoFocus
+              autoFocus={isDesktop}
             />
             <textarea
               value={linkTitle}
@@ -163,7 +163,7 @@ const MediaDialog: React.FC<MediaDialogProps> = ({
               onChange={(e) => onVideoInputChange(e.target.value)}
               placeholder="https://instagram.com/p/..."
               className="w-full px-4 py-3 border rounded-lg mb-3"
-              autoFocus
+              autoFocus={isDesktop}
             />
             <textarea
               value={videoNote}
@@ -239,7 +239,7 @@ const MediaDialog: React.FC<MediaDialogProps> = ({
                   onChange={(e) => onNoteInputChange(e.target.value)}
                   placeholder="Scrivi una nota..."
                   className="w-full px-4 py-3 border rounded-lg mb-4 h-64 resize-none"
-                  autoFocus
+                  autoFocus={isDesktop}
                 />
                 <div className="flex gap-2">
                   <button

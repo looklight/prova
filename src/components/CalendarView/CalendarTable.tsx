@@ -1,10 +1,11 @@
 import React from 'react';
-import { Check } from 'lucide-react';
+import { Check, Map } from 'lucide-react';
 import { CATEGORIES } from '../../utils/constants';
 import CategoryRow from './CategoryRow';
 import CategoryRowsDrag, { CategoryDndProvider } from './CategoryRowsDrag';
 import TotalRow from './TotalRow';
 import { CellDragProvider } from './CellDragDrop';
+import { getMapIconType, type MapIconType } from '../MapView/mapUtils';
 
 type EditTarget = 'days' | 'categories';
 
@@ -41,6 +42,7 @@ interface CalendarTableProps {
   onToggleOtherExpenses: () => void;
   onToggleLocationIndicators: () => void;
   onUpdateCellData?: (updates: Record<string, any>) => Promise<void>;
+  onOpenMap?: (dayIndex: number, viewMode: 'day' | 'trip') => void; // 🆕 Aggiunto viewMode
 }
 
 const CalendarTable: React.FC<CalendarTableProps> = ({
@@ -75,7 +77,8 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
   onToggleNotes,
   onToggleOtherExpenses,
   onToggleLocationIndicators,
-  onUpdateCellData
+  onUpdateCellData,
+  onOpenMap
 }) => {
   const isDragMode = editMode && editTarget === 'categories';
   const isDaysEditMode = editMode && editTarget === 'days';
@@ -107,6 +110,21 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
     return [...top, ...orderedMiddle, ...bottom];
   }, [categoryOrder]);
 
+  // 🆕 Memoizza il tipo di icona per ogni giorno
+  const mapIconTypes = React.useMemo(() => {
+    return trip.days.map((day: any) => getMapIconType(trip.data, day.id));
+  }, [trip.days, trip.data]);
+
+  // 🆕 Handler per click su icona mappa
+  const handleMapClick = (dayIndex: number, iconType: MapIconType) => {
+    if (!onOpenMap || iconType === 'none') return;
+    
+    // gray = solo base → vista multi-giorno (trip)
+    // blue = altre categorie → vista giornaliera (day)
+    const viewMode = iconType === 'gray' ? 'trip' : 'day';
+    onOpenMap(dayIndex, viewMode);
+  };
+
   const tableContent = (
     <table className="w-full border-collapse bg-white rounded-lg shadow select-none">
       <thead>
@@ -131,46 +149,69 @@ const CalendarTable: React.FC<CalendarTableProps> = ({
           >
             {!isScrolled && 'Categoria'}
           </th>
-          {trip.days.map((day: any, index: number) => (
-            <th
-              key={day.id}
-              data-day-id={day.id}
-              className={`px-2 py-2 text-center font-medium relative text-xs ${selectedDays.includes(index) ? 'bg-blue-100' : ''
-                } ${isToday(day.date) ? 'ring-2 ring-blue-400 ring-inset bg-blue-50' : ''} ${isDesktop && selectedDayIndex === index ? 'bg-blue-200 ring-2 ring-blue-500' : ''}
-              `}
-              style={{ width: '140px', minWidth: '140px', maxWidth: '140px' }}
-            >
-              {isDaysEditMode && (
-                <div className="absolute top-1 left-1">
-                  <div
-                    onClick={() => onToggleDaySelection(index)}
-                    className={`w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer ${selectedDays.includes(index) ? 'bg-blue-500 border-blue-500' : 'border-gray-300 bg-white'
-                      }`}
+          {trip.days.map((day: any, index: number) => {
+            const iconType = mapIconTypes[index];
+            
+            return (
+              <th
+                key={day.id}
+                data-day-id={day.id}
+                className={`px-2 py-2 text-center font-medium relative text-xs ${selectedDays.includes(index) ? 'bg-blue-100' : ''
+                  } ${isToday(day.date) ? 'ring-2 ring-blue-400 ring-inset bg-blue-50' : ''} ${isDesktop && selectedDayIndex === index ? 'bg-blue-200 ring-2 ring-blue-500' : ''}
+                `}
+                style={{ width: '140px', minWidth: '140px', maxWidth: '140px' }}
+              >
+                {isDaysEditMode && (
+                  <div className="absolute top-1 left-1">
+                    <div
+                      onClick={() => onToggleDaySelection(index)}
+                      className={`w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer ${selectedDays.includes(index) ? 'bg-blue-500 border-blue-500' : 'border-gray-300 bg-white'
+                        }`}
+                    >
+                      {selectedDays.includes(index) && <Check size={14} className="text-white" />}
+                    </div>
+                  </div>
+                )}
+
+                {/* 🆕 Icona mappa - solo se non in edit mode e c'è almeno una location */}
+                {!editMode && onOpenMap && iconType !== 'none' && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleMapClick(index, iconType);
+                    }}
+                    className={`absolute top-1 right-1 p-1 rounded-full transition-colors ${
+                      iconType === 'blue' 
+                        ? 'text-blue-500 hover:bg-blue-100 hover:text-blue-600' 
+                        : 'text-gray-400 hover:bg-gray-200 hover:text-gray-500'
+                    }`}
+                    title={iconType === 'blue' ? 'Mappa giornaliera' : 'Mappa luoghi'}
                   >
-                    {selectedDays.includes(index) && <Check size={14} className="text-white" />}
-                  </div>
-                </div>
-              )}
-              {isDaysEditMode ? (
-                <input
-                  type="date"
-                  value={day.date.toISOString().split('T')[0]}
-                  onChange={(e) => onUpdateDayDate(index, e.target.value)}
-                  className="text-xs mt-1 px-1 py-0.5 border rounded text-center"
-                  style={{ fontSize: '10px' }}
-                />
-              ) : (
-                <>
-                  <div className="text-xs text-gray-600 mt-1">
-                    Giorno {day.number}
-                  </div>
-                  <div className="font-bold text-sm">
-                    {day.date.toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' })}
-                  </div>
-                </>
-              )}
-            </th>
-          ))}
+                    <Map size={14} />
+                  </button>
+                )}
+
+                {isDaysEditMode ? (
+                  <input
+                    type="date"
+                    value={day.date.toISOString().split('T')[0]}
+                    onChange={(e) => onUpdateDayDate(index, e.target.value)}
+                    className="text-xs mt-1 px-1 py-0.5 border rounded text-center"
+                    style={{ fontSize: '10px' }}
+                  />
+                ) : (
+                  <>
+                    <div className="text-xs text-gray-600 mt-1">
+                      Giorno {day.number}
+                    </div>
+                    <div className="font-bold text-sm">
+                      {day.date.toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' })}
+                    </div>
+                  </>
+                )}
+              </th>
+            );
+          })}
         </tr>
       </thead>
       <tbody>

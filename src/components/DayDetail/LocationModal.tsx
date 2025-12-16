@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { MapPin, Search, ExternalLink, X, ChevronLeft } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { MapPin, Search, ExternalLink, X, ChevronLeft, Link, Navigation, Home } from 'lucide-react';
 import {
   searchPlaces,
   getGoogleMapsUrl,
@@ -21,25 +21,95 @@ interface LocationModalProps {
 }
 
 type ViewMode = 'search' | 'manual';
+type InputType = 'unknown' | 'coordinates' | 'google_maps_url' | 'address';
 
 // Helper per riconoscere se l'input è coordinate
 const parseCoordinates = (input: string): { lat: number; lng: number } | null => {
   const trimmed = input.trim();
-
-  // Formato: "45.4893, 9.2034" o "45.4893,9.2034" o "45.4893 9.2034"
   const regex = /^(-?\d+\.?\d*)\s*[,\s]\s*(-?\d+\.?\d*)$/;
   const match = trimmed.match(regex);
 
   if (match) {
     const lat = parseFloat(match[1]);
     const lng = parseFloat(match[2]);
-
     if (isValidCoordinates(lat, lng)) {
       return { lat, lng };
     }
   }
+  return null;
+};
+
+// Helper per parsing link Google Maps (supporta vari formati)
+const parseGoogleMapsUrl = (input: string): { lat: number; lng: number } | null => {
+  const trimmed = input.trim();
+  
+  // Verifica che sia un URL Google Maps
+  if (!trimmed.includes('google') || !trimmed.includes('maps')) {
+    return null;
+  }
+
+  // PRIORITÀ 1: !8m2!3d(lat)!4d(lng) - coordinate esatte del place (precedono !3d!4d generico)
+  // Questo formato appare nei link "place" e contiene le coordinate reali del posto
+  const place8mMatch = trimmed.match(/!8m2!3d(-?\d+\.?\d+)!4d(-?\d+\.?\d+)/);
+  if (place8mMatch) {
+    const lat = parseFloat(place8mMatch[1]);
+    const lng = parseFloat(place8mMatch[2]);
+    if (isValidCoordinates(lat, lng)) return { lat, lng };
+  }
+
+  // PRIORITÀ 2: !3d(lat)!4d(lng) generico (ma dopo !8m2)
+  const embedMatch = trimmed.match(/!3d(-?\d+\.?\d+)!4d(-?\d+\.?\d+)/);
+  if (embedMatch) {
+    const lat = parseFloat(embedMatch[1]);
+    const lng = parseFloat(embedMatch[2]);
+    if (isValidCoordinates(lat, lng)) return { lat, lng };
+  }
+
+  // PRIORITÀ 3: ?q=lat,lng
+  const qMatch = trimmed.match(/[?&]q=(-?\d+\.?\d+),(-?\d+\.?\d+)/);
+  if (qMatch) {
+    const lat = parseFloat(qMatch[1]);
+    const lng = parseFloat(qMatch[2]);
+    if (isValidCoordinates(lat, lng)) return { lat, lng };
+  }
+
+  // PRIORITÀ 4: ?ll=lat,lng
+  const llMatch = trimmed.match(/[?&]ll=(-?\d+\.?\d+),(-?\d+\.?\d+)/);
+  if (llMatch) {
+    const lat = parseFloat(llMatch[1]);
+    const lng = parseFloat(llMatch[2]);
+    if (isValidCoordinates(lat, lng)) return { lat, lng };
+  }
+
+  // PRIORITÀ 5: /search/lat,lng
+  const searchMatch = trimmed.match(/\/search\/(-?\d+\.?\d+),(-?\d+\.?\d+)/);
+  if (searchMatch) {
+    const lat = parseFloat(searchMatch[1]);
+    const lng = parseFloat(searchMatch[2]);
+    if (isValidCoordinates(lat, lng)) return { lat, lng };
+  }
+
+  // PRIORITÀ 6 (ultima): /@lat,lng,zoom - questo è solo il viewport, non il place
+  const atMatch = trimmed.match(/@(-?\d+\.?\d+),(-?\d+\.?\d+)/);
+  if (atMatch) {
+    const lat = parseFloat(atMatch[1]);
+    const lng = parseFloat(atMatch[2]);
+    if (isValidCoordinates(lat, lng)) return { lat, lng };
+  }
 
   return null;
+};
+
+// Determina il tipo di input
+const detectInputType = (input: string): InputType => {
+  const trimmed = input.trim();
+  if (!trimmed) return 'unknown';
+  
+  if (parseCoordinates(trimmed)) return 'coordinates';
+  if (parseGoogleMapsUrl(trimmed)) return 'google_maps_url';
+  if (trimmed.length > 3) return 'address';
+  
+  return 'unknown';
 };
 
 const LocationModal: React.FC<LocationModalProps> = ({
@@ -52,7 +122,6 @@ const LocationModal: React.FC<LocationModalProps> = ({
   onConfirm,
   onRemove
 }) => {
-  // Stati
   const [viewMode, setViewMode] = useState<ViewMode>('search');
   const [searchQuery, setSearchQuery] = useState('');
   const [results, setResults] = useState<GeocodingResult[]>([]);
@@ -60,28 +129,25 @@ const LocationModal: React.FC<LocationModalProps> = ({
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [useAsTitle, setUseAsTitle] = useState(false);
-
-  // Stato per mostrare il box info sopra il textbox
   const [showSearchInfo, setShowSearchInfo] = useState(false);
 
-  // Stato per inserimento manuale (campo unico)
   const [manualInput, setManualInput] = useState('');
   const [manualVerified, setManualVerified] = useState<{
     address: string;
     coordinates: { lat: number; lng: number };
+    inputType: InputType;
   } | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState<string | null>(null);
 
-  // Animazione
   const [isAnimating, setIsAnimating] = useState(false);
 
-  // Reset e inizializzazione quando si apre il modal
+  const detectedInputType = useMemo(() => detectInputType(manualInput), [manualInput]);
+
   useEffect(() => {
     if (isOpen) {
       requestAnimationFrame(() => setIsAnimating(true));
 
-      // Pre-compila la ricerca
       if (existingLocation) {
         setSearchQuery(existingLocation.name);
         setSelectedResult({
@@ -94,12 +160,11 @@ const LocationModal: React.FC<LocationModalProps> = ({
         setManualInput(existingLocation.address);
         setManualVerified({
           address: existingLocation.address,
-          coordinates: existingLocation.coordinates
+          coordinates: existingLocation.coordinates,
+          inputType: 'address'
         });
       } else if (categoryTitle) {
-        const query = baseLocation
-          ? `${categoryTitle}, ${baseLocation}`
-          : categoryTitle;
+        const query = baseLocation ? `${categoryTitle}, ${baseLocation}` : categoryTitle;
         setSearchQuery(query);
         setSelectedResult(null);
         setManualInput('');
@@ -111,19 +176,16 @@ const LocationModal: React.FC<LocationModalProps> = ({
         setManualVerified(null);
       }
 
-      // Reset altri stati
       setResults([]);
       setSearchError(null);
       setVerifyError(null);
       setViewMode('search');
       setUseAsTitle(!categoryTitle);
-
     } else {
       setIsAnimating(false);
     }
   }, [isOpen, categoryTitle, baseLocation, existingLocation]);
 
-  // Blocca scroll body quando modal è aperto
   useEffect(() => {
     if (isOpen) {
       const scrollY = window.scrollY;
@@ -142,7 +204,6 @@ const LocationModal: React.FC<LocationModalProps> = ({
     }
   }, [isOpen]);
 
-  // Handler ricerca
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
 
@@ -165,19 +226,17 @@ const LocationModal: React.FC<LocationModalProps> = ({
     }
   };
 
-  // Ricerca con Enter
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleSearch();
     }
   };
 
-  // Selezione risultato
   const handleSelectResult = (result: GeocodingResult) => {
     setSelectedResult(result);
   };
 
-  // Verifica input manuale (indirizzo o coordinate)
+  // Verifica input manuale - PRIMA controlla tipo, POI decide se chiamare API
   const handleVerifyManual = async () => {
     if (!manualInput.trim()) return;
 
@@ -185,21 +244,31 @@ const LocationModal: React.FC<LocationModalProps> = ({
     setVerifyError(null);
     setManualVerified(null);
 
-    // Controlla se sono coordinate
+    // 1. Prova coordinate dirette
     const coords = parseCoordinates(manualInput);
-
     if (coords) {
-      // Sono coordinate → nessuna chiamata API
       setManualVerified({
         address: `${coords.lat}, ${coords.lng}`,
-        coordinates: coords
+        coordinates: coords,
+        inputType: 'coordinates'
       });
       setIsVerifying(false);
-      console.log('📍 Coordinate riconosciute:', coords);
       return;
     }
 
-    // È un indirizzo → chiama Photon
+    // 2. Prova link Google Maps
+    const mapsCoords = parseGoogleMapsUrl(manualInput);
+    if (mapsCoords) {
+      setManualVerified({
+        address: `${mapsCoords.lat}, ${mapsCoords.lng}`,
+        coordinates: mapsCoords,
+        inputType: 'google_maps_url'
+      });
+      setIsVerifying(false);
+      return;
+    }
+
+    // 3. Solo se è un indirizzo testuale, chiama Photon
     try {
       const searchResults = await searchPlaces(manualInput, { limit: 1 });
 
@@ -207,9 +276,9 @@ const LocationModal: React.FC<LocationModalProps> = ({
         const result = searchResults[0];
         setManualVerified({
           address: result.address,
-          coordinates: result.coordinates
+          coordinates: result.coordinates,
+          inputType: 'address'
         });
-        console.log('📍 Indirizzo trovato:', result.address);
       } else {
         setVerifyError('Indirizzo non trovato. Verifica e riprova.');
       }
@@ -221,25 +290,23 @@ const LocationModal: React.FC<LocationModalProps> = ({
     }
   };
 
-  // Apri in Google Maps
   const handleOpenGoogleMaps = () => {
+    let lat: number, lng: number, name: string | undefined;
+
     if (selectedResult) {
-      const url = getGoogleMapsUrl(
-        selectedResult.coordinates.lat,
-        selectedResult.coordinates.lng,
-        selectedResult.name
-      );
-      window.open(url, '_blank');
+      lat = selectedResult.coordinates.lat;
+      lng = selectedResult.coordinates.lng;
+      name = selectedResult.name;
     } else if (manualVerified) {
-      const url = getGoogleMapsUrl(
-        manualVerified.coordinates.lat,
-        manualVerified.coordinates.lng
-      );
-      window.open(url, '_blank');
-    }
+      lat = manualVerified.coordinates.lat;
+      lng = manualVerified.coordinates.lng;
+      name = manualVerified.address;
+    } else return;
+
+    const url = getGoogleMapsUrl(lat, lng, name);
+    window.open(url, '_blank');
   };
 
-  // Conferma salvataggio
   const handleConfirm = () => {
     let locationData: LocationData;
 
@@ -250,8 +317,12 @@ const LocationModal: React.FC<LocationModalProps> = ({
         coordinates: selectedResult.coordinates
       };
     } else if (viewMode === 'manual' && manualVerified) {
+      const name = manualVerified.inputType === 'address' 
+        ? manualInput 
+        : `📍 ${formatCoordinates(manualVerified.coordinates.lat, manualVerified.coordinates.lng)}`;
+      
       locationData = {
-        name: manualInput,
+        name: name,
         address: manualVerified.address,
         coordinates: manualVerified.coordinates
       };
@@ -262,7 +333,6 @@ const LocationModal: React.FC<LocationModalProps> = ({
     onConfirm(locationData, useAsTitle);
   };
 
-  // Verifica se possiamo salvare
   const canSave = () => {
     if (viewMode === 'search') {
       return selectedResult !== null;
@@ -271,7 +341,6 @@ const LocationModal: React.FC<LocationModalProps> = ({
     }
   };
 
-  // Reset verifica quando cambia input manuale
   useEffect(() => {
     setManualVerified(null);
     setVerifyError(null);
@@ -281,14 +350,12 @@ const LocationModal: React.FC<LocationModalProps> = ({
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center transition-colors duration-300 ${isAnimating ? 'bg-black/50' : 'bg-transparent'
-        }`}
+      className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center transition-colors duration-300 ${isAnimating ? 'bg-black/50' : 'bg-transparent'}`}
       onClick={onClose}
     >
       <div
         className={`bg-white w-full ${isDesktop ? 'max-w-lg rounded-2xl mx-4 max-h-[90vh]' : 'max-w-[430px] rounded-t-3xl max-h-[95vh]'} 
-  flex flex-col transition-transform duration-300 ease-out ${isAnimating ? 'translate-y-0' : 'translate-y-full'
-          }`}
+          flex flex-col transition-transform duration-300 ease-out ${isAnimating ? 'translate-y-0' : 'translate-y-full'}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -328,17 +395,14 @@ const LocationModal: React.FC<LocationModalProps> = ({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
-          {viewMode === 'search' ? (
-            <>
-              {/* Search input */}
-              {/* Box info tutorial */}
-              {showSearchInfo && (
-                <p className="text-xs text-gray-600 bg-blue-50 p-3 rounded-lg mb-2 leading-relaxed">
-                  💡 Inserisci il luogo o l’indirizzo, i risultati appariranno sotto e saranno collegati a Google Maps.
-                </p>
-              )}
+          {showSearchInfo && viewMode === 'search' && (
+            <p className="text-xs text-gray-600 bg-blue-50 p-3 rounded-lg mb-2 leading-relaxed">
+              💡 Inserisci il luogo o l'indirizzo, i risultati appariranno sotto e saranno collegati a Google Maps.
+            </p>
+          )}
 
-              {/* Search input */}
+          {viewMode === 'search' && (
+            <>
               <div className="flex gap-2 mb-4">
                 <div className="flex-1 relative">
                   <input
@@ -359,33 +423,30 @@ const LocationModal: React.FC<LocationModalProps> = ({
                   onClick={handleSearch}
                   disabled={isSearching || !searchQuery.trim()}
                   className="px-4 py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 
-      text-white rounded-xl font-medium transition-colors flex-shrink-0"
+                    text-white rounded-xl font-medium transition-colors flex-shrink-0"
                 >
                   {isSearching ? '...' : 'Cerca'}
                 </button>
               </div>
 
-              {/* Contesto base */}
-              {baseLocation && !selectedResult && (
-                <div className="mb-4 px-3 py-2 bg-blue-50 rounded-lg text-xs text-blue-600">
-                  💡 Base del giorno: <span className="font-medium">{baseLocation}</span>
-                </div>
-              )}
+              {/* Divisore "Oppure" */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex-1 h-px bg-gray-200" />
+                <button
+                  onClick={() => setViewMode('manual')}
+                  className="text-sm text-gray-500 hover:text-blue-600 transition-colors"
+                >
+                  Oppure <span className="text-blue-600 font-medium">inserisci manualmente</span>
+                </button>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
 
-              {/* Errore */}
               {searchError && (
                 <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                   <p className="text-sm text-amber-700">{searchError}</p>
-                  <button
-                    onClick={() => setViewMode('manual')}
-                    className="mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
-                  >
-                    📝 Inserisci manualmente
-                  </button>
                 </div>
               )}
 
-              {/* Location esistente (già salvata) */}
               {selectedResult && results.length === 0 && (
                 <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-xl">
                   <div className="flex items-start gap-2">
@@ -401,15 +462,10 @@ const LocationModal: React.FC<LocationModalProps> = ({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          const url = getGoogleMapsUrl(
-                            selectedResult.coordinates.lat,
-                            selectedResult.coordinates.lng,
-                            selectedResult.name
-                          );
-                          window.open(url, '_blank');
+                          handleOpenGoogleMaps();
                         }}
                         className="flex items-center gap-1 px-3 py-1.5 bg-white hover:bg-gray-50 
-            border border-gray-200 rounded-lg text-xs font-medium transition-colors"
+                          border border-gray-200 rounded-lg text-xs font-medium transition-colors"
                       >
                         <ExternalLink size={14} />
                         Maps
@@ -420,13 +476,11 @@ const LocationModal: React.FC<LocationModalProps> = ({
                 </div>
               )}
 
-              {/* Risultati */}
               {results.length > 0 && (
                 <div className="space-y-2 mb-4">
                   <p className="text-xs text-gray-500 mb-2">Risultati:</p>
                   {results.map((result) => {
                     const isSelected = selectedResult?.id === result.id;
-
                     return (
                       <div
                         key={result.id}
@@ -451,15 +505,10 @@ const LocationModal: React.FC<LocationModalProps> = ({
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  const url = getGoogleMapsUrl(
-                                    result.coordinates.lat,
-                                    result.coordinates.lng,
-                                    result.name
-                                  );
-                                  window.open(url, '_blank');
+                                  handleOpenGoogleMaps();
                                 }}
                                 className="flex items-center gap-1 px-3 py-1.5 bg-white hover:bg-gray-50 
-        border border-gray-200 rounded-lg text-xs font-medium transition-colors"
+                                  border border-gray-200 rounded-lg text-xs font-medium transition-colors"
                               >
                                 <ExternalLink size={14} />
                                 Maps
@@ -475,93 +524,71 @@ const LocationModal: React.FC<LocationModalProps> = ({
                   })}
                 </div>
               )}
-
-              {/* Link inserimento manuale */}
-              {!searchError && results.length > 0 && (
-                <button
-                  onClick={() => setViewMode('manual')}
-                  className="w-full text-center text-sm text-gray-500 hover:text-gray-700 py-2"
-                >
-                  Non trovi il luogo? <span className="text-blue-600 font-medium">Inserisci manualmente</span>
-                </button>
-              )}
             </>
-          ) : (
-            /* Vista inserimento manuale - campo unico */
-            <>
-              <p className="text-sm text-gray-600 mb-4">
-                Inserisci un indirizzo o le coordinate (es. 45.4893, 9.2034)
-              </p>
+          )}
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Indirizzo o coordinate
-                  </label>
-                  <input
-                    type="text"
-                    value={manualInput}
-                    onChange={(e) => setManualInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleVerifyManual()}
-                    placeholder="es. Via Roma 1, Milano oppure 45.4893, 9.2034"
-                    className="w-full px-4 py-3 border rounded-xl text-sm"
-                    autoFocus={isDesktop}
-                  />
-                </div>
-
-                {/* Pulsante verifica */}
-                <button
-                  onClick={handleVerifyManual}
-                  disabled={isVerifying || !manualInput.trim()}
-                  className="w-full px-4 py-3 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 
-                    disabled:text-gray-400 rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
-                >
-                  <Search size={18} />
-                  {isVerifying ? 'Verifica in corso...' : 'Trova coordinate'}
-                </button>
-
-                {/* Errore verifica */}
-                {verifyError && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
-                    <p className="text-sm text-red-700">{verifyError}</p>
-                  </div>
-                )}
-
-                {/* Risultato verifica */}
-                {manualVerified && (
-                  <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm text-green-700 font-medium">
-                        ✅ Posizione trovata
-                      </p>
-                      <button
-                        onClick={handleOpenGoogleMaps}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-white hover:bg-gray-50 
-                          border border-gray-200 rounded-lg text-xs font-medium transition-colors"
-                      >
-                        <ExternalLink size={14} />
-                        Verifica su Maps
-                      </button>
-                    </div>
-                    <p className="text-xs text-gray-600">{manualVerified.address}</p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      📍 {formatCoordinates(manualVerified.coordinates.lat, manualVerified.coordinates.lng)}
-                    </p>
-                  </div>
-                )}
-
-                {/* Suggerimento */}
-                <p className="text-xs text-gray-400">
-                  💡 Per trovare le coordinate su Google Maps: tasto destro sul punto → copia coordinate
-                </p>
+          {viewMode === 'manual' && (
+            <div className="space-y-4">
+              {/* Spiegazione minimal */}
+              <div className="flex items-center gap-4 text-xs text-gray-500">
+                <span className="flex items-center gap-1"><Home size={12} /> Indirizzo</span>
+                <span className="flex items-center gap-1"><Navigation size={12} /> Coordinate</span>
               </div>
-            </>
+
+              {/* Input */}
+              <input
+                type="text"
+                value={manualInput}
+                onChange={(e) => setManualInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleVerifyManual()}
+                placeholder="Inserisci indirizzo completo o coordinate..."
+                className="w-full px-4 py-3 border rounded-xl text-sm"
+                autoFocus={isDesktop}
+              />
+
+              {/* Pulsante verifica */}
+              <button
+                onClick={handleVerifyManual}
+                disabled={isVerifying || !manualInput.trim()}
+                className="w-full px-4 py-3 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 
+                  disabled:text-gray-400 rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                <Search size={18} />
+                {isVerifying ? 'Verifica...' : 'Verifica'}
+              </button>
+
+              {/* Errore */}
+              {verifyError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
+                  <p className="text-sm text-red-700">{verifyError}</p>
+                </div>
+              )}
+
+              {/* Risultato */}
+              {manualVerified && (
+                <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm text-green-700 font-medium">✅ Posizione trovata</p>
+                    <button
+                      onClick={handleOpenGoogleMaps}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-white hover:bg-gray-50 
+                        border border-gray-200 rounded-lg text-xs font-medium transition-colors"
+                    >
+                      <ExternalLink size={14} />
+                      Maps
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    📍 {formatCoordinates(manualVerified.coordinates.lat, manualVerified.coordinates.lng)}
+                  </p>
+                </div>
+              )}
+            </div>
           )}
         </div>
 
         {/* Footer */}
         <div className="border-t p-4 space-y-3">
-          {/* Checkbox usa come nome */}
           {canSave() && (
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -576,7 +603,6 @@ const LocationModal: React.FC<LocationModalProps> = ({
             </label>
           )}
 
-          {/* Bottoni azione */}
           <div className="flex gap-3">
             <button
               onClick={onClose}
@@ -600,7 +626,7 @@ const LocationModal: React.FC<LocationModalProps> = ({
               className="flex-1 px-4 py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 
                 text-white rounded-xl font-medium transition-colors"
             >
-              Salva posizione
+              Salva
             </button>
           </div>
         </div>

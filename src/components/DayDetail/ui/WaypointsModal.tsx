@@ -348,7 +348,7 @@ const WaypointsModal: React.FC<WaypointsModalProps> = ({
         {showHelp && (
           <div className="mx-5 mt-3 p-3 bg-cyan-50 rounded-lg border border-cyan-100">
             <p className="text-xs text-gray-600 leading-relaxed">
-              💡 Aggiungi le tappe relative alla categoria. Digita per cercare luoghi con geolocalizzazione automatica, oppure clicca 📍 per cercare manualmente.
+              💡 In questa sezione puoi raggruppare più tappe per una singola categoria. Digita per cercare luoghi con geolocalizzazione automatica, oppure clicca 📍 per cercare manualmente.
             </p>
           </div>
         )}
