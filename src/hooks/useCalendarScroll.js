@@ -41,28 +41,32 @@ export const useCalendarScroll = ({
       }
 
       // Scroll automatico al giorno target
-      if (scrollToDayId) {  
+      if (scrollToDayId) {
         const dayIndex = tripDays.findIndex(d => d.id === scrollToDayId);
         if (dayIndex !== -1) {
-          const headerElement = document.querySelector(`th[data-day-id="${scrollToDayId}"]`);
+          // Cerca elemento in TableView (th) o CardView (div con data-day-id)
+          const headerElement = document.querySelector(`th[data-day-id="${scrollToDayId}"]`) ||
+                                document.querySelector(`[data-day-id="${scrollToDayId}"]`);
           if (headerElement && scrollContainerRef.current) {
             const container = scrollContainerRef.current;
             const containerWidth = container.clientWidth;
-            const categoryColumnWidth = 120;
+            // Per CardView non c'è colonna categoria, quindi offset minore
+            const isCardView = !document.querySelector(`th[data-day-id="${scrollToDayId}"]`);
+            const categoryColumnWidth = isCardView ? 8 : 120; // 8px padding per CardView
             const dayColumnLeft = headerElement.offsetLeft;
-            const dayColumnWidth = 140;
+            const dayColumnWidth = isCardView ? 130 : 140; // Larghezza card vs colonna tabella
             const availableWidth = containerWidth - categoryColumnWidth;
 
             // Calcola scroll per centrare il giorno
             const targetScroll = dayColumnLeft - categoryColumnWidth - (availableWidth / 2) + (dayColumnWidth / 2);
             const finalScroll = Math.max(0, targetScroll);
-            
+
             setIsScrolled(finalScroll > 10);
             container.scrollLeft = finalScroll;
           }
         }
         if (onScrollComplete) onScrollComplete();
-        
+
         setTimeout(() => setJustMounted(false), 500);
         return;
       }

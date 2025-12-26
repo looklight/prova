@@ -3,23 +3,24 @@ import React from 'react';
 interface BookingToggleProps {
   value: 'na' | 'no' | 'yes';
   onChange: (value: 'na' | 'no' | 'yes') => void;
+  compact?: boolean;
 }
 
-const BookingToggle: React.FC<BookingToggleProps> = ({ value, onChange }) => {
+const BookingToggle: React.FC<BookingToggleProps> = ({ value, onChange, compact = false }) => {
   const states = [
     { key: 'na' as const, color: 'bg-gray-400' },
     { key: 'no' as const, color: 'bg-orange-400' },
     { key: 'yes' as const, color: 'bg-green-400' }
   ];
 
-  // Dimensioni base
-  const slotSize = 32;        // Larghezza di ogni slot
-  const sliderSize = 30;      // Slider leggermente più piccolo per padding visivo
-  const padding = 4;          // Padding esterno del container
-  const dotSize = 14;         // Pallino interno
-  
-  const containerWidth = (slotSize * 3) + (padding * 2);  // 96 + 8 = 104px
-  const containerHeight = slotSize + (padding * 2);        // 32 + 8 = 40px
+  // Dimensioni - ridotte se compact
+  const slotSize = compact ? 22 : 32;        // Larghezza di ogni slot
+  const sliderSize = compact ? 20 : 30;      // Slider leggermente più piccolo per padding visivo
+  const padding = compact ? 2 : 4;           // Padding esterno del container
+  const dotSize = compact ? 10 : 14;         // Pallino interno
+
+  const containerWidth = (slotSize * 3) + (padding * 2);
+  const containerHeight = slotSize + (padding * 2);
 
   const currentIndex = states.findIndex(s => s.key === value);
   

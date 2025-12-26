@@ -1,463 +1,421 @@
 import React, { useCallback } from 'react';
-import { MapPin, Bell } from 'lucide-react';
-import { TRANSPORT_OPTIONS } from '../../utils/constants';
+import { MapPin } from 'lucide-react';
 import { useLongPress } from '../../hooks/useLongPress';
 import { useCellDrag } from './CellDragDrop';
+import { ALTROVE_COLORS } from '../../utils/constants';
+import { ActivityTypeIcon } from '../../utils/activityTypes';
+
+// ============================================
+// ALTROVE - DayCell
+// Cella pulita: titolo, booking dots
+// ============================================
 
 /**
- * Helper per determinare il colore del costo basato su UTENTI UNICI ATTIVI
+ * Booking Dot - pallino colorato per stato prenotazione
+ * Usa bookingStatus: 'yes' | 'no' | 'na'
  */
-const getCostColor = (cellData, currentUserId, tripMembers) => {
-  if (!cellData.costBreakdown || cellData.costBreakdown.length === 0 || !tripMembers) {
-    return 'text-gray-400';
-  }
+const BookingDot: React.FC<{ status?: 'yes' | 'no' | 'na' }> = ({ status }) => {
+  if (!status || status === 'na') return null;
 
-  const activeBreakdown = cellData.costBreakdown.filter(entry => {
-    const member = tripMembers[entry.userId];
-    return member && member.status === 'active';
-  });
+  const color = status === 'yes' ? ALTROVE_COLORS.success : ALTROVE_COLORS.warm;
 
-  if (activeBreakdown.length === 0) {
-    return 'text-gray-400';
-  }
-
-  const uniquePayers = new Set(activeBreakdown.map(e => e.userId));
-  const uniquePayersCount = uniquePayers.size;
-
-  if (uniquePayersCount > 1) {
-    return 'text-orange-400';
-  }
-
-  const singlePayer = activeBreakdown[0].userId;
-
-  if (singlePayer === currentUserId) {
-    return 'text-blue-500';
-  } else {
-    return 'text-gray-400';
-  }
+  return (
+    <div
+      className="w-2 h-2 rounded-full flex-shrink-0"
+      style={{ backgroundColor: color }}
+    />
+  );
 };
 
 /**
- * Helper per verificare se una cella ha media allegati
+ * Palette colori per destinazioni - stessa città = stesso colore
  */
-const hasMediaAttachments = (cellData) => {
-  if (!cellData) return false;
+const DESTINATION_COLORS = [
+  '#7EB5A6', // Salvia (accent)
+  '#D4948A', // Rosa antico (warm)
+  '#8BB8C9', // Cielo
+  '#A89EC9', // Lavanda
+  '#E5C07B', // Oro morbido (warning)
+  '#7CB892', // Verde fresco (success)
+];
 
-  const hasLinks = cellData.links && cellData.links.length > 0;
-  const hasImages = cellData.images && cellData.images.length > 0;
-  const hasVideos = cellData.videos && cellData.videos.length > 0;
-  const hasMediaNotes = cellData.mediaNotes && cellData.mediaNotes.length > 0;
+/**
+ * Genera un colore consistente per una destinazione basato sul nome
+ */
+const getDestinationColor = (name: string): string => {
+  if (!name) return DESTINATION_COLORS[0];
 
-  return hasLinks || hasImages || hasVideos || hasMediaNotes;
+  // Hash semplice del nome per ottenere un indice consistente
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = ((hash << 5) - hash) + name.toLowerCase().charCodeAt(i);
+    hash |= 0; // Convert to 32bit integer
+  }
+
+  const index = Math.abs(hash) % DESTINATION_COLORS.length;
+  return DESTINATION_COLORS[index];
 };
 
 /**
- * Helper per verificare se la cella ha contenuto
+ * Destination Content - per celle destinazione (max 2)
+ * Flex wrap adattivo: sulla stessa riga se c'è spazio, altrimenti a capo
+ * Stessa destinazione = stesso colore per facile identificazione visiva
  */
-const cellHasContentCheck = (cellData, categoryId, otherExpensesData) => {
-  if (categoryId === 'otherExpenses') {
-    return otherExpensesData && otherExpensesData.count > 0;
-  }
-  return cellData && (cellData.title || cellData.cost || cellData.notes);
+const DestinationContent: React.FC<{
+  destinations?: string[];
+  hasGeoTag?: boolean;
+}> = ({ destinations, hasGeoTag }) => {
+  if (!destinations || destinations.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap items-center justify-center w-full gap-x-0.5 gap-y-0">
+      {/* Prima destinazione con MapPin se ha geotag */}
+      <div className="flex items-center gap-0.5 min-w-0">
+        {hasGeoTag && (
+          <MapPin
+            size={11}
+            className="flex-shrink-0"
+            style={{ color: getDestinationColor(destinations[0]) }}
+          />
+        )}
+        <span
+          className="text-[11px] font-semibold text-center leading-tight truncate"
+          style={{ color: getDestinationColor(destinations[0]) }}
+        >
+          {destinations[0]}
+        </span>
+      </div>
+
+      {/* Freccia e seconda destinazione */}
+      {destinations.length > 1 && destinations[1] && (
+        <div className="flex items-center gap-0.5 min-w-0">
+          <span
+            className="text-[9px] flex-shrink-0"
+            style={{ color: ALTROVE_COLORS.textMuted }}
+          >
+            →
+          </span>
+          <span
+            className="text-[11px] font-semibold text-center leading-tight truncate"
+            style={{ color: getDestinationColor(destinations[1]) }}
+          >
+            {destinations[1]}
+          </span>
+        </div>
+      )}
+    </div>
+  );
 };
+
+/**
+ * Activity Content - per celle attività (mostra fino a 3 attività con showInCalendar)
+ */
+const ActivityContent: React.FC<{ activities?: any[] }> = ({ activities }) => {
+  if (!activities || activities.length === 0) return null;
+
+  // Mostra solo attività con showInCalendar = true (max 3)
+  const visibleActivities = activities.filter(a => a.showInCalendar === true).slice(0, 3);
+
+  // Se nessuna attività è marcata, mostra le prime 3 (fallback per retrocompatibilità)
+  const displayActivities = visibleActivities.length > 0
+    ? visibleActivities
+    : activities.slice(0, 3);
+
+  // Conta attività nascoste (totali - visibili nel calendario)
+  const hiddenCount = activities.length - displayActivities.length;
+
+  if (displayActivities.length === 0) return null;
+
+  return (
+    <div className="flex flex-col items-center justify-center w-full h-full gap-0">
+      {displayActivities.map((activity, idx) => (
+        <div
+          key={activity.id || idx}
+          className="flex items-center gap-0.5 max-w-[110px]"
+        >
+          <ActivityTypeIcon
+            type={activity.type}
+            size={10}
+            showColor={true}
+            className="flex-shrink-0"
+            calendarOnly={true}
+          />
+          <span
+            className="text-[10px] font-medium text-center leading-tight truncate"
+            style={{ color: ALTROVE_COLORS.text }}
+          >
+            {activity.title || 'Attività'}
+          </span>
+        </div>
+      ))}
+      {hiddenCount > 0 && (
+        <span
+          className="text-[8px]"
+          style={{ color: ALTROVE_COLORS.textMuted }}
+        >
+          +{hiddenCount} {hiddenCount === 1 ? 'altra' : 'altre'}
+        </span>
+      )}
+    </div>
+  );
+};
+
+// ============================================
+// PROPS
+// ============================================
 
 interface DayCellProps {
   day: any;
   dayIndex: number;
   category: any;
   cellData: any;
-  highlightColor: string | null;
   selectedDays: number[];
   editMode: boolean;
   isDesktop: boolean;
   selectedDayIndex: number | null;
-  costVisible: boolean;
-  expandedNotes: boolean;
-  expandedOtherExpenses: boolean;
-  showLocationIndicators: boolean;
-  currentUserId: string;
   trip: any;
   cellHeight?: number;
   isCellDragEnabled?: boolean;
   onCellClick: (dayIndex: number, categoryId: string) => void;
-  onCellHoverEnter: (cellKey: string) => void;
-  onCellHoverLeave: () => void;
+  activityIndex?: number; // Indice dell'attività da mostrare (per righe attività multiple)
+  isToday?: boolean; // Se è il giorno corrente
 }
+
+// ============================================
+// COMPONENT
+// ============================================
 
 const DayCell: React.FC<DayCellProps> = ({
   day,
   dayIndex,
   category,
   cellData,
-  highlightColor,
   selectedDays,
   editMode,
   isDesktop,
   selectedDayIndex,
-  costVisible,
-  expandedNotes,
-  expandedOtherExpenses,
-  showLocationIndicators,
-  currentUserId,
   trip,
-  cellHeight = 48,
+  cellHeight = 44,
   isCellDragEnabled = false,
   onCellClick,
-  onCellHoverEnter,
-  onCellHoverLeave
+  activityIndex,
+  isToday = false
 }) => {
-  // 🆕 Accedi al contesto drag (se disponibile)
-  let dragContext = null;
+  // Drag context (se disponibile)
+  let dragContext: any = null;
   try {
     dragContext = useCellDrag();
   } catch {
-    // Non siamo dentro un CellDragProvider, ok
+    // Non siamo dentro un CellDragProvider
   }
 
-  // 💸 Se è la riga "Altre Spese", calcola il totale (solo membri attivi)
-  let otherExpensesData = null;
-  if (category.id === 'otherExpenses') {
-    const key = `${day.id}-otherExpenses`;
-    const expensesRaw = trip.data[key];
-    const expenses = Array.isArray(expensesRaw) ? expensesRaw : [];
+  const cellKey = `${day.id}-${category.id}${activityIndex !== undefined ? `-${activityIndex}` : ''}`;
+  const isDestination = category.id === 'destinazione';
+  const isActivity = category.id === 'attivita';
 
-    const realExpenses = expenses.filter((exp: any) => {
-      const hasContent = (exp.title && exp.title.trim() !== '') || (exp.cost && exp.cost.trim() !== '');
-      if (!hasContent) return false;
+  // Per attività, ottieni le attività visibili (showInCalendar: true)
+  const visibleActivities = isActivity && cellData?.activities
+    ? cellData.activities.filter((a: any) => a.showInCalendar === true)
+    : [];
 
-      if (exp.costBreakdown && Array.isArray(exp.costBreakdown)) {
-        const hasActiveMembers = exp.costBreakdown.some(entry => {
-          const member = trip.sharing?.members?.[entry.userId];
-          return member && member.status === 'active';
-        });
-        return hasActiveMembers;
-      }
+  // L'attività specifica da mostrare per questa riga
+  const activityForThisRow = activityIndex !== undefined ? visibleActivities[activityIndex] : null;
 
-      return true;
-    });
+  // Logica per determinare se c'è contenuto
+  // - Destinazione: controlla SOLO day.destinations (non usare fallback legacy)
+  // - Attività con indice: controlla se esiste l'attività a quell'indice
+  // - Attività senza indice (legacy): controlla array activities
+  // - Altro (pernottamento): controlla cellData.title
+  const hasContent = isDestination
+    ? (day.destinations && day.destinations.length > 0)
+    : isActivity
+      ? activityIndex !== undefined
+        ? !!activityForThisRow
+        : (cellData && cellData.activities && cellData.activities.length > 0)
+      : (cellData && cellData.title);
 
-    const count = realExpenses.length;
-    const total = realExpenses.reduce((sum: number, exp: any) => {
-      if (!exp.costBreakdown || !Array.isArray(exp.costBreakdown)) {
-        return sum + (exp.cost ? parseFloat(exp.cost) : 0);
-      }
-      const activeTotal = exp.costBreakdown
-        .filter(entry => {
-          const member = trip.sharing?.members?.[entry.userId];
-          return member && member.status === 'active';
-        })
-        .reduce((subSum, entry) => subSum + (parseFloat(entry.amount) || 0), 0);
-      return sum + activeTotal;
-    }, 0);
+  // Per destinazioni, usa SOLO day.destinations (no fallback legacy)
+  const destinationsList = day.destinations || [];
 
-    otherExpensesData = { count, total };
-  }
+  // Ha geotag? (controlla se almeno una destinazione ha coordinate in trip.metadata.destinations)
+  const geotaggedNames = (trip?.metadata?.destinations || [])
+    .filter((d: any) => d.coordinates || d.lat || d.lng)
+    .map((d: any) => (typeof d === 'string' ? d : d.name)?.toLowerCase());
 
-  const hasContent = category.id === 'otherExpenses'
-    ? otherExpensesData && otherExpensesData.count > 0
-    : cellData && (cellData.title || cellData.cost || cellData.notes);
+  const hasGeoTag = destinationsList.some((dest: string) =>
+    geotaggedNames.includes(dest?.toLowerCase())
+  );
 
-  const cellKey = `${dayIndex}-${category.id}`;
 
-  // Calcola il costo visualizzato (solo da membri attivi)
-  let displayCost = 0;
-  if (category.id !== 'base' && category.id !== 'note' && category.id !== 'otherExpenses' && cellData?.costBreakdown) {
-    const activeBreakdown = cellData.costBreakdown.filter(entry => {
-      const member = trip.sharing?.members?.[entry.userId];
-      return member && member.status === 'active';
-    });
-    displayCost = activeBreakdown.reduce((sum, entry) => sum + (parseFloat(entry.amount) || 0), 0);
-  } else if (category.id !== 'otherExpenses' && cellData?.cost) {
-    displayCost = parseFloat(cellData.cost) || 0;
-  }
-
-  // Indicatori
-  const showMediaIndicator = expandedNotes &&
-    category.id !== 'base' &&
-    category.id !== 'note' &&
-    category.id !== 'otherExpenses' &&
-    hasMediaAttachments(cellData);
-
-  const hasLocation = showLocationIndicators &&
-    cellData?.location &&
-    (cellData.location.coordinates || cellData.location.address);
-
-  const hasStartTime = showLocationIndicators && cellData?.startTime;
-  const hasEndTime = showLocationIndicators && cellData?.endTime;
-  const hasReminder = showLocationIndicators && cellData?.reminder?.date;
-
-  // 🆕 Stato selezione per questa cella
-  const isSelected = dragContext?.isSelectedCell(day.id, category.id) ?? false;
+  // Stato selezione per drag
+  const isSelected = dragContext?.isSelectedCell(day.id, category.id, activityIndex) ?? false;
   const isSelectionMode = dragContext?.isSelectionMode() ?? false;
+  const isValidTarget = dragContext?.isValidTarget(category.id) ?? false;
 
-  // 🆕 Handler per long-press (seleziona cella)
+  // Handler per long-press (seleziona cella per drag)
   const handleLongPress = useCallback(() => {
     if (!isCellDragEnabled || !dragContext || !hasContent) return;
-    dragContext.selectCell({ dayId: day.id, categoryId: category.id });
-  }, [isCellDragEnabled, dragContext, hasContent, day.id, category.id]);
+    dragContext.selectCell({ dayId: day.id, categoryId: category.id, activityIndex });
+  }, [isCellDragEnabled, dragContext, hasContent, day.id, category.id, activityIndex]);
 
-  // 🆕 Handler per click
+  // Handler per click
   const handleClick = useCallback(() => {
     if (!isCellDragEnabled || !dragContext) {
-      // Nessun drag context, apri normalmente
       onCellClick(dayIndex, category.id);
       return;
     }
 
-    // Usa il context per decidere cosa fare
-    const result = dragContext.handleCellClick({ dayId: day.id, categoryId: category.id });
+    const result = dragContext.handleCellClick({ dayId: day.id, categoryId: category.id, activityIndex });
 
     if (result === 'open') {
-      // Apri la cella normalmente
       onCellClick(dayIndex, category.id);
     }
-    // 'action' e 'ignore' non fanno nulla qui (gestiti dal context)
-  }, [isCellDragEnabled, dragContext, onCellClick, dayIndex, category.id, day.id]);
+  }, [isCellDragEnabled, dragContext, dayIndex, category.id, day.id, onCellClick, activityIndex]);
 
-  // 🆕 Long press hook
-  const longPressHandlers = useLongPress(
-    handleLongPress,
-    handleClick,
-    { delay: 400 }
-  );
+  // Long press hook
+  const longPressHandlers = useLongPress(handleLongPress, handleClick, {
+    delay: 500,
+    disabled: !isCellDragEnabled || !hasContent
+  });
 
-  // 🆕 Calcola classi per stato selezione
+  // Decidi se usare long press (solo celle con contenuto possono iniziare drag)
+  const shouldUseLongPress = isCellDragEnabled && hasContent;
+
+  // Decidi se usare handleClick (per gestire selezione target)
+  // - celle con contenuto: sempre (gestite da longPressHandlers)
+  // - celle vuote: solo quando siamo in modalità selezione
+  const shouldUseHandleClick = shouldUseLongPress || (isCellDragEnabled && isSelectionMode);
+
+  // Classi per selezione drag
   const getSelectionClasses = () => {
-    if (isSelected) {
-      // Cella selezionata (origine)
-      return 'ring-2 ring-blue-500 ring-inset bg-blue-100';
-    }
-
-    if (isSelectionMode && !isSelected) {
-      // Tutte le altre celle durante selezione (possibili target)
-      if (hasContent) {
-        return 'ring-2 ring-orange-100 ring-inset bg-orange-50/40';
-      } else {
-        return 'ring-2 ring-green-100 ring-inset bg-green-50/40';
-      }
-    }
-
+    if (!isSelectionMode) return '';
+    if (isSelected) return 'ring-2 ring-blue-500 ring-inset bg-blue-50';
+    // Evidenzia celle valide come destinazione (bordo leggero)
+    if (isValidTarget && !isSelected) return 'ring-1 ring-blue-300/60 ring-inset';
     return '';
   };
 
-  // Calcola altezza cella
-  const calculatedHeight = category.id === 'note'
-    ? (expandedNotes ? Math.round(cellHeight * 1.5) : cellHeight)
-    : category.id === 'otherExpenses'
-      ? (expandedOtherExpenses ? Math.round(cellHeight * 1.5) : cellHeight)
-      : cellHeight;
-
-  // Determina se usare long-press handlers
-  const shouldUseLongPress = isCellDragEnabled && !editMode;
+  // Colore di sfondo della categoria
+  const getCategoryBgColor = () => {
+    if (!hasContent) return 'transparent';
+    switch (category.id) {
+      case 'destinazione': return ALTROVE_COLORS.accentSoft;
+      case 'attivita': return ALTROVE_COLORS.warmSoft;
+      case 'pernottamento': return ALTROVE_COLORS.successSoft;
+      default: return ALTROVE_COLORS.bgSubtle;
+    }
+  };
 
   return (
-    <td
-      key={`${day.id}-${category.id}`}
+    <div
       {...(shouldUseLongPress ? longPressHandlers : {})}
-      onClick={shouldUseLongPress ? undefined : () => onCellClick(dayIndex, category.id)}
-      onMouseEnter={() => onCellHoverEnter(cellKey)}
-      onMouseLeave={onCellHoverLeave}
-      className={`px-1 py-0.5 text-center border-l transition-all duration-150 ${selectedDays.includes(dayIndex) ? 'bg-blue-50' : highlightColor || ''
-        } ${editMode ? 'cursor-not-allowed' : 'cursor-pointer'} ${!editMode && !isSelectionMode ? 'hover:bg-gray-50' : ''
-        } ${isDesktop && selectedDayIndex === dayIndex ? 'bg-blue-50' : ''} ${getSelectionClasses()}`}
+      onClick={shouldUseLongPress ? undefined : (shouldUseHandleClick ? handleClick : () => onCellClick(dayIndex, category.id))}
+      className={`
+        text-center transition-all duration-150 select-none
+        ${editMode ? 'cursor-not-allowed' : 'cursor-pointer'}
+        ${!editMode && !isSelectionMode ? 'hover:opacity-80 active:scale-[0.97]' : ''}
+        ${getSelectionClasses()}
+      `}
       style={{
-        height: `${calculatedHeight}px`,
-        width: '140px',
-        minWidth: '140px',
-        maxWidth: '140px'
+        height: `${cellHeight}px`,
+        width: '130px',
+        minWidth: '130px',
+        maxWidth: '130px',
+        padding: '3px'
       }}
     >
-      {hasContent ? (
-        <div className={`text-xs relative overflow-hidden h-full flex flex-col ${category.id === 'note' && expandedNotes ? 'justify-center py-0.5' : 'justify-center'
-          }`}>
-          {/* RIGA SUPERIORE */}
+      <div
+        className="w-full h-full rounded-lg flex flex-col justify-center items-center relative"
+        style={{
+          backgroundColor: hasContent ? getCategoryBgColor() : 'transparent',
+          border: hasContent
+            ? selectedDayIndex === dayIndex
+              ? `1.5px solid ${ALTROVE_COLORS.accent}90`
+              : '1px solid transparent'
+            : selectedDayIndex === dayIndex
+              ? `1.5px solid ${ALTROVE_COLORS.accent}90`
+              : `1px dashed ${ALTROVE_COLORS.border}`,
+          padding: '4px 6px'
+        }}
+      >
+        {hasContent ? (
+          <>
+            {/* Booking dot - top right (per attività e pernottamento) */}
+            {isActivity && activityForThisRow?.bookingStatus && activityForThisRow.bookingStatus !== 'na' && (
+              <div className="absolute top-1 right-1">
+                <BookingDot status={activityForThisRow.bookingStatus} />
+              </div>
+            )}
+            {!isDestination && !isActivity && cellData?.bookingStatus && cellData.bookingStatus !== 'na' && (
+              <div className="absolute top-1 right-1">
+                <BookingDot status={cellData.bookingStatus} />
+              </div>
+            )}
 
-          {/* Orario inizio + Reminder */}
-          {hasStartTime && (
-            <div className="absolute top-0 left-0 flex items-start gap-0.5">
-              <span className="text-[9px] text-gray-400 leading-none">
-                {cellData.startTime}
-              </span>
-              {hasReminder && (
-                <Bell size={8} className="text-orange-400" />
-              )}
-            </div>
-          )}
-
-          {/* Pallino media */}
-          {showMediaIndicator && (
-            <div className="absolute top-0 left-1/2 -translate-x-1/2">
-              <div className="w-2 h-2 rounded-full bg-purple-400"
-                title="Contiene media allegati" />
-            </div>
-          )}
-
-          {/* Location + Booking */}
-          {(hasLocation || (category.id !== 'base' && category.id !== 'note' && cellData?.bookingStatus && cellData.bookingStatus !== 'na')) && (
-            <div className="absolute top-0 right-0 flex items-start justify-end gap-1">
-              {hasLocation && (
-                <MapPin size={10} className="text-red-500" />
-              )}
-              {category.id !== 'base' && category.id !== 'note' &&
-                cellData?.bookingStatus && cellData.bookingStatus !== 'na' && (
-                  <div className="h-[10px] flex items-start">
-                    <div className={`w-2 h-2 rounded-full ${cellData.bookingStatus === 'yes' ? 'bg-green-500' : 'bg-orange-500'
-                      }`} />
-                  </div>
-                )}
-            </div>
-          )}
-
-          {/* RIGA INFERIORE */}
-
-          {/* Trasporto + Orario fine */}
-          {(((category.id === 'spostamenti1' || category.id === 'spostamenti2') &&
-            cellData?.transportMode && cellData.transportMode !== 'none') || hasEndTime) && (
-              <div className="absolute bottom-0 left-0 flex items-end gap-0.5">
-                {(category.id === 'spostamenti1' || category.id === 'spostamenti2') &&
-                  cellData?.transportMode && cellData.transportMode !== 'none' && (
-                    <span className="ml-0.5 text-xs leading-none">
-                      {TRANSPORT_OPTIONS.find(t => t.value === cellData.transportMode)?.emoji}
-                    </span>
-                  )}
-                {hasEndTime && (
-                  <span className="text-[9px] text-gray-400 leading-none">
-                    {cellData.endTime}
+            {/* Content */}
+            {isDestination ? (
+              <DestinationContent destinations={destinationsList} hasGeoTag={!!hasGeoTag} />
+            ) : isActivity ? (
+              // Mostra singola attività se activityIndex è definito
+              activityForThisRow ? (
+                <div className="flex items-center gap-1 w-full justify-center">
+                  <ActivityTypeIcon
+                    type={activityForThisRow.type}
+                    size={12}
+                    showColor={true}
+                    className="flex-shrink-0"
+                    calendarOnly={true}
+                  />
+                  <span
+                    className="text-[11px] font-medium text-center leading-tight"
+                    style={{
+                      color: ALTROVE_COLORS.text,
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      wordBreak: 'break-word'
+                    }}
+                  >
+                    {activityForThisRow.title || 'Attività'}
                   </span>
-                )}
-              </div>
-            )}
-
-          {/* Costo */}
-          {category.id !== 'base' && category.id !== 'note' && category.id !== 'otherExpenses' &&
-            displayCost > 0 && (
-              <div
-                className={`absolute bottom-0 right-0.5 text-[9px] font-semibold leading-none transition-opacity duration-150 ${getCostColor(cellData, currentUserId, trip.sharing?.members)
-                  } ${costVisible ? 'opacity-100' : 'opacity-0'}`}
-              >
-                {displayCost.toFixed(0)}€
-              </div>
-            )}
-
-          {/* Costo Altre Spese */}
-          {category.id === 'otherExpenses' && otherExpensesData && otherExpensesData.total > 0 && (
-            <div
-              className={`absolute bottom-[1px] right-0.5 text-[9px] font-semibold leading-none transition-opacity duration-150 text-gray-500 ${costVisible ? 'opacity-100' : 'opacity-0'
-                }`}
-            >
-              {otherExpensesData.total.toFixed(0)}€
-            </div>
-          )}
-
-          {/* CONTENUTO CENTRALE */}
-          {category.id === 'otherExpenses' ? (
-            expandedOtherExpenses ? (
-              <div className="flex flex-col gap-0.5 px-2 py-1 h-full justify-center overflow-hidden">
-                {otherExpensesData && otherExpensesData.count > 0 ? (
-                  (() => {
-                    const key = `${day.id}-otherExpenses`;
-                    const expensesRaw = trip.data[key];
-                    const expenses = Array.isArray(expensesRaw) ? expensesRaw : [];
-
-                    const realExpenses = expenses.filter((exp: any) => {
-                      const hasExpContent = (exp.title && exp.title.trim() !== '') || (exp.cost && exp.cost.trim() !== '');
-                      if (!hasExpContent) return false;
-
-                      if (exp.costBreakdown && Array.isArray(exp.costBreakdown)) {
-                        const hasActiveMembers = exp.costBreakdown.some(entry => {
-                          const member = trip.sharing?.members?.[entry.userId];
-                          return member && member.status === 'active';
-                        });
-                        return hasActiveMembers;
-                      }
-
-                      return true;
-                    });
-
-                    const maxVisible = 3;
-                    const visibleExpenses = realExpenses.slice(0, maxVisible);
-                    const remainingCount = realExpenses.length - maxVisible;
-
-                    return (
-                      <>
-                        {visibleExpenses.map((exp: any, idx: number) => {
-                          let expCost = 0;
-                          if (exp.costBreakdown && Array.isArray(exp.costBreakdown)) {
-                            expCost = exp.costBreakdown
-                              .filter(entry => {
-                                const member = trip.sharing?.members?.[entry.userId];
-                                return member && member.status === 'active';
-                              })
-                              .reduce((sum, entry) => sum + (parseFloat(entry.amount) || 0), 0);
-                          } else if (exp.cost) {
-                            expCost = parseFloat(exp.cost) || 0;
-                          }
-
-                          return (
-                            <div key={idx} className="flex justify-between items-center text-[10px] leading-tight">
-                              <span className="truncate flex-1 text-left text-gray-700">
-                                {exp.title || 'Spesa'}
-                              </span>
-                              {expCost > 0 && (
-                                <span className="text-gray-600 font-medium ml-1 flex-shrink-0">
-                                  {expCost.toFixed(0)}€
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })}
-                        {remainingCount > 0 && (
-                          <div className="text-[9px] text-gray-400 text-center mt-0.5">
-                            ...+{remainingCount} altre
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()
-                ) : (
-                  <div className="text-gray-300 text-xl">+</div>
-                )}
-              </div>
+                </div>
+              ) : (
+                <ActivityContent activities={cellData?.activities || []} />
+              )
             ) : (
-              <div className="text-xs font-medium text-gray-700">
-                ({otherExpensesData ? otherExpensesData.count : 0})
-              </div>
-            )
-          ) : category.id === 'note' ? (
-            <div
-              className="text-[11px] text-gray-700 px-1 overflow-hidden w-full"
-              style={{
-                display: '-webkit-box',
-                WebkitLineClamp: expandedNotes ? '6' : '2',
-                WebkitBoxOrient: 'vertical',
-                textOverflow: 'ellipsis',
-                lineHeight: '1.1',
-                wordBreak: 'break-word'
-              }}
-            >
-              {cellData.notes}
-            </div>
-          ) : (
-            <div
-              className="text-[11px] font-medium px-1"
-              style={{
-                display: '-webkit-box',
-                WebkitLineClamp: '2',
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                lineHeight: '1.2',
-                wordBreak: 'break-word'
-              }}
-            >
-              {cellData.title}
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="text-gray-300 text-xl">+</div>
-      )}
-    </td>
+              // Pernottamento
+              <span
+                className="text-[11px] font-medium text-center leading-tight"
+                style={{
+                  color: ALTROVE_COLORS.text,
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  wordBreak: 'break-word'
+                }}
+              >
+                {cellData.title}
+              </span>
+            )}
+          </>
+        ) : (
+          // Placeholder semplice
+          <span
+            style={{
+              fontSize: '18px',
+              fontWeight: 300,
+              color: ALTROVE_COLORS.textPlaceholder
+            }}
+          >
+            +
+          </span>
+        )}
+      </div>
+    </div>
   );
 };
 

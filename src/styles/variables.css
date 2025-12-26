@@ -1,0 +1,366 @@
+/* ============================================
+   ALTROVE - Design System CSS Variables
+   🎨 Palette: Vivace & Moderna con gradienti
+   Importare in main.tsx o App.tsx
+   ============================================ */
+
+:root {
+  /* ========== COLORS - Vivace & Moderna ========== */
+
+  /* Primary / Accent - Turchese Brillante */
+  --color-accent: #4ECDC4;
+  --color-accent-dark: #3DBDB5;
+  --color-accent-soft: #E0F7F6;
+
+  /* Success - Verde Smeraldo */
+  --color-success: #2ECC71;
+  --color-success-dark: #27AE60;
+  --color-success-soft: #E8F8F0;
+
+  /* Warning - Giallo Oro */
+  --color-warning: #F1C40F;
+  --color-warning-dark: #D4AC0D;
+  --color-warning-soft: #FEF9E7;
+
+  /* Warm / Error - Corallo Energico */
+  --color-warm: #FF6B6B;
+  --color-warm-dark: #EE5A5A;
+  --color-warm-soft: #FFE8E8;
+
+  /* Action - Blu per azioni (Sposta, etc.) */
+  --color-action: #3B82F6;
+  --color-action-dark: #2563EB;
+  --color-action-soft: #DBEAFE;
+
+  /* Danger - Rosso per eliminazione */
+  --color-danger: #EF4444;
+  --color-danger-dark: #DC2626;
+  --color-danger-soft: #FEE2E2;
+
+  /* Backgrounds - Neutro & Pulito */
+  --color-bg: #FAFAFA;
+  --color-bg-card: #FFFFFF;
+  --color-bg-subtle: #F5F5F5;
+
+  /* Backgrounds - Warm (header, toolbar) */
+  --color-bg-warm: #F8F8F8;
+  --color-bg-warm-subtle: #EFEFEF;
+  --color-bg-warm-card: #FFFFFF;
+
+  /* Text - Scuro per contrasto */
+  --color-text: #2D3436;
+  --color-text-muted: #636E72;
+  --color-text-placeholder: #B2BEC3;
+
+  /* Borders */
+  --color-border: #E0E0E0;
+  --color-border-light: #EEEEEE;
+
+  /* ========== GRADIENTS ========== */
+  --gradient-accent: linear-gradient(135deg, #4ECDC4 0%, #3DBDB5 100%);
+  --gradient-success: linear-gradient(135deg, #2ECC71 0%, #27AE60 100%);
+  --gradient-warning: linear-gradient(135deg, #F1C40F 0%, #F39C12 100%);
+  --gradient-warm: linear-gradient(135deg, #FF6B6B 0%, #EE5A5A 100%);
+  --gradient-card-highlight: linear-gradient(135deg, #FFE8E8 0%, #FFFFFF 50%, #E0F7F6 100%);
+  --gradient-badge-accent: linear-gradient(135deg, #4ECDC4 0%, #2ECC71 100%);
+  
+  /* ========== GLOW SHADOWS ========== */
+  --glow-accent: 0 4px 14px rgba(78, 205, 196, 0.35);
+  --glow-accent-strong: 0 8px 24px rgba(78, 205, 196, 0.45);
+  --glow-success: 0 4px 14px rgba(46, 204, 113, 0.35);
+  --glow-warning: 0 4px 14px rgba(241, 196, 15, 0.35);
+  --glow-warm: 0 4px 14px rgba(255, 107, 107, 0.35);
+  --glow-action: 0 4px 14px rgba(59, 130, 246, 0.35);
+  --glow-danger: 0 4px 14px rgba(239, 68, 68, 0.35);
+  --glow-card: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --glow-card-hover: 0 8px 24px rgba(78, 205, 196, 0.2), 0 4px 8px rgba(0, 0, 0, 0.05);
+  --glow-card-selected: 0 8px 24px rgba(78, 205, 196, 0.35), 0 4px 8px rgba(0, 0, 0, 0.08);
+
+  /* ========== SPACING ========== */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  
+  /* ========== BORDER RADIUS ========== */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-2xl: 32px;
+  --radius-full: 9999px;
+  
+  /* ========== SHADOWS ========== */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.12);
+  
+  /* ========== TYPOGRAPHY ========== */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  
+  --font-size-xs: 11px;
+  --font-size-sm: 13px;
+  --font-size-base: 15px;
+  --font-size-lg: 18px;
+  --font-size-xl: 24px;
+  --font-size-2xl: 32px;
+  --font-size-3xl: 40px;
+  
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.7;
+  
+  /* ========== TRANSITIONS ========== */
+  --transition-fast: 150ms ease;
+  --transition-normal: 200ms ease;
+  --transition-slow: 300ms ease;
+  --transition-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  
+  /* ========== Z-INDEX ========== */
+  --z-dropdown: 100;
+  --z-modal: 200;
+  --z-toast: 300;
+  --z-tooltip: 400;
+  
+  /* ========== SAFE AREAS (iOS/Android) ========== */
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+  
+  /* ========== MOBILE SPECIFIC ========== */
+  --tap-highlight: transparent;
+  --touch-action: manipulation;
+}
+
+/* ========== GLOBAL MOBILE OPTIMIZATIONS ========== */
+
+* {
+  -webkit-tap-highlight-color: var(--tap-highlight);
+}
+
+input, textarea, select {
+  font-size: 16px;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* ========== UTILITY CLASSES FOR GRADIENTS ========== */
+
+.bg-gradient-accent {
+  background: var(--gradient-accent);
+}
+
+.bg-gradient-success {
+  background: var(--gradient-success);
+}
+
+.bg-gradient-warning {
+  background: var(--gradient-warning);
+}
+
+.bg-gradient-warm {
+  background: var(--gradient-warm);
+}
+
+.bg-gradient-card-highlight {
+  background: var(--gradient-card-highlight);
+}
+
+/* ========== UTILITY CLASSES FOR ACTION/DANGER ========== */
+
+.bg-action {
+  background-color: var(--color-action);
+}
+
+.bg-action-soft {
+  background-color: var(--color-action-soft);
+}
+
+.bg-danger {
+  background-color: var(--color-danger);
+}
+
+.bg-danger-soft {
+  background-color: var(--color-danger-soft);
+}
+
+.text-action {
+  color: var(--color-action);
+}
+
+.text-danger {
+  color: var(--color-danger);
+}
+
+/* ========== UTILITY CLASSES FOR GLOW ========== */
+
+.shadow-glow-accent {
+  box-shadow: var(--glow-accent);
+}
+
+.shadow-glow-accent-strong {
+  box-shadow: var(--glow-accent-strong);
+}
+
+.shadow-glow-success {
+  box-shadow: var(--glow-success);
+}
+
+.shadow-glow-warning {
+  box-shadow: var(--glow-warning);
+}
+
+.shadow-glow-warm {
+  box-shadow: var(--glow-warm);
+}
+
+.shadow-glow-action {
+  box-shadow: var(--glow-action);
+}
+
+.shadow-glow-danger {
+  box-shadow: var(--glow-danger);
+}
+
+.shadow-glow-card {
+  box-shadow: var(--glow-card);
+}
+
+.shadow-glow-card-hover {
+  box-shadow: var(--glow-card-hover);
+}
+
+.shadow-glow-card-selected {
+  box-shadow: var(--glow-card-selected);
+}
+
+/* ========== HOVER STATES ========== */
+
+@media (hover: hover) and (pointer: fine) {
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--glow-card-hover);
+  }
+  
+  .hover-glow:hover {
+    box-shadow: var(--glow-accent);
+  }
+  
+  .hover-bg:hover {
+    background-color: var(--color-bg-subtle);
+  }
+}
+
+/* ========== ACTIVE/PRESSED STATES ========== */
+
+.active-scale:active {
+  transform: scale(0.98);
+}
+
+.active-glow:active {
+  box-shadow: var(--glow-accent-strong);
+}
+
+/* ========== REDUCED MOTION ========== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* ========== DARK MODE (futuro) ========== */
+
+@media (prefers-color-scheme: dark) {
+  :root.auto-dark {
+    --color-accent: #5DE0D7;
+    --color-accent-dark: #4ECDC4;
+    --color-accent-soft: #1A2E2C;
+
+    --color-success: #3DDC84;
+    --color-success-soft: #1A2E22;
+
+    --color-warning: #FFD93D;
+    --color-warning-soft: #2E2A1A;
+
+    --color-warm: #FF7B7B;
+    --color-warm-soft: #2E1F1F;
+
+    --color-bg: #121212;
+    --color-bg-card: #1E1E1E;
+    --color-bg-subtle: #2A2A2A;
+
+    --color-text: #F5F5F5;
+    --color-text-muted: #AAAAAA;
+    --color-text-placeholder: #666666;
+
+    --color-border: #333333;
+    --color-border-light: #2A2A2A;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.6);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.7);
+    --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.8);
+    
+    --glow-accent: 0 4px 14px rgba(78, 205, 196, 0.5);
+    --glow-success: 0 4px 14px rgba(46, 204, 113, 0.5);
+    --glow-warning: 0 4px 14px rgba(241, 196, 15, 0.5);
+    --glow-warm: 0 4px 14px rgba(255, 107, 107, 0.5);
+  }
+}
+
+/* Manual dark mode toggle */
+[data-theme="dark"] {
+  --color-accent: #5DE0D7;
+  --color-accent-dark: #4ECDC4;
+  --color-accent-soft: #1A2E2C;
+
+  --color-success: #3DDC84;
+  --color-success-soft: #1A2E22;
+
+  --color-warning: #FFD93D;
+  --color-warning-soft: #2E2A1A;
+
+  --color-warm: #FF7B7B;
+  --color-warm-soft: #2E1F1F;
+
+  --color-bg: #121212;
+  --color-bg-card: #1E1E1E;
+  --color-bg-subtle: #2A2A2A;
+
+  --color-text: #F5F5F5;
+  --color-text-muted: #AAAAAA;
+  --color-text-placeholder: #666666;
+
+  --color-border: #333333;
+  --color-border-light: #2A2A2A;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.7);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.8);
+  
+  --glow-accent: 0 4px 14px rgba(78, 205, 196, 0.5);
+  --glow-success: 0 4px 14px rgba(46, 204, 113, 0.5);
+  --glow-warning: 0 4px 14px rgba(241, 196, 15, 0.5);
+  --glow-warm: 0 4px 14px rgba(255, 107, 107, 0.5);
+}

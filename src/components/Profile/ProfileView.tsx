@@ -4,8 +4,9 @@ import { auth } from '../../firebase';
 import { signOut } from 'firebase/auth';
 import { loadUserProfile, updateUserProfile, updateUserProfileInTrips } from "../../services/profileService";
 import { resizeAndUploadImage, deleteImageFromStorage } from "../../services/mediaService";
+import { confirmMedia } from "../../services/pendingMediaService";
 import { IMAGE_COMPRESSION } from '../../config/imageConfig';
-import Avatar from '../Avatar';
+import { Avatar } from '../ui';
 import ProfileEditModal from './ProfileEditModal';
 
 const ProfileView = ({ onBack, user, trips = [] }) => {
@@ -54,21 +55,25 @@ const ProfileView = ({ onBack, user, trips = [] }) => {
         `avatars/${user.uid}`,
         IMAGE_COMPRESSION.avatar.maxWidth,
         IMAGE_COMPRESSION.avatar.maxHeight,
-        IMAGE_COMPRESSION.avatar.quality
+        IMAGE_COMPRESSION.avatar.quality,
+        'avatar'
       );
 
-      setProfile({ 
-        ...profile, 
+      setProfile({
+        ...profile,
         avatar: avatarURL,
         avatarPath: avatarPath
       });
 
-      await updateUserProfile(user.uid, { 
+      await updateUserProfile(user.uid, {
         avatar: avatarURL,
         avatarPath: avatarPath
       });
 
-      await updateUserProfileInTrips(user.uid, { 
+      // Conferma media salvato (per cleanup orfani)
+      await confirmMedia(avatarPath);
+
+      await updateUserProfileInTrips(user.uid, {
         avatar: avatarURL,
         displayName: profile.displayName,
         username: profile.username

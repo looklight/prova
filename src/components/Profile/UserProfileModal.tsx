@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Crown, Loader } from 'lucide-react';
 import { loadPublicProfile } from '../../services/profileService';
-import Avatar from '../Avatar';
+import { Avatar } from '../ui';
 
 interface UserProfileModalProps {
   isOpen: boolean;

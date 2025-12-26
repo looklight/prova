@@ -1,39 +1,19 @@
-import React, { useState, useMemo, useRef, useCallback } from 'react';
-import TripMetadataModal from '../TripMetadataModal';
-import CostSummaryByUserView from '../DayDetail/CostSummaryByUserView';
-import CalendarHeader from './CalendarHeader';
+import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
+import { TripMetadataModal } from '../Trip';
+import CalendarHeader, { EditTab, ViewMode } from './CalendarHeader';
 import CalendarTable from './CalendarTable';
-import { DayMapView } from '../MapView';
+import CardView from './CardView';
 import { useCalendarScroll } from '../../hooks/useCalendarScroll';
 import { useDayOperations } from '../../hooks/useDayOperations';
-import { useDynamicCellHeight } from '../../hooks/useDynamicCellHeight';
-import { CATEGORIES } from '../../utils/constants';
+import { collectOrphanedMediaPaths } from '../../utils/cellDataUtils';
+import { deleteImage } from '../../services/storageService';
 
-/**
- * Hook per rilevare media query (es. orientamento schermo)
- */
-const useMediaQuery = (query: string) => {
-  const [matches, setMatches] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return window.matchMedia(query).matches;
-    }
-    return false;
-  });
+// ============================================
+// ALTROVE - CalendarView
+// Vista calendario con toggle Card/Table
+// Default: CardView (schede giornaliere)
+// ============================================
 
-  React.useEffect(() => {
-    const media = window.matchMedia(query);
-    setMatches(media.matches);
-
-    const listener = (e: MediaQueryListEvent) => setMatches(e.matches);
-    media.addEventListener('change', listener);
-
-    return () => media.removeEventListener('change', listener);
-  }, [query]);
-
-  return matches;
-};
-
-type EditTarget = 'days' | 'categories';
 
 interface CalendarViewProps {
   trip: any;
@@ -46,15 +26,10 @@ interface CalendarViewProps {
   isDesktop?: boolean;
   selectedDayIndex?: number | null;
   currentUser: any;
-  onInviteClick: () => void;
+  onOpenCosts?: () => void;
+  onMapClick?: () => void;
+  onViewModeChange?: (mode: ViewMode, maxActivities: number) => void;
 }
-
-// Ordine di default delle categorie riordinabili (esclude base, otherExpenses, note)
-const getDefaultCategoryOrder = () => {
-  return CATEGORIES
-    .filter(c => !['base', 'otherExpenses', 'note'].includes(c.id))
-    .map(c => c.id);
-};
 
 const CalendarView: React.FC<CalendarViewProps> = ({
   trip,
@@ -67,41 +42,22 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   isDesktop = false,
   selectedDayIndex = null,
   currentUser,
-  onInviteClick
+  onOpenCosts,
+  onMapClick,
+  onViewModeChange
 }) => {
+  // === STATE ===
   const [editMode, setEditMode] = useState(false);
-  const [editTarget, setEditTarget] = useState<EditTarget>('days');
+  const [editTab, setEditTab] = useState<EditTab>('select');
+  const [viewMode, setViewMode] = useState<ViewMode>('card');
   const [isScrolled, setIsScrolled] = useState(false);
   const [justMounted, setJustMounted] = useState(true);
   const [showMetadataModal, setShowMetadataModal] = useState(false);
-  const [showCostSummary, setShowCostSummary] = useState(false);
-  const [showCosts, setShowCosts] = useState(false);
-  const [expandedNotes, setExpandedNotes] = useState(false);
-  const [expandedOtherExpenses, setExpandedOtherExpenses] = useState(false);
-  const [showLocationIndicators, setShowLocationIndicators] = useState(false);
-  const [hoveredCell, setHoveredCell] = useState<string | null>(null);
-  const isLandscape = useMediaQuery('(orientation: landscape) and (max-width: 1023px)');
 
-  // 🆕 Stato per la mappa (con viewMode)
-  const [mapView, setMapView] = useState<{
-    isOpen: boolean;
-    dayIndex: number;
-    initialViewMode: 'day' | 'trip';
-  }>({ isOpen: false, dayIndex: 0, initialViewMode: 'day' });
-
-  // Ref per misurare l'header e calcolare altezza dinamica celle
+  // Ref per header (se serve per calcoli)
   const headerRef = useRef<HTMLDivElement>(null);
-  const cellHeight = useDynamicCellHeight(headerRef, CATEGORIES.length);
 
-  // 🆕 Category order: stato locale per update ottimistico
-  const [localCategoryOrder, setLocalCategoryOrder] = useState<string[] | null>(null);
-
-  const categoryOrder = useMemo(() => {
-    // Usa ordine locale se presente, altrimenti quello del trip o default
-    return localCategoryOrder || trip.categoryOrder || getDefaultCategoryOrder();
-  }, [localCategoryOrder, trip.categoryOrder]);
-
-  // Custom hooks
+  // === HOOKS ===
   const scrollContainerRef = useCalendarScroll({
     scrollToDayId,
     savedScrollPosition,
@@ -123,7 +79,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     resetEditMode
   } = useDayOperations({ trip, onUpdateTrip });
 
-  // Utility functions
+  // === UTILITIES ===
   const isToday = (date: Date) => {
     const today = new Date();
     return date.getDate() === today.getDate() &&
@@ -135,60 +91,27 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     return trip.data[`${dayId}-${categoryId}`] || null;
   }, [trip.data]);
 
-  // 🎨 Mappa deterministica dei colori per base/pernottamento
-  const contentColorMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    const baseColors = ['bg-blue-50', 'bg-green-50', 'bg-purple-50', 'bg-indigo-50', 'bg-teal-50'];
-    const pernottamentoColors = ['bg-yellow-50', 'bg-pink-50', 'bg-orange-50', 'bg-cyan-50', 'bg-lime-50'];
+  // Calcola il numero massimo di attività visibili per la TableView
+  const maxVisibleActivities = useMemo(() => {
+    let max = 0;
+    for (const day of trip.days) {
+      const cellData = getCellData(day.id, 'attivita');
+      if (cellData?.activities) {
+        const visibleCount = cellData.activities.filter((a: any) => a.showInCalendar === true).length;
+        if (visibleCount > max) max = visibleCount;
+      }
+    }
+    return Math.max(1, Math.min(3, max));
+  }, [trip.days, getCellData]);
 
-    let baseIndex = 0;
-    let pernottamentoIndex = 0;
+  // Notifica TripView quando cambia viewMode o maxActivities
+  useEffect(() => {
+    onViewModeChange?.(viewMode, maxVisibleActivities);
+  }, [viewMode, maxVisibleActivities, onViewModeChange]);
 
-    trip.days.forEach((day: any) => {
-      ['base', 'pernottamento'].forEach(catId => {
-        const cellData = getCellData(day.id, catId);
-        const content = cellData?.title?.trim();
-
-        if (content && !map[`${catId}-${content}`]) {
-          const colors = catId === 'base' ? baseColors : pernottamentoColors;
-          const index = catId === 'base' ? baseIndex++ : pernottamentoIndex++;
-          map[`${catId}-${content}`] = colors[index % colors.length];
-        }
-      });
-    });
-
-    return map;
-  }, [trip.days, trip.data, getCellData]);
-
-  const getColorForContent = (categoryId: string, content: string) => {
-    if (categoryId !== 'base' && categoryId !== 'pernottamento') return null;
-    if (!content) return null;
-
-    const occurrences = trip.days.filter((day: any) => {
-      const cellData = getCellData(day.id, categoryId);
-      return cellData?.title === content;
-    }).length;
-
-    if (occurrences < 2) return null;
-
-    return contentColorMap[`${categoryId}-${content}`] || null;
-  };
-
-  const getCategoryBgColor = (color: string) => {
-    const colorMap: Record<string, string> = {
-      'bg-gray-100': '#f3f4f6',
-      'bg-blue-100': '#dbeafe',
-      'bg-green-100': '#dcfce7',
-      'bg-yellow-100': '#fef9c3',
-      'bg-orange-100': '#ffedd5',
-      'bg-purple-100': '#f3e8ff',
-      'bg-teal-100': '#ccfbf1'
-    };
-    return colorMap[color] || '#f3f4f6';
-  };
-
+  // === HANDLERS ===
   const handleCellClick = (dayIndex: number, categoryId: string) => {
-    // ✅ AUTO-EXIT: Se siamo in edit mode, esci prima di aprire il giorno
+    // Auto-exit: se siamo in edit mode, esci prima di aprire il giorno
     if (editMode) {
       setEditMode(false);
       resetEditMode();
@@ -196,6 +119,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
     const currentScrollPosition = scrollContainerRef.current?.scrollLeft || 0;
     onOpenDay(dayIndex, currentScrollPosition, categoryId);
+  };
+
+  // 🆕 Handler per click su card (apre sempre il giorno)
+  const handleCardClick = (dayIndex: number) => {
+    const currentScrollPosition = scrollContainerRef.current?.scrollLeft || 0;
+    onOpenDay(dayIndex, currentScrollPosition);
   };
 
   const handleMetadataSave = async (metadata: any) => {
@@ -219,110 +148,96 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     if (editMode) {
       // Uscendo da edit mode, reset tutto
       resetEditMode();
-      setEditTarget('days');
     }
     setEditMode(!editMode);
   };
 
-  // 🆕 Handler per riordinare le categorie
-  const handleCategoryReorder = async (newOrder: string[]) => {
-    console.log('🔄 Nuovo ordine categorie:', newOrder);
-
-    // 🆕 Update ottimistico: aggiorna subito lo stato locale
-    setLocalCategoryOrder(newOrder);
-
-    try {
-      await onUpdateTrip({
-        categoryOrder: newOrder,
-        updatedAt: new Date()
-      });
-      console.log('✅ Ordine categorie salvato');
-      // Dopo il salvataggio, resetta lo stato locale (userà trip.categoryOrder)
-      setLocalCategoryOrder(null);
-    } catch (error) {
-      console.error('❌ Errore salvataggio ordine categorie:', error);
-      // In caso di errore, resetta allo stato precedente
-      setLocalCategoryOrder(null);
-    }
+  // 🆕 Handler per cambio vista (ora supporta edit mode in entrambe le viste)
+  const handleViewModeChange = (mode: ViewMode) => {
+    setViewMode(mode);
   };
 
-  // 🆕 Handler per aggiornare i dati delle celle (usato da CellDragDrop)
+  // Handler per aggiornare i dati delle celle (usato da CellDragDrop)
+  // Gestisce sia trip.data che trip.days (per le destinazioni)
+  // Include cleanup automatico dei media orfani dallo Storage
   const handleUpdateCellData = useCallback(async (updates: Record<string, any>) => {
-    console.log('🔄 Aggiornamento dati celle:', updates);
 
-    // Prepara l'oggetto data aggiornato
+    // 1. Costruisci i dati correnti completi (include destinazioni)
+    const currentFullData: Record<string, any> = { ...trip.data };
+    for (const day of trip.days) {
+      currentFullData[`days:${day.id}:destinations`] = day.destinations || [];
+    }
+
+    // 2. Trova i media orfani (che verranno eliminati/sovrascritti)
+    const orphanedPaths = collectOrphanedMediaPaths(currentFullData, updates);
+    if (orphanedPaths.length > 0) {
+      // Elimina in parallelo, senza bloccare l'operazione principale
+      Promise.all(
+        orphanedPaths.map(async (path) => {
+          try {
+            await deleteImage(path);
+          } catch (error) {
+            // Non blocchiamo l'operazione per errori di cleanup
+          }
+        })
+      );
+    }
+
+    // 3. Applica gli aggiornamenti
     const newData = { ...trip.data };
+    const newDays = [...trip.days];
+    let daysChanged = false;
 
     for (const [key, value] of Object.entries(updates)) {
-      if (value === null) {
-        // Rimuovi la cella (imposta a oggetto vuoto o elimina)
-        delete newData[key];
+      // Chiave speciale per destinazioni: "days:{dayId}:destinations"
+      const destMatch = key.match(/^days:(\d+):destinations$/);
+      if (destMatch) {
+        const dayId = parseInt(destMatch[1], 10);
+        const dayIndex = newDays.findIndex((d: any) => d.id === dayId);
+        if (dayIndex !== -1) {
+          newDays[dayIndex] = {
+            ...newDays[dayIndex],
+            destinations: value || []
+          };
+          daysChanged = true;
+        }
       } else {
-        // Aggiorna/crea la cella
-        newData[key] = value;
+        // Chiave normale per trip.data
+        if (value === null) {
+          delete newData[key];
+        } else {
+          newData[key] = value;
+        }
       }
     }
 
     try {
-      await onUpdateTrip({
+      const tripUpdate: any = {
         data: newData,
         updatedAt: new Date()
-      });
-      console.log('✅ Dati celle aggiornati');
+      };
+      if (daysChanged) {
+        tripUpdate.days = newDays;
+      }
+      await onUpdateTrip(tripUpdate);
     } catch (error) {
       console.error('❌ Errore aggiornamento dati celle:', error);
-      throw error; // Rilancia per gestire nel chiamante
+      throw error;
     }
-  }, [trip.data, onUpdateTrip]);
+  }, [trip.data, trip.days, onUpdateTrip]);
 
-  // 🆕 Handler per aprire la mappa (con viewMode)
-  const handleOpenMap = (dayIndex: number, viewMode: 'day' | 'trip') => {
-    setMapView({ isOpen: true, dayIndex, initialViewMode: viewMode });
-  };
-
-  // 🆕 Handler per navigare a un giorno dalla mappa
-  const handleNavigateToDay = (dayIndex: number) => {
-    const currentScrollPosition = scrollContainerRef.current?.scrollLeft || 0;
-    onOpenDay(dayIndex, currentScrollPosition);
-  };
-
-  // 🆕 Se la mappa è aperta, mostra quella
-  if (mapView.isOpen) {
-    return (
-      <DayMapView
-        trip={trip}
-        initialDayIndex={mapView.dayIndex}
-        initialViewMode={mapView.initialViewMode}
-        onBack={() => setMapView({ isOpen: false, dayIndex: 0, initialViewMode: 'day' })}
-        onNavigateToDay={handleNavigateToDay}
-        isDesktop={isDesktop}
-      />
-    );
-  }
-
-  // Se mostra riepilogo costi, renderizza quella vista
-  if (showCostSummary) {
-    return (
-      <CostSummaryByUserView
-        trip={trip}
-        onBack={() => setShowCostSummary(false)}
-        isDesktop={isDesktop}
-        origin="calendar"
-        onUpdateTrip={onUpdateTrip}
-      />
-    );
-  }
-
+  // === RENDER ===
   return (
     <div
-      className="min-h-screen bg-gray-50"
+      className="h-full flex flex-col overflow-hidden"
       style={{
-        // 🆕 In landscape mobile usa tutto lo schermo per mostrare più colonne
-        maxWidth: isDesktop || isLandscape ? '100%' : '430px',
+        background: 'transparent',
+        maxWidth: isDesktop ? '100%' : '430px',
         margin: '0 auto',
-        height: isDesktop ? '100%' : 'auto'
+        overscrollBehavior: 'none',
       }}
     >
+      {/* Metadata Modal */}
       <TripMetadataModal
         isOpen={showMetadataModal}
         onClose={() => setShowMetadataModal(false)}
@@ -334,68 +249,84 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         }}
         currentUser={currentUser}
         mode="edit"
-        onInviteClick={onInviteClick}
       />
 
-      <div ref={headerRef}>
+      {/* Header - fisso, non si muove */}
+      <div ref={headerRef} className="flex-shrink-0">
         <CalendarHeader
           trip={trip}
           editMode={editMode}
-          editTarget={editTarget}
           selectedDays={selectedDays}
           moveAfterIndex={moveAfterIndex}
           onBack={onBack}
           onMetadataClick={() => setShowMetadataModal(true)}
           onEditModeToggle={handleEditModeToggle}
-          onEditTargetChange={setEditTarget}
           onRemoveSelectedDays={removeSelectedDays}
           onAddDay={addDay}
           onMoveAfterChange={setMoveAfterIndex}
           onMoveDays={moveDaysAfter}
+          editTab={editTab}
+          onEditTabChange={setEditTab}
+          viewMode={viewMode}
+          onViewModeChange={handleViewModeChange}
+          onMapClick={onMapClick}
         />
       </div>
 
+      {/* Calendar Content */}
       <div
         ref={scrollContainerRef}
-        className="overflow-x-auto overflow-y-auto px-2 mt-2"
-        style={{ maxHeight: 'calc(100vh - 100px)' }}
+        className="flex-1 overflow-x-auto overflow-y-hidden px-2 pt-3 pb-3"
+        style={{
+          WebkitOverflowScrolling: 'touch',
+          touchAction: 'pan-x',
+          overscrollBehaviorX: 'contain',
+        }}
         onScroll={(e) => setIsScrolled((e.target as HTMLDivElement).scrollLeft > 10)}
       >
-        <CalendarTable
-          trip={trip}
-          editMode={editMode}
-          editTarget={editTarget}
-          categoryOrder={categoryOrder}
-          onCategoryReorder={handleCategoryReorder}
-          selectedDays={selectedDays}
-          isDesktop={isDesktop}
-          selectedDayIndex={selectedDayIndex}
-          isScrolled={isScrolled}
-          justMounted={justMounted}
-          showCosts={showCosts}
-          expandedNotes={expandedNotes}
-          expandedOtherExpenses={expandedOtherExpenses}
-          showLocationIndicators={showLocationIndicators}
-          hoveredCell={hoveredCell}
-          currentUserId={currentUser.uid}
-          cellHeight={cellHeight}
-          getCellData={getCellData}
-          getColorForContent={getColorForContent}
-          getCategoryBgColor={getCategoryBgColor}
-          isToday={isToday}
-          onCellClick={handleCellClick}
-          onCellHoverEnter={(cellKey) => setHoveredCell(cellKey)}
-          onCellHoverLeave={() => setHoveredCell(null)}
-          onToggleDaySelection={toggleDaySelection}
-          onUpdateDayDate={updateDayDate}
-          onOpenCostSummary={() => setShowCostSummary(true)}
-          onToggleCosts={() => setShowCosts(!showCosts)}
-          onToggleNotes={() => setExpandedNotes(!expandedNotes)}
-          onToggleOtherExpenses={() => setExpandedOtherExpenses(!expandedOtherExpenses)}
-          onToggleLocationIndicators={() => setShowLocationIndicators(!showLocationIndicators)}
-          onUpdateCellData={handleUpdateCellData}
-          onOpenMap={handleOpenMap}
-        />
+        {/* 🆕 Render condizionale basato su viewMode */}
+        {viewMode === 'card' ? (
+          <CardView
+            trip={trip}
+            selectedDayIndex={selectedDayIndex}
+            getCellData={getCellData}
+            isToday={isToday}
+            onCardClick={handleCardClick}
+            editMode={editMode}
+            editTab={editTab}
+            selectedDays={selectedDays}
+            onToggleDaySelection={toggleDaySelection}
+            onUpdateDayDate={updateDayDate}
+            onMoveAfterDay={(dayIndex) => {
+              moveDaysAfter(dayIndex);
+              setEditTab('select');
+            }}
+          />
+        ) : (
+          <CalendarTable
+            key={`table-${trip.updatedAt?.getTime?.() || trip.updatedAt || 'initial'}-${trip.days.length}`}
+            trip={trip}
+            editMode={editMode}
+            editTab={editTab}
+            selectedDays={selectedDays}
+            isDesktop={isDesktop}
+            selectedDayIndex={selectedDayIndex}
+            isScrolled={isScrolled}
+            justMounted={justMounted}
+            currentUserId={currentUser.uid}
+            cellHeight={44}
+            getCellData={getCellData}
+            isToday={isToday}
+            onCellClick={handleCellClick}
+            onToggleDaySelection={toggleDaySelection}
+            onUpdateDayDate={updateDayDate}
+            onUpdateCellData={handleUpdateCellData}
+            onMoveAfterDay={(dayIndex) => {
+              moveDaysAfter(dayIndex);
+              setEditTab('select');
+            }}
+          />
+        )}
       </div>
     </div>
   );

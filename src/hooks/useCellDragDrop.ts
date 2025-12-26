@@ -104,9 +104,24 @@ export const useCellDragDrop = (
     return 'action';
   }, [selectionState, cancelSelection, onTargetSelected]);
 
-  const isSelectedCell = useCallback((dayId: number, categoryId: string): boolean => {
-    return selectionState.selectedCell?.dayId === dayId && 
-           selectionState.selectedCell?.categoryId === categoryId;
+  const isSelectedCell = useCallback((dayId: number, categoryId: string, activityIndex?: number): boolean => {
+    const selected = selectionState.selectedCell;
+    if (!selected) return false;
+
+    const baseMatch = selected.dayId === dayId && selected.categoryId === categoryId;
+
+    // Se entrambi hanno activityIndex, devono corrispondere
+    if (selected.activityIndex !== undefined && activityIndex !== undefined) {
+      return baseMatch && selected.activityIndex === activityIndex;
+    }
+
+    // Se nessuno dei due ha activityIndex, basta il match base
+    if (selected.activityIndex === undefined && activityIndex === undefined) {
+      return baseMatch;
+    }
+
+    // Se solo uno ha activityIndex, non corrisponde
+    return false;
   }, [selectionState.selectedCell]);
 
   const isSelectionMode = useCallback((): boolean => {

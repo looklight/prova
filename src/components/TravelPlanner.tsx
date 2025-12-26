@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import HomeView from './HomeView';
-import TripView from './TripView';
+import { HomeView } from './Home';
+import { TripView } from './Trip';
 import { ProfileView } from './Profile';
-import LoadingScreen from './LoadingScreen';
-import { CATEGORIES } from './constants';
+import { LoadingScreen } from './ui';
+import { CATEGORIES } from '../utils/constants';
 import {
   subscribeToUserTrips,
   createTrip,
@@ -19,9 +19,12 @@ import { useAnalytics } from "../hooks/useAnalytics";
 import { isSeriousTrip, getUserEngagementLevel } from "../utils/analyticsHelpers";
 import { calculateTripCost } from "../utils/costsUtils";
 import { exportTripAsJSON, exportTripAsCSV, importTrip } from '../services/exportService';
-import { cleanupOldNotifications } from "../services/notifications/notificationService";
-import { cleanupExpiredInvites } from "../services/invites/linkInvites";
 import { useParams, useNavigate } from 'react-router-dom';
+
+interface TripOpenOptions {
+  dayIndex?: number;
+  defaultTab?: 'planning' | 'notes' | 'expenses';
+}
 
 const TravelPlannerApp = ({ user }) => {
   const { tripId: urlTripId } = useParams();
@@ -29,6 +32,7 @@ const TravelPlannerApp = ({ user }) => {
   const [currentView, setCurrentView] = useState('home');
   const [trips, setTrips] = useState([]);
   const [currentTripId, setCurrentTripId] = useState(null);
+  const [tripOpenOptions, setTripOpenOptions] = useState<TripOpenOptions | null>(null);
   const [loading, setLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [userProfile, setUserProfile] = useState(null);
@@ -66,10 +70,6 @@ const TravelPlannerApp = ({ user }) => {
         const profile = await loadUserProfile(user.uid, user.email);
         setUserProfile(profile);
         setAnalyticsUserId(user.uid);
-
-        // 🧹 Cleanup notifiche e inviti al login
-        cleanupOldNotifications(user.uid);
-        cleanupExpiredInvites();
 
         console.timeEnd('🔑 Load Profile');
         console.log('✅ Profilo caricato:', profile.displayName);
@@ -337,8 +337,9 @@ const TravelPlannerApp = ({ user }) => {
     }
   };
 
-  const openTrip = (tripId) => {
+  const openTrip = (tripId: string | number, options?: TripOpenOptions) => {
     setCurrentTripId(tripId);
+    setTripOpenOptions(options || null);
     setCurrentView('trip');
   };
 
@@ -494,8 +495,13 @@ const TravelPlannerApp = ({ user }) => {
         key={currentTripId}
         trip={currentTrip}
         onUpdateTrip={updateCurrentTrip}
-        onBackToHome={() => setCurrentView('home')}
+        onBackToHome={() => {
+          setCurrentView('home');
+          setTripOpenOptions(null);
+        }}
         currentUser={userProps}
+        initialDayIndex={tripOpenOptions?.dayIndex}
+        initialTab={tripOpenOptions?.defaultTab}
       />
     );
   }

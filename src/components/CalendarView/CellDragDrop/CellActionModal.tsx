@@ -15,6 +15,8 @@ interface CellActionModalProps {
   targetHasContent: boolean;
   /** Se le categorie sono diverse */
   isCategoryChange: boolean;
+  /** Se è un'operazione su giorno intero */
+  isFullDay?: boolean;
 }
 
 /**
@@ -28,7 +30,8 @@ const CellActionModal: React.FC<CellActionModalProps> = ({
   fromCategoryLabel,
   toCategoryLabel,
   targetHasContent,
-  isCategoryChange
+  isCategoryChange,
+  isFullDay = false
 }) => {
   if (!isOpen) return null;
 
@@ -70,7 +73,7 @@ const CellActionModal: React.FC<CellActionModalProps> = ({
         {targetHasContent && (
           <div className="px-4 py-2 bg-orange-50 border-b border-orange-100">
             <p className="text-xs text-orange-700">
-              ⚠️ La cella di destinazione contiene già dei dati
+              ⚠️ {isFullDay ? 'Il giorno di destinazione contiene già dei dati' : 'La cella di destinazione contiene già dei dati'}
             </p>
           </div>
         )}
@@ -87,7 +90,9 @@ const CellActionModal: React.FC<CellActionModalProps> = ({
             </div>
             <div>
               <div className="font-medium text-gray-800">Sposta</div>
-              <div className="text-xs text-gray-500">Muove i dati, svuota l'origine</div>
+              <div className="text-xs text-gray-500">
+                {isFullDay ? 'Sposta tutto il giorno, svuota l\'origine' : 'Muove i dati, svuota l\'origine'}
+              </div>
             </div>
           </button>
 
@@ -101,7 +106,9 @@ const CellActionModal: React.FC<CellActionModalProps> = ({
             </div>
             <div>
               <div className="font-medium text-gray-800">Copia</div>
-              <div className="text-xs text-gray-500">Duplica i dati, mantiene l'origine</div>
+              <div className="text-xs text-gray-500">
+                {isFullDay ? 'Copia tutto il giorno, mantiene l\'origine' : 'Duplica i dati, mantiene l\'origine'}
+              </div>
             </div>
           </button>
 
@@ -116,7 +123,9 @@ const CellActionModal: React.FC<CellActionModalProps> = ({
               </div>
               <div>
                 <div className="font-medium text-gray-800">Scambia</div>
-                <div className="text-xs text-gray-500">Inverti i contenuti delle due celle</div>
+                <div className="text-xs text-gray-500">
+                  {isFullDay ? 'Scambia i contenuti dei due giorni' : 'Inverti i contenuti delle due celle'}
+                </div>
               </div>
             </button>
           )}

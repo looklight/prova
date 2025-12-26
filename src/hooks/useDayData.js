@@ -1,95 +1,134 @@
 /**
- * 📦 useDayData
- * 
+ * 📦 useDayData - ALTROVE VERSION
+ *
  * @description Hook per gestione stato locale dei dati di un singolo giorno
  * @usage Usato da: DayDetailView
- * 
+ *
+ * STRUTTURA DATI ALTROVE:
+ * - destinazione: { title } - stringa con destinazioni separate da " → "
+ * - attivita: { activities: Activity[] } - array di attività
+ * - pernottamento: { title, bookingStatus, cost, ... } - singolo oggetto
+ * - note: { notes } - testo libero
+ *
  * Funzionalità:
- * - Gestisce categoryData (tutte le categorie del giorno)
- * - Gestisce otherExpenses (spese aggiuntive)
+ * - Gestisce categoryData (destinazione, attivita, pernottamento, note)
  * - Auto-assegnazione costi all'utente corrente
  * - Sincronizzazione con Firebase in background
- * - Aggiunta automatica nuova spesa vuota
- * - ✅ SYNC OTTIMIZZATA: Aggiorna UI quando trip.data cambia (es. da breakdown modal)
- * - ✅ RESET CHIRURGICO: Breakdown vuoto resetta solo costi, non title/media
- * - 🔧 FIX PARTICIPANTS: Non sovrascrive più i participants quando si aggiorna costBreakdown
- * - 🆕 LOCATION: Supporto per geolocalizzazione categorie
- * - 🆕 UPDATE MULTIPLO: updateCategoryMultiple per aggiornare più campi atomicamente
+ * - Supporto array attività multiple
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { CATEGORIES } from '../utils/constants';
 
-// 🔧 Helper per normalizzare otherExpenses (oggetto o array → array)
-const normalizeExpenses = (expenses) => {
-  if (!expenses) return [{ id: 1, title: '', cost: '' }];
+// Nuove categorie Altrove
+const ALTROVE_CATEGORIES = ['destinazione', 'attivita', 'pernottamento', 'note'];
 
-  // Se è già un array, usalo
-  if (Array.isArray(expenses)) return expenses;
+// Struttura vuota per una singola attività
+const createEmptyActivity = (id) => ({
+  id: id || `activity-${Date.now()}`,
+  title: '',
+  type: 'generic',
+  bookingStatus: 'na',
+  startTime: null,
+  endTime: null,
+  cost: '',
+  costBreakdown: null,
+  participants: null,
+  participantsUpdatedAt: null,
+  hasSplitCost: false,
+  location: null,
+  links: [],
+  images: [],
+  videos: [],
+  mediaNotes: [],
+  showInCalendar: true
+});
 
-  // Se è un oggetto, converti in array (rimuovi chiavi non-numeriche)
-  const entries = Object.entries(expenses)
-    .filter(([key]) => !isNaN(parseInt(key))) // Solo chiavi numeriche
-    .map(([_, value]) => value);
+// Struttura vuota per pernottamento
+const createEmptyAccommodation = () => ({
+  title: '',
+  bookingStatus: 'na',
+  cost: '',
+  costBreakdown: null,
+  participants: null,
+  participantsUpdatedAt: null,
+  hasSplitCost: false,
+  location: null,
+  startTime: '',  // Check-in (unificato)
+  endTime: '',    // Check-out (unificato)
+  links: [],
+  images: [],
+  videos: [],
+  mediaNotes: []
+});
 
-  return entries.length > 0 ? entries : [{ id: 1, title: '', cost: '' }];
+// Helper per normalizzare activities (assicura che sia array)
+const normalizeActivities = (activities) => {
+  if (!activities) return [];
+  if (Array.isArray(activities)) return activities;
+  return [];
 };
 
 export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
-  // ✅ Inizializza con dati validi
+  // ============================================
+  // STATE INITIALIZATION
+  // ============================================
+
   const [categoryData, setCategoryData] = useState(() => {
     const data = {};
-    CATEGORIES.forEach(cat => {
-      const key = `${currentDay.id}-${cat.id}`;
-      const cellData = trip.data[key] || {};
 
-      data[cat.id] = {
-        title: cellData.title || '',
-        cost: cellData.cost || '',
-        costBreakdown: cellData.costBreakdown || null,
-        participants: cellData.participants || null,
-        participantsUpdatedAt: cellData.participantsUpdatedAt || null,
-        hasSplitCost: cellData.hasSplitCost || false,
-        bookingStatus: cellData.bookingStatus || 'na',
-        transportMode: cellData.transportMode || 'treno',
-        links: cellData.links || [],
-        images: cellData.images || [],
-        videos: cellData.videos || [],
-        mediaNotes: cellData.mediaNotes || [],
-        notes: cellData.notes || '',
-        location: cellData.location || null,
-        startTime: cellData.startTime || null,
-        endTime: cellData.endTime || null,
-        reminder: cellData.reminder || null,
-        reminderId: cellData.reminderId || null,
-        waypoints: cellData.waypoints || []
-      };
-    });
+    // Destinazione
+    const destKey = `${currentDay.id}-destinazione`;
+    const destData = trip.data[destKey] || {};
+    data.destinazione = {
+      title: destData.title || ''
+    };
+
+    // Attività (array)
+    const actKey = `${currentDay.id}-attivita`;
+    const actData = trip.data[actKey] || {};
+    data.attivita = {
+      activities: normalizeActivities(actData.activities)
+    };
+
+    // Pernottamento
+    const accKey = `${currentDay.id}-pernottamento`;
+    const accData = trip.data[accKey] || {};
+    data.pernottamento = {
+      title: accData.title || '',
+      bookingStatus: accData.bookingStatus || 'na',
+      cost: accData.cost || '',
+      costBreakdown: accData.costBreakdown || null,
+      participants: accData.participants || null,
+      participantsUpdatedAt: accData.participantsUpdatedAt || null,
+      hasSplitCost: accData.hasSplitCost || false,
+      location: accData.location || null,
+      startTime: accData.startTime || '',
+      endTime: accData.endTime || '',
+      links: accData.links || [],
+      images: accData.images || [],
+      videos: accData.videos || [],
+      mediaNotes: accData.mediaNotes || []
+    };
+
+    // Note
+    const noteKey = `${currentDay.id}-note`;
+    const noteData = trip.data[noteKey] || {};
+    data.note = {
+      notes: noteData.notes || ''
+    };
+
     return data;
-  });
-
-  const [otherExpenses, setOtherExpenses] = useState(() => {
-    const key = `${currentDay.id}-otherExpenses`;
-    const expensesRaw = trip.data[key];
-    const expenses = normalizeExpenses(expensesRaw);
-
-    return expenses.map(exp => ({
-      id: exp.id,
-      title: exp.title || '',
-      cost: exp.cost || '',
-      costBreakdown: exp.costBreakdown || null,
-      participants: exp.participants || null,
-      participantsUpdatedAt: exp.participantsUpdatedAt || null,
-      hasSplitCost: exp.hasSplitCost || false
-    }));
   });
 
   // Ref per evitare loop quando aggiorni TU stesso
   const isLocalUpdateRef = useRef(false);
 
-  // ✅ Sincronizza categoryData quando trip.data cambia (es. da breakdown modal)
+  // ============================================
+  // SYNC EFFECTS
+  // ============================================
+
+  // Sincronizza categoryData quando trip.data cambia
   useEffect(() => {
-    // Salta se l'update viene da questo stesso hook (evita loop)
     if (isLocalUpdateRef.current) {
       isLocalUpdateRef.current = false;
       return;
@@ -99,84 +138,107 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
 
     const data = {};
 
-    CATEGORIES.forEach(cat => {
-      const key = `${currentDay.id}-${cat.id}`;
-      const cellData = trip.data[key] || {};
+    // Destinazione
+    const destKey = `${currentDay.id}-destinazione`;
+    const destData = trip.data[destKey] || {};
+    data.destinazione = {
+      title: destData.title || ''
+    };
 
-      data[cat.id] = {
-        title: cellData.title || '',
-        cost: cellData.cost || '',
-        costBreakdown: cellData.costBreakdown || null,
-        participants: cellData.participants || null,
-        participantsUpdatedAt: cellData.participantsUpdatedAt || null,
-        hasSplitCost: cellData.hasSplitCost || false,
-        bookingStatus: cellData.bookingStatus || 'na',
-        transportMode: cellData.transportMode || 'treno',
-        links: cellData.links || [],
-        images: cellData.images || [],
-        videos: cellData.videos || [],
-        mediaNotes: cellData.mediaNotes || [],
-        notes: cellData.notes || '',
-        location: cellData.location || null,
-        startTime: cellData.startTime || null,
-        endTime: cellData.endTime || null,
-        reminder: cellData.reminder || null,
-        reminderId: cellData.reminderId || null,
-        waypoints: cellData.waypoints || []
-      };
-    });
+    // Attività
+    const actKey = `${currentDay.id}-attivita`;
+    const actData = trip.data[actKey] || {};
+    data.attivita = {
+      activities: normalizeActivities(actData.activities)
+    };
+
+    // Pernottamento
+    const accKey = `${currentDay.id}-pernottamento`;
+    const accData = trip.data[accKey] || {};
+    data.pernottamento = {
+      title: accData.title || '',
+      bookingStatus: accData.bookingStatus || 'na',
+      cost: accData.cost || '',
+      costBreakdown: accData.costBreakdown || null,
+      participants: accData.participants || null,
+      participantsUpdatedAt: accData.participantsUpdatedAt || null,
+      hasSplitCost: accData.hasSplitCost || false,
+      location: accData.location || null,
+      startTime: accData.startTime || '',
+      endTime: accData.endTime || '',
+      links: accData.links || [],
+      images: accData.images || [],
+      videos: accData.videos || [],
+      mediaNotes: accData.mediaNotes || []
+    };
+
+    // Note
+    const noteKey = `${currentDay.id}-note`;
+    const noteData = trip.data[noteKey] || {};
+    data.note = {
+      notes: noteData.notes || ''
+    };
 
     setCategoryData(data);
   }, [currentDay.id, trip.data]);
 
-  // ✅ Sincronizza otherExpenses quando trip.data cambia
-  useEffect(() => {
-    if (isLocalUpdateRef.current) {
-      isLocalUpdateRef.current = false;
-      return;
-    }
+  // ============================================
+  // HELPERS
+  // ============================================
 
-    console.log('🔄 [useDayData] Sync otherExpenses da trip.data');
-
-    const key = `${currentDay.id}-otherExpenses`;
-    const expensesRaw = trip.data[key];
-    const expenses = normalizeExpenses(expensesRaw);
-
-    const expensesWithBreakdown = expenses.map(exp => ({
-      id: exp.id,
-      title: exp.title || '',
-      cost: exp.cost || '',
-      costBreakdown: exp.costBreakdown || null,
-      participants: exp.participants || null,
-      participantsUpdatedAt: exp.participantsUpdatedAt || null,
-      hasSplitCost: exp.hasSplitCost || false
-    }));
-
-    setOtherExpenses(expensesWithBreakdown);
-  }, [currentDay.id, trip.data]);
-
-  // Aggiungi automaticamente una nuova spesa vuota quando l'ultima viene compilata
-  useEffect(() => {
-    const lastExpense = otherExpenses[otherExpenses.length - 1];
-
-    if (lastExpense && (lastExpense.title.trim() !== '' || lastExpense.cost.trim() !== '')) {
-      const hasEmptyExpense = otherExpenses.some(exp =>
-        exp.title.trim() === '' && exp.cost.trim() === ''
-      );
-
-      if (!hasEmptyExpense) {
-        addOtherExpense();
-      }
-    }
-  }, [otherExpenses]);
-
-  // Helper per ottenere partecipanti di default
   const getDefaultParticipants = () => {
+    if (!trip.sharing?.members) return [currentUserId];
     return Object.keys(trip.sharing.members)
       .filter(uid => trip.sharing.members[uid].status === 'active');
   };
 
-  // ✅ Update categoria - aggiorna stato locale E Firebase
+  // Helper per gestire auto-assegnazione costi
+  const handleCostUpdate = (currentData, value, currentUserId) => {
+    const amount = parseFloat(value) || 0;
+    let result = { cost: value };
+
+    if (amount > 0) {
+      const hasValidBreakdown = currentData.costBreakdown &&
+        Array.isArray(currentData.costBreakdown) &&
+        currentData.costBreakdown.length > 0 &&
+        currentData.costBreakdown.some(e => e.amount > 0);
+
+      if (!hasValidBreakdown) {
+        // Prima assegnazione
+        result.costBreakdown = [{ userId: currentUserId, amount }];
+        result.participants = getDefaultParticipants();
+        result.participantsUpdatedAt = new Date();
+        result.hasSplitCost = false;
+      } else {
+        const oldTotal = currentData.costBreakdown.reduce((sum, e) => sum + e.amount, 0);
+        if (Math.abs(amount - oldTotal) > 0.01) {
+          const ratio = amount / oldTotal;
+          result.costBreakdown = currentData.costBreakdown.map(entry => ({
+            ...entry,
+            amount: Math.round(entry.amount * ratio * 100) / 100
+          }));
+        }
+      }
+    } else {
+      // Reset costi
+      result.cost = '';
+      result.costBreakdown = null;
+      result.participants = null;
+      result.participantsUpdatedAt = null;
+      result.hasSplitCost = false;
+    }
+
+    return result;
+  };
+
+  // ============================================
+  // UPDATE FUNCTIONS
+  // ============================================
+
+  /**
+   * Aggiorna un campo di una categoria
+   * Per attività, usa updateActivities() invece
+   */
   const updateCategory = (catId, field, value) => {
     const key = `${currentDay.id}-${catId}`;
     const currentData = trip.data[key] || {};
@@ -186,135 +248,35 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
       [field]: value
     };
 
-    // 🔧 FIX: Gestisci costBreakdown
+    // Gestione speciale per costBreakdown
     if (field === 'costBreakdown') {
       if (Array.isArray(value) && value.length > 0) {
-        // Breakdown normale con contributi
         updatedCellData.hasSplitCost = value.length > 1;
         const total = value.reduce((sum, entry) => sum + entry.amount, 0);
         updatedCellData.cost = total.toString();
         updatedCellData.costBreakdown = value;
-
-        // ✅ FIX CRITICO: NON toccare participants qui!
-        // Viene gestito separatamente quando serve
-
-        console.log('✅ [updateCategory] Breakdown aggiornato (participants NON toccato)');
+        console.log('✅ [updateCategory] Breakdown aggiornato');
       } else {
-        // 🆕 Breakdown vuoto/null = reset SOLO costi (non title/media/location)
         updatedCellData.costBreakdown = null;
         updatedCellData.participants = null;
         updatedCellData.participantsUpdatedAt = null;
         updatedCellData.hasSplitCost = false;
         updatedCellData.cost = '';
-        console.log('🧹 [updateCategory] Reset costi (title/media/location intatti)');
+        console.log('🧹 [updateCategory] Reset costi');
       }
     }
-    // 🔧 FIX: Se modifichi 'participants', aggiorna anche timestamp
+    // Gestione participants
     else if (field === 'participants') {
-      // Salva solo participants, lascia breakdown intatto
       updatedCellData.participants = value;
       updatedCellData.participantsUpdatedAt = new Date();
-      console.log('✅ [updateCategory] Participants aggiornati con timestamp:', value);
     }
-    // 🆕 Location: salva direttamente senza logica speciale
-    else if (field === 'location') {
-      updatedCellData.location = value;
-      console.log('📍 [updateCategory] Location aggiornata:', value ? 'salvata' : 'rimossa');
-    }
-
-    // 🆕 Se title viene svuotato, rimuovi location
-    else if (field === 'title') {
-      updatedCellData.title = value;
-
-      if (!value || value.trim() === '') {
-        updatedCellData.location = null;
-        console.log('🧹 [updateCategory] Title svuotato, location rimossa');
-      }
+    // Gestione cost con auto-assegnazione
+    else if (field === 'cost' && catId !== 'attivita') {
+      const costUpdates = handleCostUpdate(currentData, value, currentUserId);
+      updatedCellData = { ...updatedCellData, ...costUpdates };
     }
 
-    // AUTO-ASSEGNAZIONE: SOLO se modifichi 'cost' E non esiste già breakdown VALIDO
-    else if (field === 'cost' && value !== undefined) {
-      const amount = parseFloat(value) || 0;
-
-      if (amount > 0) {
-        // 🔧 FIX: Verifica se esiste breakdown VALIDO (con dati)
-        const hasValidBreakdown = currentData.costBreakdown &&
-          Array.isArray(currentData.costBreakdown) &&
-          currentData.costBreakdown.length > 0 &&
-          currentData.costBreakdown.some(e => e.amount > 0);
-
-        if (!hasValidBreakdown) {
-          // ✅ PRIMA ASSEGNAZIONE (breakdown vuoto/null)
-          updatedCellData.costBreakdown = [
-            { userId: currentUserId, amount: amount }
-          ];
-          updatedCellData.participants = getDefaultParticipants();
-          updatedCellData.participantsUpdatedAt = new Date();
-          updatedCellData.hasSplitCost = false;
-          console.log('✅ [updateCategory] Breakdown creato (prima volta) con timestamp');
-        } else {
-          // 🔧 Breakdown valido esiste → aggiorna SOLO totali proporzionalmente
-          const oldTotal = currentData.costBreakdown.reduce((sum, e) => sum + e.amount, 0);
-
-          // Se il totale è identico, NON fare nulla (evita loop infiniti)
-          if (Math.abs(amount - oldTotal) > 0.01) {
-            const ratio = amount / oldTotal;
-            updatedCellData.costBreakdown = currentData.costBreakdown.map(entry => ({
-              ...entry,
-              amount: Math.round(entry.amount * ratio * 100) / 100
-            }));
-            // ⚠️ NON aggiornare participantsUpdatedAt qui (è solo un ricalcolo proporzionale)
-            console.log('✅ [updateCategory] Breakdown aggiornato proporzionalmente');
-          } else {
-            // Totale identico → mantieni breakdown esistente
-            updatedCellData.costBreakdown = currentData.costBreakdown;
-          }
-        }
-      } else {
-        // Cost = 0 → reset tutto
-        updatedCellData.costBreakdown = null;
-        updatedCellData.participants = null;
-        updatedCellData.participantsUpdatedAt = null;
-        updatedCellData.hasSplitCost = false;
-        updatedCellData.cost = '';
-      }
-    }
-
-    // Marca come update locale (evita loop in useEffect)
-    isLocalUpdateRef.current = true;
-
-    // CRITICAL FIX: Aggiorna stato locale CON TUTTI I CAMPI
-    setCategoryData(prev => ({
-      ...prev,
-      [catId]: {
-        ...prev[catId],
-        ...updatedCellData
-      }
-    }));
-
-    console.log('💾 [updateCategory] Stato locale aggiornato:', catId, field);
-
-    const updatedData = {
-      ...trip.data,
-      [key]: updatedCellData
-    };
-
-    // Salva su Firebase in background (non blocca UI)
-    onUpdateTrip({ ...trip, data: updatedData });
-  };
-
-  // 🆕 Update multiplo - per aggiornare più campi atomicamente (es. orario + reminder)
-  const updateCategoryMultiple = (catId, fieldsObject) => {
-    const key = `${currentDay.id}-${catId}`;
-    const currentData = trip.data[key] || {};
-
-    // Merge tutti i campi
-    const updatedCellData = {
-      ...currentData,
-      ...fieldsObject
-    };
-
-    // Marca come update locale (evita loop in useEffect)
+    // Marca come update locale
     isLocalUpdateRef.current = true;
 
     // Aggiorna stato locale
@@ -326,183 +288,152 @@ export const useDayData = (trip, currentDay, onUpdateTrip, currentUserId) => {
       }
     }));
 
-    console.log('💾 [updateCategoryMultiple] Stato locale aggiornato:', catId, Object.keys(fieldsObject));
+    console.log('💾 [updateCategory]', catId, field);
+
+    // Salva su Firebase
+    const updatedData = {
+      ...trip.data,
+      [key]: updatedCellData
+    };
+
+    onUpdateTrip({ ...trip, data: updatedData });
+  };
+
+  /**
+   * Aggiorna più campi di una categoria atomicamente
+   */
+  const updateCategoryMultiple = (catId, fieldsObject) => {
+    const key = `${currentDay.id}-${catId}`;
+    const currentData = trip.data[key] || {};
+
+    const updatedCellData = {
+      ...currentData,
+      ...fieldsObject
+    };
+
+    isLocalUpdateRef.current = true;
+
+    setCategoryData(prev => ({
+      ...prev,
+      [catId]: {
+        ...prev[catId],
+        ...updatedCellData
+      }
+    }));
+
+    console.log('💾 [updateCategoryMultiple]', catId, Object.keys(fieldsObject));
 
     const updatedData = {
       ...trip.data,
       [key]: updatedCellData
     };
 
-    // Salva su Firebase
     onUpdateTrip({ ...trip, data: updatedData });
   };
 
-  const updateOtherExpense = (expenseId, field, value) => {
-    const key = `${currentDay.id}-otherExpenses`;
-
-    const updated = otherExpenses.map(exp => {
-      if (exp.id !== expenseId) return exp;
-
-      let updatedExpense = {
-        ...exp,
-        [field]: value
-      };
-
-      // 🔧 FIX: Stessa logica delle categorie
-      if (field === 'costBreakdown') {
-        if (Array.isArray(value) && value.length > 0) {
-          updatedExpense.hasSplitCost = value.length > 1;
-          const total = value.reduce((sum, entry) => sum + entry.amount, 0);
-          updatedExpense.cost = total.toString();
-          updatedExpense.costBreakdown = value;
-
-          // ✅ FIX CRITICO: NON toccare participants qui!
-
-          console.log('✅ [updateOtherExpense] Breakdown aggiornato (participants NON toccato)');
-        } else {
-          // 🆕 Breakdown vuoto = reset SOLO costi (title intatto)
-          updatedExpense.costBreakdown = null;
-          updatedExpense.participants = null;
-          updatedExpense.participantsUpdatedAt = null;
-          updatedExpense.hasSplitCost = false;
-          updatedExpense.cost = '';
-          console.log('🧹 [updateOtherExpense] Reset costi (title intatto)');
-        }
-      }
-      else if (field === 'participants') {
-        // Salva solo participants, lascia breakdown intatto
-        updatedExpense.participants = value;
-        updatedExpense.participantsUpdatedAt = new Date();
-        console.log('✅ [updateOtherExpense] Participants aggiornati con timestamp:', value);
-      }
-      else if (field === 'cost' && value !== undefined) {
-        const amount = parseFloat(value) || 0;
-
-        if (amount > 0) {
-          const hasValidBreakdown = exp.costBreakdown &&
-            Array.isArray(exp.costBreakdown) &&
-            exp.costBreakdown.length > 0 &&
-            exp.costBreakdown.some(e => e.amount > 0);
-
-          if (!hasValidBreakdown) {
-            // ✅ PRIMA ASSEGNAZIONE
-            updatedExpense.costBreakdown = [
-              { userId: currentUserId, amount: amount }
-            ];
-            updatedExpense.participants = getDefaultParticipants();
-            updatedExpense.participantsUpdatedAt = new Date();
-            updatedExpense.hasSplitCost = false;
-            console.log('✅ [updateOtherExpense] Breakdown creato (prima volta) con timestamp');
-          } else {
-            const oldTotal = exp.costBreakdown.reduce((sum, e) => sum + e.amount, 0);
-
-            if (Math.abs(amount - oldTotal) > 0.01) {
-              const ratio = amount / oldTotal;
-              updatedExpense.costBreakdown = exp.costBreakdown.map(entry => ({
-                ...entry,
-                amount: Math.round(entry.amount * ratio * 100) / 100
-              }));
-              // ⚠️ NON aggiornare participantsUpdatedAt (ricalcolo proporzionale)
-              console.log('✅ [updateOtherExpense] Breakdown aggiornato proporzionalmente');
-            } else {
-              updatedExpense.costBreakdown = exp.costBreakdown;
-            }
-          }
-        } else {
-          updatedExpense.costBreakdown = null;
-          updatedExpense.participants = null;
-          updatedExpense.participantsUpdatedAt = null;
-          updatedExpense.hasSplitCost = false;
-          updatedExpense.cost = '';
-        }
-      }
-
-      return updatedExpense;
-    });
-
-    // Marca come update locale
-    isLocalUpdateRef.current = true;
-
-    // IMPORTANTE: Aggiorna stato locale PRIMA
-    setOtherExpenses(updated);
-
-    console.log('💾 [updateOtherExpense] Stato locale aggiornato:', expenseId, field);
-
-    // Poi aggiorna Firebase
-    const updatedData = {
-      ...trip.data,
-      [key]: updated
-    };
-
-    onUpdateTrip({
-      ...trip,
-      data: updatedData
-    });
-  };
-
-  const removeOtherExpense = (expenseId) => {
-    const key = `${currentDay.id}-otherExpenses`;
-
-    let updated;
-
-    if (otherExpenses.length === 1) {
-      updated = [{ id: Date.now(), title: '', cost: '', costBreakdown: null, participants: null, hasSplitCost: false }];
-    } else {
-      updated = otherExpenses.filter(exp => exp.id !== expenseId);
-    }
+  /**
+   * 🆕 Aggiorna l'intero array di attività
+   */
+  const updateActivities = (activities) => {
+    const key = `${currentDay.id}-attivita`;
 
     isLocalUpdateRef.current = true;
-    setOtherExpenses(updated);
+
+    setCategoryData(prev => ({
+      ...prev,
+      attivita: {
+        ...prev.attivita,
+        activities
+      }
+    }));
+
+    console.log('💾 [updateActivities] Aggiornate', activities.length, 'attività');
 
     const updatedData = {
       ...trip.data,
-      [key]: updated
+      [key]: { activities }
     };
 
-    onUpdateTrip({
-      ...trip,
-      data: updatedData
-    });
+    onUpdateTrip({ ...trip, data: updatedData });
   };
 
-  // Aggiungi nuova spesa
-  const addOtherExpense = () => {
-    const key = `${currentDay.id}-otherExpenses`;
+  /**
+   * 🆕 Aggiorna una singola attività nell'array
+   */
+  const updateActivity = (activityId, updates) => {
+    const currentActivities = categoryData.attivita?.activities || [];
+    
+    const updatedActivities = currentActivities.map(act => {
+      if (act.id !== activityId) return act;
 
-    const newExpense = {
-      id: Date.now() + Math.floor(Math.random() * 1000),
-      title: '',
-      cost: '',
-      costBreakdown: null,
-      participants: null,
-      hasSplitCost: false
-    };
+      let updatedAct = { ...act, ...updates };
 
-    const updated = [...otherExpenses, newExpense];
+      // Gestione cost con auto-assegnazione
+      if ('cost' in updates) {
+        const costUpdates = handleCostUpdate(act, updates.cost, currentUserId);
+        updatedAct = { ...updatedAct, ...costUpdates };
+      }
 
-    isLocalUpdateRef.current = true;
-    setOtherExpenses(updated);
-
-    const updatedData = {
-      ...trip.data,
-      [key]: updated
-    };
-
-    onUpdateTrip({
-      ...trip,
-      data: updatedData
+      return updatedAct;
     });
 
-    console.log('✅ Nuova spesa aggiunta:', newExpense.id);
+    updateActivities(updatedActivities);
   };
+
+  /**
+   * 🆕 Aggiungi nuova attività
+   */
+  const addActivity = () => {
+    const currentActivities = categoryData.attivita?.activities || [];
+    const newActivity = createEmptyActivity();
+    
+    // Auto-mostra nel calendario se meno di 3
+    newActivity.showInCalendar = currentActivities.filter(a => a.showInCalendar).length < 3;
+
+    updateActivities([...currentActivities, newActivity]);
+    
+    return newActivity.id;
+  };
+
+  /**
+   * 🆕 Rimuovi attività
+   */
+  const removeActivity = (activityId) => {
+    const currentActivities = categoryData.attivita?.activities || [];
+    updateActivities(currentActivities.filter(act => act.id !== activityId));
+  };
+
+  /**
+   * Riordina attività
+   */
+  const reorderActivities = (fromIndex, toIndex) => {
+    const currentActivities = [...(categoryData.attivita?.activities || [])];
+    const [removed] = currentActivities.splice(fromIndex, 1);
+    currentActivities.splice(toIndex, 0, removed);
+    updateActivities(currentActivities);
+  };
+
+  // ============================================
+  // RETURN
+  // ============================================
 
   return {
+    // Dati
     categoryData,
-    otherExpenses,
+
+    // Update categoria generici
     updateCategory,
     updateCategoryMultiple,
-    updateOtherExpense,
-    removeOtherExpense,
-    addOtherExpense
+
+    // Attività specifiche
+    updateActivities,
+    updateActivity,
+    addActivity,
+    removeActivity,
+    reorderActivities,
+
+    // Helpers
+    createEmptyActivity,
+    createEmptyAccommodation
   };
 };

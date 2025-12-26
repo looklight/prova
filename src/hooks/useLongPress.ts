@@ -9,6 +9,8 @@ interface UseLongPressOptions {
     onLongPressEnd?: () => void;
     /** Distanza massima di movimento prima di annullare (default: 10px) */
     moveThreshold?: number;
+    /** Se true, disabilita il long-press */
+    disabled?: boolean;
 }
 
 interface UseLongPressResult {
@@ -47,7 +49,8 @@ export const useLongPress = (
         delay = 300,
         onLongPressStart,
         onLongPressEnd,
-        moveThreshold = 10
+        moveThreshold = 10,
+        disabled = false
     } = options;
 
     const blockClickRef = useRef(false);
@@ -63,6 +66,9 @@ export const useLongPress = (
     }, []);
 
     const start = useCallback((x: number, y: number) => {
+        // Se disabilitato, non fare nulla
+        if (disabled) return;
+
         // Reset stato
         isLongPressRef.current = false;
         startPosRef.current = { x, y };
@@ -74,7 +80,7 @@ export const useLongPress = (
             onLongPressStart?.();
             onLongPress();
         }, delay);
-    }, [delay, onLongPress, onLongPressStart]);
+    }, [delay, onLongPress, onLongPressStart, disabled]);
 
     const cancel = useCallback(() => {
         clearTimer();
@@ -99,6 +105,12 @@ export const useLongPress = (
     const end = useCallback(() => {
         clearTimer();
 
+        // Se disabilitato, esegui solo il click normale
+        if (disabled) {
+            onClick?.();
+            return;
+        }
+
         // Se non era un long-press E non ci siamo mossi troppo, è un click normale
         if (!isLongPressRef.current && !blockClickRef.current && onClick && startPosRef.current) {
             onClick();
@@ -115,7 +127,7 @@ export const useLongPress = (
         setTimeout(() => {
             blockClickRef.current = false;
         }, 100);
-    }, [clearTimer, onClick, onLongPressEnd]);
+    }, [clearTimer, onClick, onLongPressEnd, disabled]);
 
     // Mouse handlers
     const onMouseDown = useCallback((e: React.MouseEvent) => {

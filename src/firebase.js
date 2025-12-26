@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, persistentLocalCache, initializeFirestore } from 'firebase/firestore';  // ← API moderna
+import { persistentLocalCache, initializeFirestore } from 'firebase/firestore';
 import { getAnalytics, isSupported } from 'firebase/analytics';
 import { getStorage } from 'firebase/storage';
 
@@ -21,36 +21,45 @@ const app = initializeApp(firebaseConfig);
 // Inizializza servizi essenziali
 export const auth = getAuth(app);
 
-// 🔄 Firestore con persistenza offline moderna
+// Firestore con persistenza offline moderna
 export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache(/* settings */ {})
+  localCache: persistentLocalCache({})
 });
 
 export const storage = getStorage(app);
 
-console.log('✅ Persistenza offline abilitata (API moderna)');
+console.log('✅ Persistenza offline abilitata');
 
-// 📊 Analytics - Inizializzato automaticamente se supportato
+// ============================================
+// ANALYTICS - Lazy initialization
+// ============================================
+
 let analyticsInstance = null;
+let analyticsReady = false;
 
-const initAnalytics = async () => {
+// Promise che si risolve quando analytics è pronto
+export const analyticsReadyPromise = (async () => {
   try {
     const supported = await isSupported();
     if (supported) {
       analyticsInstance = getAnalytics(app);
+      analyticsReady = true;
       console.log('✅ Firebase Analytics inizializzato');
+      return analyticsInstance;
     } else {
       console.log('📊 Analytics non supportato in questo ambiente');
+      return null;
     }
   } catch (error) {
     console.error('❌ Errore inizializzazione Analytics:', error);
+    return null;
   }
-};
+})();
 
-// Inizializza subito
-initAnalytics();
+// Getter per analytics (restituisce l'istanza quando pronta)
+export const getAnalyticsInstance = () => analyticsInstance;
 
-// Export per retrocompatibilità
-export const analytics = analyticsInstance;
+// Export diretto per retrocompatibilità (sarà null inizialmente, poi popolato)
+export { analyticsInstance as analytics };
 
 export default app;

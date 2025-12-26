@@ -31,7 +31,29 @@ const extractPathFromStorageUrl = (storageUrl) => {
 };
 
 /**
+ * 🗑️ Helper per eliminare un'immagine con gestione errori
+ */
+const safeDeleteImage = async (imagePath, errors) => {
+  if (!imagePath) return false;
+
+  try {
+    await deleteImage(imagePath);
+    console.log(`🗑️ Immagine eliminata: ${imagePath}`);
+    return true;
+  } catch (error) {
+    if (error.code === 'storage/object-not-found') {
+      console.warn(`⚠️ Immagine già eliminata: ${imagePath}`);
+    } else {
+      console.error(`❌ Errore eliminazione ${imagePath}:`, error);
+      errors.push({ path: imagePath, error });
+    }
+    return false;
+  }
+};
+
+/**
  * 🗑️ Elimina tutte le immagini di specifici giorni
+ * Gestisce sia la vecchia struttura (categorie) che la nuova (activities array)
  */
 export const cleanupDaysImages = async (tripData, dayIds) => {
   if (!tripData || !dayIds || dayIds.length === 0) {
@@ -39,7 +61,8 @@ export const cleanupDaysImages = async (tripData, dayIds) => {
     return { deletedCount: 0, errors: [] };
   }
 
-  const categoryIds = [
+  // Categorie legacy (per retrocompatibilità)
+  const legacyCategoryIds = [
     'base', 'pernottamento',
     'attivita1', 'attivita2', 'attivita3',
     'spostamenti1', 'spostamenti2',
@@ -50,26 +73,45 @@ export const cleanupDaysImages = async (tripData, dayIds) => {
   const errors = [];
 
   for (const dayId of dayIds) {
-    for (const categoryId of categoryIds) {
+    // 1. Cleanup categorie legacy
+    for (const categoryId of legacyCategoryIds) {
       const key = `${dayId}-${categoryId}`;
       const categoryData = tripData[key];
 
       if (categoryData?.images && Array.isArray(categoryData.images)) {
         for (const image of categoryData.images) {
-          if (image.path) {
-            try {
-              await deleteImage(image.path);
+          if (await safeDeleteImage(image.path, errors)) {
+            deletedCount++;
+          }
+        }
+      }
+    }
+
+    // 2. Cleanup nuova struttura attività (activities array)
+    const activitiesKey = `${dayId}-attivita`;
+    const activitiesData = tripData[activitiesKey];
+
+    if (activitiesData?.activities && Array.isArray(activitiesData.activities)) {
+      for (const activity of activitiesData.activities) {
+        // Elimina immagini dell'attività
+        if (activity.images && Array.isArray(activity.images)) {
+          for (const image of activity.images) {
+            if (await safeDeleteImage(image.path, errors)) {
               deletedCount++;
-              console.log(`🗑️ Immagine eliminata: ${image.path}`);
-            } catch (error) {
-              if (error.code === 'storage/object-not-found') {
-                console.warn(`⚠️ Immagine già eliminata: ${image.path}`);
-              } else {
-                console.error(`❌ Errore eliminazione ${image.path}:`, error);
-                errors.push({ path: image.path, error });
-              }
             }
           }
+        }
+      }
+    }
+
+    // 3. Cleanup pernottamento (accommodation)
+    const accommodationKey = `${dayId}-pernottamento`;
+    const accommodationData = tripData[accommodationKey];
+
+    if (accommodationData?.images && Array.isArray(accommodationData.images)) {
+      for (const image of accommodationData.images) {
+        if (await safeDeleteImage(image.path, errors)) {
+          deletedCount++;
         }
       }
     }

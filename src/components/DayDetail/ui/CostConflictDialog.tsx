@@ -17,11 +17,11 @@ const CostConflictDialog: React.FC<CostConflictDialogProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div 
+    <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
       onClick={onCancel}
     >
-      <div 
+      <div
         className="bg-white rounded-2xl w-full max-w-md shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
@@ -39,7 +39,7 @@ const CostConflictDialog: React.FC<CostConflictDialogProps> = ({
         {/* Body */}
         <div className="p-6">
           <p className="text-sm text-gray-600 mb-6">
-            Questa spesa ha già una ripartizione tra i membri del viaggio. 
+            Questa spesa ha già una ripartizione tra i membri del viaggio.
             Scegli un'azione:
           </p>
 

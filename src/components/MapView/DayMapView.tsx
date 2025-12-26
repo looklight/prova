@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { MapContainer, TileLayer, useMap } from 'react-leaflet';
-import { ChevronLeft, ChevronRight, X, Map, Layers, ListOrdered, GripVertical } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { MapContainer, TileLayer, useMap, Polyline, Circle } from 'react-leaflet';
+import { ChevronLeft, ChevronRight, X, Map, Navigation, MapPin as MapPinIcon, Route } from 'lucide-react';
 import MapMarker from './MapMarker';
 import {
     extractDayPins,
@@ -8,7 +8,8 @@ import {
     calculateBounds,
     dayHasLocations,
     dayHasNonBaseLocations,
-    type MapPin
+    type MapPin,
+    type MapRoute
 } from './mapUtils';
 
 // Import Leaflet CSS
@@ -19,147 +20,115 @@ interface DayMapViewProps {
     initialDayIndex: number;
     initialViewMode?: 'day' | 'trip';
     onBack: () => void;
-    onNavigateToDay: (dayIndex: number) => void;
+    onNavigateToDay: (dayIndex: number, categoryId?: string) => void;
     isDesktop?: boolean;
 }
 
 type ViewMode = 'day' | 'trip';
 
 /**
- * Componente per aggiornare i bounds della mappa quando cambiano i pin
+ * Componente per aggiornare i bounds della mappa quando cambiano i pin o le routes
+ * Usa flyToBounds per transizioni fluide
  */
-const MapBoundsUpdater: React.FC<{ pins: MapPin[] }> = ({ pins }) => {
+const MapBoundsUpdater: React.FC<{
+    pins: MapPin[];
+    routes?: MapRoute[];
+    showRoutes?: boolean;
+    updateTrigger?: number;
+}> = ({ pins, routes = [], showRoutes = false, updateTrigger }) => {
     const map = useMap();
+    const isFirstRender = useRef(true);
 
     useEffect(() => {
-        const bounds = calculateBounds(pins);
-        if (bounds) {
-            map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+        // Crea array di tutti i punti da includere nei bounds
+        const allPins = [...pins];
+
+        // Se showRoutes è attivo, aggiungi anche i punti delle routes
+        if (showRoutes && routes.length > 0) {
+            routes.forEach(route => {
+                // Aggiungi punti fittizi per i bounds
+                allPins.push({
+                    id: `route-from-${route.id}`,
+                    coordinates: route.from,
+                    name: '',
+                    categoryId: '',
+                    categoryLabel: '',
+                    color: '',
+                    order: 0,
+                    isWaypoint: false,
+                    dayId: 0,
+                    dayNumber: 0
+                } as MapPin);
+                allPins.push({
+                    id: `route-to-${route.id}`,
+                    coordinates: route.to,
+                    name: '',
+                    categoryId: '',
+                    categoryLabel: '',
+                    color: '',
+                    order: 0,
+                    isWaypoint: false,
+                    dayId: 0,
+                    dayNumber: 0
+                } as MapPin);
+            });
         }
-    }, [pins, map]);
+
+        const bounds = calculateBounds(allPins);
+        if (bounds) {
+            if (isFirstRender.current) {
+                // Prima volta: posiziona istantaneamente senza animazione
+                map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: false });
+                isFirstRender.current = false;
+            } else {
+                // Transizioni successive: animazione fluida
+                map.flyToBounds(bounds, {
+                    padding: [50, 50],
+                    maxZoom: 15,
+                    duration: 0.6
+                });
+            }
+        }
+    }, [pins, routes, showRoutes, updateTrigger, map]);
 
     return null;
 };
 
 /**
- * Modal per riordinare i pin
+ * Componente per gestire la geolocalizzazione
  */
-interface ReorderModalProps {
-    isOpen: boolean;
-    pins: MapPin[];
-    onClose: () => void;
-    onReorder: (newOrder: string[]) => void;
+interface UserLocationProps {
+    userLocation: { lat: number; lng: number } | null;
+    onLocate: () => void;
+    isLocating: boolean;
 }
 
-const ReorderModal: React.FC<ReorderModalProps> = ({ isOpen, pins, onClose, onReorder }) => {
-    const [orderedPins, setOrderedPins] = useState<MapPin[]>(pins);
-    const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+const UserLocationControl: React.FC<UserLocationProps> = ({ userLocation, onLocate, isLocating }) => {
+    const map = useMap();
 
-    useEffect(() => {
-        setOrderedPins(pins);
-    }, [pins]);
-
-    if (!isOpen) return null;
-
-    const handleDragStart = (index: number) => {
-        setDraggedIndex(index);
-    };
-
-    const handleDragOver = (e: React.DragEvent, index: number) => {
-        e.preventDefault();
-        if (draggedIndex === null || draggedIndex === index) return;
-
-        const newPins = [...orderedPins];
-        const draggedPin = newPins[draggedIndex];
-        newPins.splice(draggedIndex, 1);
-        newPins.splice(index, 0, draggedPin);
-
-        // Aggiorna ordine
-        const reorderedPins = newPins.map((pin, i) => ({ ...pin, order: i + 1 }));
-        setOrderedPins(reorderedPins);
-        setDraggedIndex(index);
-    };
-
-    const handleDragEnd = () => {
-        setDraggedIndex(null);
-    };
-
-    const handleConfirm = () => {
-        const newOrder = orderedPins.map(pin => pin.id);
-        onReorder(newOrder);
-        onClose();
+    const handleLocate = () => {
+        if (userLocation) {
+            map.flyTo([userLocation.lat, userLocation.lng], 15, { duration: 0.5 });
+        } else {
+            onLocate();
+        }
     };
 
     return (
-        <div
-            className="fixed inset-0 z-[1000] bg-black/50 flex items-end sm:items-center justify-center"
-            onClick={onClose}
+        <button
+            onClick={handleLocate}
+            disabled={isLocating}
+            className={`absolute bottom-4 right-4 z-[1000] w-11 h-11 rounded-full
+                       flex items-center justify-center shadow-lg transition-all
+                       ${userLocation
+                           ? 'bg-blue-500 text-white'
+                           : 'bg-white text-gray-600 hover:bg-gray-50'
+                       }
+                       ${isLocating ? 'animate-pulse' : ''}`}
+            title="La mia posizione"
         >
-            <div
-                className="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl max-h-[80vh] flex flex-col"
-                onClick={e => e.stopPropagation()}
-            >
-                {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b">
-                    <div className="flex items-center gap-2">
-                        <ListOrdered size={20} className="text-blue-500" />
-                        <h3 className="font-semibold">Riordina tappe</h3>
-                    </div>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
-                        <X size={20} />
-                    </button>
-                </div>
-
-                {/* Lista draggable */}
-                <div className="flex-1 overflow-y-auto p-4">
-                    <p className="text-sm text-gray-500 mb-3">
-                        Trascina per riordinare le tappe del percorso
-                    </p>
-                    <div className="space-y-2">
-                        {orderedPins.map((pin, index) => (
-                            <div
-                                key={pin.id}
-                                draggable
-                                onDragStart={() => handleDragStart(index)}
-                                onDragOver={(e) => handleDragOver(e, index)}
-                                onDragEnd={handleDragEnd}
-                                className={`flex items-center gap-3 p-3 bg-gray-50 rounded-xl cursor-grab active:cursor-grabbing transition-all ${draggedIndex === index ? 'opacity-50 scale-95' : ''
-                                    }`}
-                            >
-                                <GripVertical size={18} className="text-gray-400 flex-shrink-0" />
-                                <div
-                                    className="w-7 h-7 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
-                                    style={{ backgroundColor: pin.color }}
-                                >
-                                    {pin.order}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-sm truncate">{pin.name}</p>
-                                    <p className="text-xs text-gray-500">{pin.categoryLabel}</p>
-                                </div>
-                                {pin.icon && <span className="text-lg">{pin.icon}</span>}
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Footer */}
-                <div className="border-t p-4 flex gap-3">
-                    <button
-                        onClick={onClose}
-                        className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-medium"
-                    >
-                        Annulla
-                    </button>
-                    <button
-                        onClick={handleConfirm}
-                        className="flex-1 px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium"
-                    >
-                        Conferma
-                    </button>
-                </div>
-            </div>
-        </div>
+            <Navigation size={20} className={userLocation ? 'fill-current' : ''} />
+        </button>
     );
 };
 
@@ -176,29 +145,103 @@ const DayMapView: React.FC<DayMapViewProps> = ({
 }) => {
     const [currentDayIndex, setCurrentDayIndex] = useState(initialDayIndex);
     const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
-    const [showReorderModal, setShowReorderModal] = useState(false);
+    const [showRoutes, setShowRoutes] = useState(false);
+    const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+    const [isLocating, setIsLocating] = useState(false);
+    const daysScrollRef = useRef<HTMLDivElement>(null);
+    const [shouldUpdateBounds, setShouldUpdateBounds] = useState(0);
 
     const currentDay = trip.days[currentDayIndex];
     const totalDays = trip.days.length;
 
-    // Estrai i pin in base alla modalità
-    const pins = useMemo(() => {
+    // Geolocalizzazione
+    const handleLocate = () => {
+        if (!navigator.geolocation) {
+            alert('Geolocalizzazione non supportata');
+            return;
+        }
+
+        setIsLocating(true);
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                setUserLocation({
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude
+                });
+                setIsLocating(false);
+            },
+            (error) => {
+                console.error('Errore geolocalizzazione:', error);
+                setIsLocating(false);
+                alert('Impossibile ottenere la posizione');
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    };
+
+    // Scroll al giorno corrente nella navigazione
+    useEffect(() => {
+        if (viewMode === 'trip' && daysScrollRef.current) {
+            const activeButton = daysScrollRef.current.querySelector('[data-active="true"]');
+            if (activeButton) {
+                activeButton.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+            }
+        }
+    }, [viewMode, currentDayIndex]);
+
+    // Estrai i pin e le routes in base alla modalità
+    const { pins: allPins, routes } = useMemo(() => {
         if (viewMode === 'trip') {
-            return extractMultiDayPins(trip.data, trip.days);
+            // Vista viaggio: solo pin, nessuna route
+            return {
+                pins: extractMultiDayPins(trip.data, trip.days, trip.metadata),
+                routes: [] as MapRoute[]
+            };
         } else {
+            // Vista giorno: pin + routes per trasporti
             return extractDayPins(
                 trip.data,
                 currentDay.id,
                 currentDay.number,
-                false // Non includere 'base' nella vista giorno
+                false
             );
         }
-    }, [trip.data, trip.days, currentDay, viewMode]);
+    }, [trip.data, trip.days, trip.metadata, currentDay, viewMode]);
+
+    // Tipi di icone che sono trasporti
+    const TRANSPORT_ICONS = ['flight', 'train', 'bus', 'ferry', 'car'];
+
+    // Separa pin attività da pin trasporti
+    const { activityPins, transportPins } = useMemo(() => {
+        const activity: MapPin[] = [];
+        const transport: MapPin[] = [];
+
+        allPins.forEach(pin => {
+            // Un pin è di trasporto se ha un'icona di trasporto E label Partenza/Arrivo
+            const isTransportPin = pin.icon &&
+                TRANSPORT_ICONS.includes(pin.icon) &&
+                (pin.categoryLabel === 'Partenza' || pin.categoryLabel === 'Arrivo');
+
+            if (isTransportPin) {
+                transport.push(pin);
+            } else {
+                activity.push(pin);
+            }
+        });
+
+        return { activityPins: activity, transportPins: transport };
+    }, [allPins]);
+
+    // Pin da mostrare in base a showRoutes
+    const visiblePins = useMemo(() => {
+        if (viewMode === 'trip') return allPins;
+        return showRoutes ? allPins : activityPins;
+    }, [viewMode, showRoutes, allPins, activityPins]);
 
     // Verifica quali giorni hanno location (per navigazione)
     const daysWithLocations = useMemo(() => {
-        return trip.days.map((day: any) => dayHasLocations(trip.data, day.id));
-    }, [trip.data, trip.days]);
+        return trip.days.map((day: any) => dayHasLocations(trip.data, day.id, day, trip.metadata));
+    }, [trip.data, trip.days, trip.metadata]);
 
     // Verifica quali giorni hanno location non-base
     const daysWithNonBaseLocations = useMemo(() => {
@@ -219,23 +262,10 @@ const DayMapView: React.FC<DayMapViewProps> = ({
         }
     };
 
-    // Handler per navigare al DayDetail
-    const handleNavigateToDay = (dayIndex: number) => {
+    // Handler per navigare al DayDetail con categoria evidenziata
+    const handleNavigateToDay = (dayIndex: number, categoryId?: string) => {
         onBack();
-        setTimeout(() => onNavigateToDay(dayIndex), 100);
-    };
-
-    // Handler per riordinamento (TODO: implementare salvataggio)
-    const handleReorder = (newOrder: string[]) => {
-        console.log('🔄 Nuovo ordine pin:', newOrder);
-        // TODO: Salvare il nuovo ordine nel trip.data
-        // Per ora è solo visuale
-    };
-
-    // Formatta la data
-    const formatDate = (date: Date | string) => {
-        const d = new Date(date);
-        return d.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
+        setTimeout(() => onNavigateToDay(dayIndex, categoryId), 100);
     };
 
     // Centro di default (Italia) se non ci sono pin
@@ -250,105 +280,124 @@ const DayMapView: React.FC<DayMapViewProps> = ({
             }}
         >
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 bg-white border-b shadow-sm z-10">
+            <div className="flex items-center justify-between px-3 py-2 bg-white border-b shadow-sm z-10">
                 <button
                     onClick={onBack}
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
                 >
                     <X size={20} />
                 </button>
 
-                <div className="flex-1 text-center">
-                    {viewMode === 'day' ? (
-                        <div className="flex items-center justify-center gap-2">
-                            <button
-                                onClick={goToPrevDay}
-                                disabled={currentDayIndex === 0}
-                                className="p-1 hover:bg-gray-100 rounded-full disabled:opacity-30 disabled:cursor-not-allowed"
-                            >
-                                <ChevronLeft size={20} />
-                            </button>
-
-                            <div>
-                                <p className="font-semibold text-sm">
-                                    Giorno {currentDay.number}
-                                </p>
-                                {currentDay.date && (
-                                    <p className="text-xs text-gray-500">
-                                        {formatDate(currentDay.date)}
-                                    </p>
-                                )}
-                            </div>
-
-                            <button
-                                onClick={goToNextDay}
-                                disabled={currentDayIndex === totalDays - 1}
-                                className="p-1 hover:bg-gray-100 rounded-full disabled:opacity-30 disabled:cursor-not-allowed"
-                            >
-                                <ChevronRight size={20} />
-                            </button>
-                        </div>
-                    ) : (
-                        <div>
-                            <p className="font-semibold text-sm">
-                                {trip.name || trip.metadata?.name || 'Viaggio'}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                                {totalDays} giorni
-                            </p>
-                        </div>
-                    )}
-                </div>
-
-                <div className="flex items-center gap-1">
-                    {/* Pulsante riordina (solo in vista giorno con pin) */}
-                    {viewMode === 'day' && pins.length > 1 && (
+                {/* Segmented Control centrale */}
+                <div className="flex-1 flex justify-center">
+                    <div className="flex bg-gray-100 rounded-full p-1">
                         <button
-                            onClick={() => setShowReorderModal(true)}
-                            className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600"
-                            title="Riordina tappe"
-                        >
-                            <ListOrdered size={20} />
-                        </button>
-                    )}
-
-                    {/* Toggle vista */}
-                    <button
-                        onClick={() => setViewMode(viewMode === 'day' ? 'trip' : 'day')}
-                        className={`p-2 rounded-full transition-colors ${viewMode === 'trip'
-                                ? 'bg-blue-100 text-blue-600'
-                                : 'hover:bg-gray-100 text-gray-600'
+                            onClick={() => setViewMode('day')}
+                            className={`px-4 py-1.5 text-xs font-medium rounded-full transition-all ${
+                                viewMode === 'day'
+                                    ? 'bg-white text-gray-900 shadow-sm'
+                                    : 'text-gray-500 hover:text-gray-700'
                             }`}
-                        title={viewMode === 'day' ? 'Mostra tutto il viaggio' : 'Mostra singolo giorno'}
-                    >
-                        <Layers size={20} />
-                    </button>
+                        >
+                            Giorno
+                        </button>
+                        <button
+                            onClick={() => setViewMode('trip')}
+                            className={`px-4 py-1.5 text-xs font-medium rounded-full transition-all ${
+                                viewMode === 'trip'
+                                    ? 'bg-white text-gray-900 shadow-sm'
+                                    : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                        >
+                            Viaggio
+                        </button>
+                    </div>
                 </div>
+
+                {/* Spacer per mantenere allineamento */}
+                <div className="w-10" />
             </div>
 
             {/* Mappa */}
             <div className="flex-1 relative">
-                {pins.length > 0 ? (
+                {visiblePins.length > 0 || (showRoutes && routes.length > 0) ? (
                     <MapContainer
                         center={defaultCenter}
                         zoom={6}
                         className="w-full h-full"
-                        zoomControl={false}
+                        zoomControl={true}
                     >
                         <TileLayer
                             attribution='&copy; OpenStreetMap'
                             url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
                         />
 
-                        {pins.map((pin) => (
-                            <MapMarker
-                                key={pin.id}
-                                pin={pin}
-                                onNavigateToDay={viewMode === 'trip' ? handleNavigateToDay : undefined}
+                        {/* Routes (linee di collegamento per trasporti) - solo se showRoutes */}
+                        {showRoutes && routes.map((route) => (
+                            <Polyline
+                                key={route.id}
+                                positions={[
+                                    [route.from.lat, route.from.lng],
+                                    [route.to.lat, route.to.lng]
+                                ]}
+                                pathOptions={{
+                                    color: route.color,
+                                    weight: 3,
+                                    opacity: 0.8,
+                                    dashArray: route.dashed ? '10, 10' : undefined
+                                }}
                             />
                         ))}
 
-                        <MapBoundsUpdater pins={pins} />
+                        {/* Markers - mostra solo i pin visibili */}
+                        {visiblePins.map((pin) => (
+                            <MapMarker
+                                key={pin.id}
+                                pin={pin}
+                                onNavigateToDay={handleNavigateToDay}
+                                simple={viewMode === 'trip'}
+                            />
+                        ))}
+
+                        {/* Cerchio posizione utente */}
+                        {userLocation && (
+                            <>
+                                <Circle
+                                    center={[userLocation.lat, userLocation.lng]}
+                                    radius={50}
+                                    pathOptions={{
+                                        color: '#3B82F6',
+                                        fillColor: '#3B82F6',
+                                        fillOpacity: 0.3,
+                                        weight: 2
+                                    }}
+                                />
+                                <Circle
+                                    center={[userLocation.lat, userLocation.lng]}
+                                    radius={8}
+                                    pathOptions={{
+                                        color: 'white',
+                                        fillColor: '#3B82F6',
+                                        fillOpacity: 1,
+                                        weight: 3
+                                    }}
+                                />
+                            </>
+                        )}
+
+                        <MapBoundsUpdater
+                            pins={visiblePins}
+                            routes={routes}
+                            showRoutes={showRoutes}
+                            updateTrigger={shouldUpdateBounds}
+                        />
+
+                        {/* Controllo geolocalizzazione */}
+                        <UserLocationControl
+                            userLocation={userLocation}
+                            onLocate={handleLocate}
+                            isLocating={isLocating}
+                        />
                     </MapContainer>
                 ) : (
                     /* Stato vuoto */
@@ -369,39 +418,83 @@ const DayMapView: React.FC<DayMapViewProps> = ({
                 )}
             </div>
 
-            {/* Footer con legenda pin (solo vista giorno) */}
-            {viewMode === 'day' && pins.length > 0 && (
-                <div className="bg-white border-t px-4 py-2">
-                    <div className="flex flex-wrap gap-2 justify-center">
-                        {pins.map((pin) => (
-                            <div
-                                key={pin.id}
-                                className="flex items-center gap-1.5 text-xs bg-gray-50 px-2 py-1 rounded-full"
-                            >
-                                <span
-                                    className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
-                                    style={{ backgroundColor: pin.color }}
+            {/* Footer vista giorno - altezza fissa */}
+            {viewMode === 'day' && (
+                <div
+                    className="bg-white border-t shadow-[0_-2px_10px_rgba(0,0,0,0.08)]"
+                    style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
+                >
+                    <div className="flex items-center justify-between px-4 py-4">
+                        {/* Navigazione precedente */}
+                        <button
+                            onClick={goToPrevDay}
+                            disabled={currentDayIndex === 0}
+                            className="flex items-center gap-1 px-4 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200
+                                       disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        >
+                            <ChevronLeft size={20} />
+                            <span className="text-sm font-medium">Prec</span>
+                        </button>
+
+                        {/* Centro: info giorno + toggle spostamenti */}
+                        <div className="flex flex-col items-center gap-2">
+                            <p className="text-base font-semibold text-gray-900">
+                                Giorno {currentDay.number}
+                            </p>
+                            {/* Toggle spostamenti - mostra se ci sono trasporti */}
+                            {routes.length > 0 && (
+                                <button
+                                    onClick={() => {
+                                        setShowRoutes(!showRoutes);
+                                        setShouldUpdateBounds(prev => prev + 1);
+                                    }}
+                                    className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                                        showRoutes
+                                            ? 'bg-blue-500 text-white shadow-sm'
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    }`}
                                 >
-                                    {pin.order}
-                                </span>
-                                <span className="text-gray-600 max-w-[80px] truncate">{pin.name}</span>
-                            </div>
-                        ))}
+                                    <Route size={16} />
+                                    <span>Spostamenti</span>
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Navigazione successivo */}
+                        <button
+                            onClick={goToNextDay}
+                            disabled={currentDayIndex === totalDays - 1}
+                            className="flex items-center gap-1 px-4 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200
+                                       disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        >
+                            <span className="text-sm font-medium">Succ</span>
+                            <ChevronRight size={20} />
+                        </button>
                     </div>
                 </div>
             )}
 
-            {/* Navigazione rapida giorni (vista viaggio) */}
+            {/* Footer vista viaggio - Navigazione giorni scorrevole */}
             {viewMode === 'trip' && (
-                <div className="bg-white border-t px-4 py-2">
-                    <div className="flex gap-1 justify-center flex-wrap">
+                <div
+                    className="bg-white border-t shadow-[0_-2px_10px_rgba(0,0,0,0.08)] px-4 py-4"
+                    style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
+                >
+                    <p className="text-xs text-gray-500 mb-2 text-center">Seleziona un giorno</p>
+                    <div
+                        ref={daysScrollRef}
+                        className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide"
+                        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                    >
                         {trip.days.map((day: any, index: number) => {
                             const hasLocation = daysWithLocations[index];
                             const hasNonBase = daysWithNonBaseLocations[index];
+                            const isActive = currentDayIndex === index;
 
                             return (
                                 <button
                                     key={day.id}
+                                    data-active={isActive}
                                     onClick={() => {
                                         if (hasNonBase) {
                                             setViewMode('day');
@@ -409,35 +502,26 @@ const DayMapView: React.FC<DayMapViewProps> = ({
                                         }
                                     }}
                                     disabled={!hasLocation}
-                                    className={`w-8 h-8 rounded-full text-xs font-medium transition-colors ${hasNonBase
-                                            ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                                            : hasLocation
-                                                ? 'bg-gray-200 text-gray-500'
-                                                : 'bg-gray-100 text-gray-300 cursor-not-allowed'
-                                        }`}
-                                    title={
-                                        hasNonBase
-                                            ? `Giorno ${day.number} - Vai alla mappa`
-                                            : hasLocation
-                                                ? `Giorno ${day.number} - Solo luogo base`
-                                                : `Giorno ${day.number} - Nessuna posizione`
-                                    }
+                                    className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-1 ${
+                                        isActive
+                                            ? 'bg-blue-500 text-white shadow-md'
+                                            : hasNonBase
+                                                ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                                                : hasLocation
+                                                    ? 'bg-gray-100 text-gray-500'
+                                                    : 'bg-gray-50 text-gray-300 cursor-not-allowed'
+                                    }`}
                                 >
-                                    {day.number}
+                                    <span className="whitespace-nowrap">G{day.number}</span>
+                                    {hasNonBase && !isActive && (
+                                        <MapPinIcon size={12} className="opacity-60" />
+                                    )}
                                 </button>
                             );
                         })}
                     </div>
                 </div>
             )}
-
-            {/* Modal riordinamento */}
-            <ReorderModal
-                isOpen={showReorderModal}
-                pins={pins}
-                onClose={() => setShowReorderModal(false)}
-                onReorder={handleReorder}
-            />
         </div>
     );
 };

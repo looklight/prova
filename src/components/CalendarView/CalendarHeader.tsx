@@ -1,94 +1,135 @@
-import React from 'react';
-import { Edit2, Check, Plus, ChevronLeft, Trash2, Calendar, Layers } from 'lucide-react';
-import OfflineDisabled from '../OfflineDisabled';
+import React, { useState, useEffect } from 'react';
+import {
+  ChevronLeft,
+  MoreHorizontal,
+  Check,
+  Plus,
+  Trash2,
+  ArrowRight,
+  LayoutGrid,
+  Layers,
+  Map
+} from 'lucide-react';
+import { OfflineDisabled } from '../ui';
+import { rawColors } from '../../styles/theme';
 
-type EditTarget = 'days' | 'categories';
+export type EditTab = 'select' | 'move';
+export type ViewMode = 'card' | 'table';
 
 interface CalendarHeaderProps {
   trip: any;
   editMode: boolean;
-  editTarget: EditTarget;
   selectedDays: number[];
   moveAfterIndex: number | null;
   onBack?: () => void;
   onMetadataClick: () => void;
   onEditModeToggle: () => void;
-  onEditTargetChange: (target: EditTarget) => void;
   onRemoveSelectedDays: () => void;
   onAddDay: () => void;
   onMoveAfterChange: (value: number | null) => void;
   onMoveDays: () => void;
+  /** Tab attiva in edit mode */
+  editTab?: EditTab;
+  /** Callback per cambiare tab */
+  onEditTabChange?: (tab: EditTab) => void;
+  /** Vista corrente (card = default, table = griglia) */
+  viewMode?: ViewMode;
+  /** Callback per cambiare vista */
+  onViewModeChange?: (mode: ViewMode) => void;
+  /** Callback per aprire la mappa */
+  onMapClick?: () => void;
 }
 
 const CalendarHeader: React.FC<CalendarHeaderProps> = ({
   trip,
   editMode,
-  editTarget,
   selectedDays,
   moveAfterIndex,
   onBack,
   onMetadataClick,
   onEditModeToggle,
-  onEditTargetChange,
   onRemoveSelectedDays,
   onAddDay,
   onMoveAfterChange,
-  onMoveDays
+  onMoveDays,
+  editTab = 'select',
+  onEditTabChange,
+  viewMode = 'card',
+  onViewModeChange,
+  onMapClick
 }) => {
-  return (
-    <div className="bg-white px-2 py-4 shadow-sm sticky top-0 z-20">
-      {/* ========== HEADER PRINCIPALE ========== */}
-      <div className="flex items-center justify-between mb-2">
+  // Tab locale se non gestito dal parent
+  const [localTab, setLocalTab] = useState<EditTab>('select');
+  const activeTab = onEditTabChange ? editTab : localTab;
+  const setActiveTab = onEditTabChange || setLocalTab;
 
-        {/* Bottone BACK (solo mobile) */}
+  // Reset tab quando si esce da edit mode o si deselezionano tutti i giorni
+  useEffect(() => {
+    if (!editMode || selectedDays.length === 0) {
+      setActiveTab('select');
+    }
+  }, [editMode, selectedDays.length]);
+
+  const hasSelection = selectedDays.length > 0;
+
+  return (
+    <div
+      className="px-3 pt-2.5 pb-1.5 -mb-1"
+      style={{ backgroundColor: 'transparent' }}
+    >
+      {/* ========== HEADER COMPATTO ========== */}
+      <div className="flex items-center gap-2">
+
+        {/* Bottone BACK */}
         {onBack && (
-          <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full ml-2 mr-1">
-            <ChevronLeft size={24} />
+          <button
+            onClick={onBack}
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-white shadow-sm hover:bg-gray-50 transition-colors flex-shrink-0"
+          >
+            <ChevronLeft size={21} strokeWidth={2} color={rawColors.textWarm} />
           </button>
         )}
 
-        {/* TITOLO VIAGGIO + AVATAR */}
+        {/* NOME VIAGGIO (pill cliccabile) */}
         <OfflineDisabled>
-          <div
-            className="flex items-center gap-2 flex-1 min-w-0 ml-0 mr-2 cursor-pointer hover:bg-gray-50 rounded-xl p-2 -m-2 transition-colors"
+          <button
             onClick={onMetadataClick}
+            className="flex-1 bg-white px-4 py-2.5 rounded-full shadow-sm hover:bg-gray-50 transition-colors min-w-0"
           >
-            <div className="flex-shrink-0">
-              {trip.image || trip.metadata?.image ? (
-                <img
-                  src={trip.image || trip.metadata?.image}
-                  alt="Trip"
-                  className="w-12 h-12 rounded-full object-cover border-2 border-gray-200"
-                />
-              ) : (
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
-                  {(trip.name || trip.metadata?.name || 'N')[0].toUpperCase()}
-                </div>
-              )}
-            </div>
-
-            <h1 className="text-xl font-bold flex-1 min-w-0 truncate">
+            <span
+              className="text-[15px] font-semibold truncate block"
+              style={{ color: rawColors.textWarm }}
+            >
               {trip.metadata?.name || trip.name}
-            </h1>
-          </div>
+            </span>
+          </button>
         </OfflineDisabled>
+
+        {/* BOTTONE MAPPA */}
+        {onMapClick && (
+          <button
+            onClick={onMapClick}
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-white shadow-sm hover:bg-gray-50 transition-colors flex-shrink-0"
+            title="Apri mappa"
+          >
+            <Map size={19} strokeWidth={2} color={rawColors.accent} />
+          </button>
+        )}
 
         {/* BOTTONE EDIT/FINE */}
         <OfflineDisabled>
           <button
             onClick={onEditModeToggle}
-            className={`rounded-full flex items-center gap-1 font-semibold transition-all duration-200 shadow-sm flex-shrink-0 ${editMode
-                ? 'bg-green-100 text-green-600 hover:bg-green-200 px-3 py-3 mr-2'
-                : 'bg-gray-200 hover:bg-green-200 text-gray-700 hover:text-green-900 p-3 mr-4'
-              }`}
+            className={`w-10 h-10 flex items-center justify-center rounded-full shadow-sm transition-all flex-shrink-0 ${
+              editMode
+                ? 'bg-emerald-500 hover:bg-emerald-600'
+                : 'bg-white hover:bg-gray-50'
+            }`}
           >
             {editMode ? (
-              <>
-                <Check size={24} />
-                <span>Fine</span>
-              </>
+              <Check size={19} strokeWidth={2.5} color="#FFFFFF" />
             ) : (
-              <Edit2 size={24} />
+              <MoreHorizontal size={19} strokeWidth={2} color={rawColors.textWarm} />
             )}
           </button>
         </OfflineDisabled>
@@ -96,93 +137,140 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
 
       {/* ========== TOOLBAR EDIT MODE ========== */}
       {editMode && (
-        <div className="space-y-2 mt-2 animate-fade-in-down">
-
-          {/* TOGGLE: Giorni / Categorie */}
-          <div className="relative flex bg-gray-100 rounded-full p-1">
-            {/* Indicatore sliding */}
+        <div className="mt-3 animate-fade-in-down">
+          <div
+            className="flex items-center gap-1.5 rounded-full p-1 backdrop-blur-sm"
+            style={{ backgroundColor: 'rgba(255, 255, 255, 0.7)' }}
+          >
+            {/* === GRUPPO 1: Toggle Vista === */}
             <div
-              className="absolute top-1 bottom-1 bg-white rounded-full shadow-sm transition-all duration-200 ease-out"
-              style={{
-                left: editTarget === 'days' ? '4px' : 'calc(50% + 2px)',
-                width: 'calc(50% - 6px)',
-              }}
+              className="flex rounded-full p-0.5"
+              style={{ backgroundColor: 'rgba(255,255,255,0.5)' }}
+            >
+              <button
+                onClick={() => onViewModeChange?.('card')}
+                className={`p-2 rounded-full transition-all ${
+                  viewMode === 'card'
+                    ? 'bg-white shadow-sm'
+                    : ''
+                }`}
+                title="Vista card"
+              >
+                <Layers
+                  size={16}
+                  color={viewMode === 'card' ? rawColors.textWarm : rawColors.textWarmMuted}
+                />
+              </button>
+              <button
+                onClick={() => onViewModeChange?.('table')}
+                className={`p-2 rounded-full transition-all ${
+                  viewMode === 'table'
+                    ? 'bg-white shadow-sm'
+                    : ''
+                }`}
+                title="Vista tabella"
+              >
+                <LayoutGrid
+                  size={16}
+                  color={viewMode === 'table' ? rawColors.textWarm : rawColors.textWarmMuted}
+                />
+              </button>
+            </div>
+
+            {/* Separatore (sempre visibile) */}
+            <div
+              className="w-px h-6 flex-shrink-0"
+              style={{ backgroundColor: 'rgba(0,0,0,0.15)' }}
             />
 
+            {/* === GRUPPO 2: Hint + Azioni selezione con slide === */}
+            <div className="flex-1 relative h-9 overflow-hidden">
+              {/* Hint per modifica date (visibile quando non c'è selezione) */}
+              <div
+                className="absolute inset-0 flex items-center justify-center transition-opacity duration-200"
+                style={{ 
+                  opacity: hasSelection ? 0 : 1,
+                  pointerEvents: hasSelection ? 'none' : 'auto'
+                }}
+              >
+                <span
+                  className="text-[11px] text-center px-2"
+                  style={{ color: rawColors.textWarmMuted }}
+                >
+                  Puoi modificare le date di viaggio dal calendario
+                </span>
+              </div>
+
+              {/* Azioni selezione (slide da sinistra) */}
+              <div
+                className="absolute inset-y-0 left-0 flex items-center gap-2 transition-transform duration-250 ease-out"
+                style={{
+                  transform: hasSelection ? 'translateX(0)' : 'translateX(-100%)',
+                }}
+              >
+                {/* Badge contatore */}
+                <div
+                  className="min-w-[28px] h-7 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0"
+                  style={{
+                    backgroundColor: rawColors.accent,
+                    color: 'white'
+                  }}
+                >
+                  {selectedDays.length}
+                </div>
+
+                {/* Sposta */}
+                <button
+                  onClick={() => {
+                    if (activeTab === 'move') {
+                      onMoveDays();
+                    } else {
+                      setActiveTab('move');
+                    }
+                  }}
+                  className="h-9 px-2.5 rounded-full flex items-center gap-1 text-[12px] font-medium transition-all flex-shrink-0 text-white"
+                  style={{
+                    backgroundColor: activeTab === 'move' ? rawColors.actionDark : rawColors.action
+                  }}
+                >
+                  <ArrowRight size={13} />
+                  <span>Sposta</span>
+                </button>
+
+                {/* Elimina */}
+                <button
+                  onClick={onRemoveSelectedDays}
+                  className="p-2 rounded-full transition-colors hover:bg-red-50 flex-shrink-0"
+                >
+                  <Trash2 size={16} color={rawColors.danger} />
+                </button>
+              </div>
+            </div>
+
+            {/* === GRUPPO 3: Aggiungi === */}
             <button
-              onClick={() => onEditTargetChange('days')}
-              className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-full text-sm font-medium transition-colors duration-200 ${editTarget === 'days' ? 'text-blue-600' : 'text-gray-500'
-                }`}
+              onClick={onAddDay}
+              className="h-9 px-2.5 rounded-full flex items-center gap-1 text-[12px] font-semibold text-white shadow-sm transition-all hover:opacity-90 active:scale-[0.98] flex-shrink-0"
+              style={{ backgroundColor: rawColors.accent }}
             >
-              <Calendar size={16} />
-              <span>Giorni</span>
-            </button>
-            <button
-              onClick={() => onEditTargetChange('categories')}
-              className={`relative z-10 flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-full text-sm font-medium transition-colors duration-200 ${editTarget === 'categories' ? 'text-blue-600' : 'text-gray-500'
-                }`}
-            >
-              <Layers size={16} />
-              <span>Categorie</span>
+              <Plus size={13} strokeWidth={2.5} className="flex-shrink-0" />
+              <span className="whitespace-nowrap">Giorno</span>
+              <span
+                className="px-1 rounded-full text-[11px] font-bold flex-shrink-0"
+                style={{ backgroundColor: rawColors.accentDark, color: 'white' }}
+              >
+                {trip.days.length}
+              </span>
             </button>
           </div>
 
-          {/* TOOLBAR GIORNI */}
-          {editTarget === 'days' && (
-            <div className="space-y-2 animate-fade-in">
-              <div className="flex gap-2">
-                <button
-                  onClick={onRemoveSelectedDays}
-                  disabled={selectedDays.length === 0}
-                  className={`flex-1 py-2 rounded-full text-sm font-medium flex items-center justify-center gap-1 transition-all ${selectedDays.length > 0
-                      ? 'bg-red-500 text-white hover:bg-red-600 active:bg-red-700 active:scale-95'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    }`}
-                >
-                  <Trash2 size={16} /> Rimuovi {selectedDays.length > 0 && `(${selectedDays.length})`}
-                </button>
-
-                <button
-                  onClick={onAddDay}
-                  className="flex-1 py-2 bg-green-500 text-white rounded-full text-sm font-medium flex items-center justify-center gap-1 hover:bg-green-600 active:bg-green-700 active:scale-95 transition-all"
-                >
-                  <Plus size={16} /> Giorno ({trip.days.length})
-                </button>
-              </div>
-
-              {selectedDays.length > 0 && (
-                <div className="bg-blue-50 p-3 rounded-lg animate-fade-in">
-                  <div className="text-sm font-medium mb-2">{selectedDays.length} giorni selezionati</div>
-
-                  <select
-                    value={moveAfterIndex ?? ''}
-                    onChange={(e) => onMoveAfterChange(e.target.value === '' ? null : parseInt(e.target.value))}
-                    className="w-full px-3 py-2 border rounded-lg text-sm mb-2"
-                  >
-                    <option value="">Sposta dopo il giorno...</option>
-                    {trip.days.map((day: any, index: number) => (
-                      <option key={day.id} value={index}>Giorno {day.number}</option>
-                    ))}
-                  </select>
-
-                  <button
-                    onClick={onMoveDays}
-                    disabled={moveAfterIndex === null}
-                    className="w-full py-2 bg-blue-500 text-white rounded-full text-sm font-medium disabled:bg-gray-300 hover:bg-blue-600 transition-colors"
-                  >
-                    Sposta
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* TOOLBAR CATEGORIE */}
-          {editTarget === 'categories' && (
-            <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100 animate-fade-in">
-              <p className="text-xs text-gray-600 leading-relaxed">
-                Puoi usare il <span className="font-medium">Drag&Drop</span> per riordinare le categorie
-              </p>
+          {/* Istruzioni contestuali per Sposta */}
+          {activeTab === 'move' && hasSelection && (
+            <div
+              className="mt-2 px-3 py-2 rounded-lg text-xs text-center animate-fade-in"
+              style={{ backgroundColor: rawColors.accentSoft, color: rawColors.accentDark }}
+            >
+              Tocca un giorno per spostare {selectedDays.length === 1 ? 'il giorno selezionato' : `i ${selectedDays.length} giorni`} dopo di esso
             </div>
           )}
         </div>
@@ -212,6 +300,10 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
         
         .animate-fade-in-down {
           animation: fadeInDown 250ms ease-out;
+        }
+        
+        .duration-250 {
+          transition-duration: 250ms;
         }
       `}</style>
     </div>

@@ -1,24 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 import TravelPlannerApp from "./components/TravelPlanner.tsx";
-import AuthPage from "./components/AuthPage.tsx";
-import InviteHandler from "./components/InviteHandler.tsx";
+import { AuthPage } from "./components/Auth";
+import { InviteHandler } from "./components/Sharing";
 import CookieBanner from "./components/Legal/CookieBanner.tsx";
-import LoadingScreen from "./components/LoadingScreen.tsx";
-import OfflineBanner from "./components/OfflineBanner.tsx";
+import { LoadingScreen, OfflineBanner, SwipeProvider } from "./components/ui";
 import { PrivacyPage, TermsPage, CookiePage } from "./pages/LegalPages.tsx";
 import { OnlineProvider } from './contexts/OnlineContext';
 import { auth } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { loadUserProfile } from './services';
+import { performDatabaseCleanup } from './services/cleanupService';
+import { injectKeyframes } from './styles/animations';
+import './styles/variables.css';
+
+// Inietta le animazioni CSS globali
+injectKeyframes();
 
 function App() {
   return (
     <OnlineProvider>
-      <OfflineBanner />
-      <Router>
-        <AppContent />
-      </Router>
+      <SwipeProvider>
+        <OfflineBanner />
+        <Router>
+          <AppContent />
+        </Router>
+      </SwipeProvider>
     </OnlineProvider>
   );
 }
@@ -55,6 +62,9 @@ function AppContent() {
         try {
           const profile = await loadUserProfile(currentUser.uid, currentUser.email);
           setUserProfile(profile);
+
+          // Pulizia database (in background, non blocca)
+          performDatabaseCleanup(currentUser.uid);
 
           // ⭐ Controlla se c'è un redirect da fare dopo login
           const redirectPath = sessionStorage.getItem('redirectAfterLogin');
