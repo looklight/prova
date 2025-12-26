@@ -159,13 +159,6 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                     mode={mode}
                   />
 
-                  {/* Destinations */}
-                  <DestinationsSection
-                    destinations={form.destinations}
-                    onAdd={form.addDestination}
-                    onRemove={form.removeDestination}
-                  />
-
                   {/* Currencies */}
                   <CurrenciesSection
                     currencies={form.preferredCurrencies}
@@ -178,6 +171,15 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                     checkedCount={packingStats.checkedCount}
                     onClick={() => setShowPackingListModal(true)}
                   />
+
+                  {/* Destinations - only in edit mode, at the bottom */}
+                  {mode === 'edit' && (
+                    <DestinationsSection
+                      destinations={form.destinations}
+                      onAdd={form.addDestination}
+                      onRemove={form.removeDestination}
+                    />
+                  )}
                 </div>
               </div>
 

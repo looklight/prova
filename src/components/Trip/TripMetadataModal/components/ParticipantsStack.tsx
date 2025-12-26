@@ -1,5 +1,6 @@
-import React from 'react';
-import { Plus, Crown } from 'lucide-react';
+import React, { useState } from 'react';
+import { ChevronRight, Plus, Crown } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Avatar } from '../../../ui';
 import { colors, rawColors } from '../../../../styles/theme';
 import type { ParticipantsStackProps } from '../types';
@@ -10,95 +11,164 @@ const ParticipantsStack: React.FC<ParticipantsStackProps> = ({
   onStackClick,
   onAddClick,
   isOwner,
-  maxVisible = 5,
+  maxVisible = 4,
   mode
 }) => {
   const visibleMembers = members.slice(0, maxVisible);
   const overflowCount = Math.max(0, members.length - maxVisible);
+  const [showHint, setShowHint] = useState(false);
 
-  return (
-    <div className="space-y-3">
-      <label
-        className="block text-sm font-semibold"
-        style={{ color: colors.textMuted }}
+  // In create mode, show user avatar with invite hint
+  if (mode === 'create') {
+    const currentMember = members.find(m => m.userId === currentUserId);
+
+    const handleAddClick = () => {
+      setShowHint(true);
+      setTimeout(() => setShowHint(false), 5000);
+    };
+
+    return (
+      <div
+        className="w-full rounded-2xl"
+        style={{ backgroundColor: colors.bgSubtle }}
       >
-        Chi partecipa
-      </label>
+        <div className="px-4 py-3">
+          {/* Titolo */}
+          <span
+            className="block text-base font-semibold mb-3"
+            style={{ color: colors.text }}
+          >
+            Chi viaggia con te?
+          </span>
 
-      <div className="flex items-center gap-3">
-        {/* Stacked Avatars */}
-        <div
-          className="flex -space-x-3 cursor-pointer"
-          onClick={onStackClick}
-          role="button"
-          tabIndex={0}
-        >
-          {visibleMembers.map((member, index) => (
-            <div
-              key={member.userId}
-              className="relative rounded-full ring-2 ring-white hover:z-10 transition-transform"
-              style={{
-                zIndex: visibleMembers.length - index,
-                // @ts-ignore
-                '--tw-ring-color': member.userId === currentUserId ? colors.accent : 'white'
-              } as React.CSSProperties}
-              title={member.displayName}
-            >
-              <Avatar
-                src={member.avatar}
-                name={member.displayName}
-                size="md"
-              />
-              {/* Crown badge for owner */}
-              {member.role === 'owner' && (
-                <div
-                  className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center ring-2 ring-white"
-                  style={{ backgroundColor: rawColors.warning }}
-                >
-                  <Crown size={10} style={{ color: rawColors.warningDark }} />
-                </div>
-              )}
+          {/* Avatar + pulsante add */}
+          <div className="flex items-center gap-3">
+            {/* Avatar con corona */}
+            <div className="relative flex-shrink-0">
+              <div className="w-14 h-14 rounded-full overflow-hidden ring-2 ring-white">
+                <Avatar
+                  src={currentMember?.avatar}
+                  name={currentMember?.displayName || 'Tu'}
+                  size="lg"
+                />
+              </div>
+              {/* Badge corona */}
+              <div
+                className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center ring-2 ring-white"
+                style={{ backgroundColor: rawColors.warning }}
+              >
+                <Crown size={10} color={rawColors.warningDark} />
+              </div>
             </div>
-          ))}
 
-          {/* Overflow count */}
-          {overflowCount > 0 && (
-            <div
-              className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-semibold ring-2 ring-white"
+            {/* Pulsante + cliccabile */}
+            <button
+              type="button"
+              onClick={handleAddClick}
+              className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 border-2 border-dashed transition-all active:scale-95"
               style={{
-                backgroundColor: colors.bgSubtle,
-                color: colors.textMuted,
-                zIndex: 0
+                borderColor: colors.border,
+                backgroundColor: 'transparent'
               }}
             >
-              +{overflowCount}
-            </div>
+              <Plus size={24} style={{ color: colors.textPlaceholder }} />
+            </button>
+
+            {/* Testo descrittivo - compare al click */}
+            <AnimatePresence>
+              {showHint && (
+                <motion.span
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="text-sm flex-1"
+                  style={{ color: colors.textMuted }}
+                >
+                  Potrai invitare altri membri dopo aver creato il viaggio
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Edit mode - viaggio già creato
+  return (
+    <div
+      className="w-full rounded-2xl"
+      style={{ backgroundColor: colors.bgSubtle }}
+    >
+      <div className="px-4 py-3">
+        {/* Titolo */}
+        <span
+          className="block text-base font-semibold mb-3"
+          style={{ color: colors.text }}
+        >
+          Chi viaggia con te?
+        </span>
+
+        {/* Avatar dei membri + pulsante add */}
+        <div className="flex items-center">
+          {/* Avatar dei membri sovrapposti */}
+          <div className="flex -space-x-3" onClick={onStackClick}>
+            {visibleMembers.map((member, index) => (
+              <div
+                key={member.userId}
+                className="relative flex-shrink-0 cursor-pointer"
+                style={{ zIndex: visibleMembers.length - index }}
+              >
+                <div className="w-14 h-14 rounded-full overflow-hidden ring-2 ring-white">
+                  <Avatar
+                    src={member.avatar}
+                    name={member.displayName}
+                    size="lg"
+                  />
+                </div>
+                {/* Badge corona per owner */}
+                {member.role === 'owner' && (
+                  <div
+                    className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center ring-2 ring-white"
+                    style={{ backgroundColor: rawColors.warning, zIndex: 10 }}
+                  >
+                    <Crown size={10} color={rawColors.warningDark} />
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* Overflow count */}
+            {overflowCount > 0 && (
+              <div
+                className="w-14 h-14 rounded-full flex items-center justify-center text-sm font-semibold cursor-pointer ring-2 ring-white"
+                style={{
+                  backgroundColor: rawColors.action,
+                  color: 'white',
+                  zIndex: 0
+                }}
+              >
+                +{overflowCount}
+              </div>
+            )}
+          </div>
+
+          {/* Pulsante + per aggiungere membri */}
+          {isOwner && onAddClick && (
+            <button
+              type="button"
+              onClick={onAddClick}
+              className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 border-2 border-dashed transition-all active:scale-95 ml-3"
+              style={{
+                borderColor: colors.border,
+                backgroundColor: 'transparent'
+              }}
+            >
+              <Plus size={24} style={{ color: colors.textPlaceholder }} />
+            </button>
           )}
         </div>
-
-        {/* Add Button - only in edit mode and if owner */}
-        {mode === 'edit' && isOwner && onAddClick && (
-          <button
-            type="button"
-            onClick={onAddClick}
-            className="w-10 h-10 rounded-full border-2 border-dashed flex items-center justify-center transition-colors hover:border-solid"
-            style={{
-              borderColor: colors.border,
-              color: colors.textMuted
-            }}
-            title="Invita partecipanti"
-          >
-            <Plus size={20} />
-          </button>
-        )}
       </div>
-
-      {/* Helper text in create mode */}
-      {mode === 'create' && (
-        <p className="text-xs" style={{ color: colors.textMuted }}>
-          Potrai invitare altri partecipanti dopo aver creato il viaggio
-        </p>
-      )}
     </div>
   );
 };

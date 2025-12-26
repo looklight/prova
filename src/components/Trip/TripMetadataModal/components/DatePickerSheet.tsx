@@ -1,9 +1,10 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useCallback } from 'react';
 import { DayPicker, DateRange } from 'react-day-picker';
 import { it } from 'date-fns/locale';
+import { startOfMonth, subMonths } from 'date-fns';
 import { AnimatePresence, motion, PanInfo, useAnimation } from 'framer-motion';
 import 'react-day-picker/dist/style.css';
-import { colors } from '../../../../styles/theme';
+import { colors, rawColors } from '../../../../styles/theme';
 import type { DatePickerSheetProps } from '../types';
 
 /**
@@ -18,6 +19,187 @@ const getDaysDiff = (range: DateRange | undefined): number | null => {
 /** Soglia in pixel per chiudere con swipe */
 const SWIPE_CLOSE_THRESHOLD = 100;
 
+/** Mesi nel passato da mostrare */
+const MONTHS_IN_PAST = 12;
+/** Mesi nel futuro da mostrare */
+const MONTHS_IN_FUTURE = 12;
+/** Totale mesi */
+const MONTHS_TO_SHOW = MONTHS_IN_PAST + MONTHS_IN_FUTURE;
+
+/**
+ * Stili CSS per il calendario moderno
+ * Utilizza le CSS variables native di react-day-picker v9
+ */
+const calendarStyles = `
+  .altrove-calendar {
+    /* Colori accent */
+    --rdp-accent-color: ${rawColors.accent};
+    --rdp-accent-background-color: ${rawColors.accentSoft};
+
+    /* Dimensioni celle */
+    --rdp-day-height: 44px;
+    --rdp-day-width: 44px;
+    --rdp-day_button-width: 40px;
+    --rdp-day_button-height: 40px;
+    --rdp-day_button-border-radius: 50%;
+    --rdp-day_button-border: none;
+
+    /* Range styling */
+    --rdp-range_middle-background-color: ${rawColors.accentSoft};
+    --rdp-range_middle-color: ${rawColors.accentDark};
+    --rdp-range_start-color: white;
+    --rdp-range_start-date-background-color: ${rawColors.accent};
+    --rdp-range_end-color: white;
+    --rdp-range_end-date-background-color: ${rawColors.accent};
+
+    /* Selected */
+    --rdp-selected-border: none;
+
+    /* Today */
+    --rdp-today-color: ${rawColors.accent};
+
+    /* Disabled & outside */
+    --rdp-disabled-opacity: 0.35;
+    --rdp-outside-opacity: 0;
+
+    /* Layout */
+    --rdp-months-gap: 0;
+
+    width: 100%;
+    font-family: inherit;
+  }
+
+  /* Layout mesi */
+  .altrove-calendar .rdp-months {
+    flex-direction: column;
+    width: 100%;
+    padding: 0 16px;
+    gap: 0;
+  }
+
+  .altrove-calendar .rdp-month {
+    width: 100%;
+  }
+
+  .altrove-calendar .rdp-month_grid {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  /* Caption del mese - stile minimal */
+  .altrove-calendar .rdp-month_caption {
+    padding: 16px 0 10px;
+  }
+
+  .altrove-calendar .rdp-caption_label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: ${rawColors.textMuted};
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* Nascondi navigazione e weekdays (li abbiamo nell'header) */
+  .altrove-calendar .rdp-nav,
+  .altrove-calendar .rdp-weekdays {
+    display: none !important;
+  }
+
+  /* Cella giorno - occupa 1/7 della larghezza */
+  .altrove-calendar .rdp-day {
+    width: calc(100% / 7);
+    height: var(--rdp-day-height);
+    text-align: center;
+    padding: 2px 0;
+  }
+
+  /* Bottone giorno */
+  .altrove-calendar .rdp-day_button {
+    width: var(--rdp-day_button-width);
+    height: var(--rdp-day_button-height);
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: ${rawColors.text};
+    border-radius: var(--rdp-day_button-border-radius);
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+  }
+
+  .altrove-calendar .rdp-day_button:hover {
+    background-color: ${rawColors.bgSubtle};
+  }
+
+  /* Oggi */
+  .altrove-calendar .rdp-today:not(.rdp-range_start):not(.rdp-range_end):not(.rdp-range_middle) .rdp-day_button {
+    font-weight: 700;
+    color: ${rawColors.accent};
+  }
+
+  /* Selected singolo (quando hai solo from, senza to) */
+  .altrove-calendar .rdp-selected:not(.rdp-range_start):not(.rdp-range_end):not(.rdp-range_middle) .rdp-day_button {
+    background-color: ${rawColors.accent};
+    color: white;
+    font-weight: 600;
+  }
+
+  /* Range start */
+  .altrove-calendar .rdp-range_start {
+    background: linear-gradient(90deg, transparent 50%, ${rawColors.accentSoft} 50%);
+  }
+
+  .altrove-calendar .rdp-range_start .rdp-day_button {
+    background-color: ${rawColors.accent};
+    color: white;
+    font-weight: 600;
+  }
+
+  /* Range end */
+  .altrove-calendar .rdp-range_end {
+    background: linear-gradient(90deg, ${rawColors.accentSoft} 50%, transparent 50%);
+  }
+
+  .altrove-calendar .rdp-range_end .rdp-day_button {
+    background-color: ${rawColors.accent};
+    color: white;
+    font-weight: 600;
+  }
+
+  /* Range start+end (giorno singolo selezionato con from=to) */
+  .altrove-calendar .rdp-range_start.rdp-range_end {
+    background: transparent;
+  }
+
+  /* Range middle */
+  .altrove-calendar .rdp-range_middle {
+    background-color: ${rawColors.accentSoft};
+  }
+
+  .altrove-calendar .rdp-range_middle .rdp-day_button {
+    color: ${rawColors.accentDark};
+    font-weight: 500;
+    background: transparent;
+  }
+
+  .altrove-calendar .rdp-range_middle .rdp-day_button:hover {
+    background-color: rgba(78, 205, 196, 0.3);
+  }
+
+  /* Disabled */
+  .altrove-calendar .rdp-disabled .rdp-day_button {
+    color: ${rawColors.textPlaceholder};
+    opacity: var(--rdp-disabled-opacity);
+    cursor: not-allowed;
+  }
+
+  /* Outside (giorni fuori dal mese) */
+  .altrove-calendar .rdp-outside {
+    visibility: hidden;
+  }
+`;
+
 const DatePickerSheet: React.FC<DatePickerSheetProps> = ({
   isOpen,
   onClose,
@@ -27,6 +209,16 @@ const DatePickerSheet: React.FC<DatePickerSheetProps> = ({
   const controls = useAnimation();
   const daysDiff = useMemo(() => getDaysDiff(dateRange), [dateRange]);
   const isValidRange = daysDiff !== null && daysDiff > 0 && daysDiff <= 90;
+
+  // Mese di partenza (12 mesi fa)
+  const startMonth = useMemo(() => startOfMonth(subMonths(new Date(), MONTHS_IN_PAST)), []);
+
+  /**
+   * Gestione selezione date
+   */
+  const handleDateSelect = useCallback((range: DateRange | undefined) => {
+    onDateChange(range);
+  }, [onDateChange]);
 
   // Avvia animazione apertura
   useEffect(() => {
@@ -44,11 +236,9 @@ const DatePickerSheet: React.FC<DatePickerSheetProps> = ({
   };
 
   const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    // Chiudi se trascinato abbastanza in basso o con velocità sufficiente
     if (info.offset.y > SWIPE_CLOSE_THRESHOLD || info.velocity.y > 500) {
       onClose();
     } else {
-      // Torna in posizione
       controls.start({ y: 0 });
     }
   };
@@ -77,135 +267,104 @@ const DatePickerSheet: React.FC<DatePickerSheetProps> = ({
             dragConstraints={{ top: 0, bottom: 0 }}
             dragElastic={{ top: 0, bottom: 0.6 }}
             onDragEnd={handleDragEnd}
-            className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl max-h-[92vh] overflow-hidden flex flex-col touch-none"
+            className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl max-h-[85vh] overflow-hidden flex flex-col touch-none"
             style={{ backgroundColor: colors.bgCard }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Drag handle */}
-            <div className="flex justify-center pt-3 pb-2">
+            <div className="flex justify-center pt-3 pb-2 flex-shrink-0">
               <div
                 className="w-10 h-1 rounded-full"
                 style={{ backgroundColor: colors.border }}
               />
             </div>
 
-            {/* Calendar */}
-            <div className="px-4 flex-1 overflow-y-auto">
-              <style>{`
-                .travel-calendar {
-                  --rdp-accent-color: ${colors.accent};
-                  --rdp-accent-background-color: ${colors.accentSoft};
-                  --rdp-cell-size: 48px;
-                  margin: 0 auto;
-                  width: 100%;
-                  display: flex;
-                  justify-content: center;
-                }
-                .travel-calendar .rdp-months {
-                  width: 100%;
-                  display: flex;
-                  justify-content: center;
-                }
-                .travel-calendar .rdp-month {
-                  width: 100%;
-                  max-width: 350px;
-                }
-                .travel-calendar .rdp-month_grid {
-                  width: 100%;
-                  margin: 0 auto;
-                }
-                .travel-calendar .rdp-month_caption {
-                  padding-bottom: 0.75rem;
-                  margin-bottom: 0.75rem;
-                  border-bottom: 1px solid ${colors.border};
-                }
-                .travel-calendar .rdp-caption_label {
-                  font-size: 1.1rem;
-                  font-weight: 600;
-                  color: ${colors.text};
-                }
-                .travel-calendar .rdp-weekday {
-                  font-size: 0.85rem;
-                  font-weight: 600;
-                  color: ${colors.textMuted};
-                  padding: 0.5rem 0;
-                }
-                .travel-calendar .rdp-day {
-                  width: var(--rdp-cell-size);
-                  height: var(--rdp-cell-size);
-                }
-                .travel-calendar .rdp-day_button {
-                  width: 100%;
-                  height: 100%;
-                  font-size: 1rem;
-                  border-radius: 50%;
-                }
-                .travel-calendar .rdp-selected .rdp-day_button {
-                  background-color: ${colors.accent};
-                  color: white;
-                  font-weight: 600;
-                }
-                .travel-calendar .rdp-range_middle .rdp-day_button {
-                  background-color: ${colors.accentSoft};
-                  color: ${colors.accent};
-                  border-radius: 50%;
-                }
-                .travel-calendar .rdp-today:not(.rdp-selected) .rdp-day_button {
-                  border: 2px solid ${colors.accent};
-                  font-weight: 600;
-                }
-                .travel-calendar .rdp-disabled .rdp-day_button {
-                  color: ${colors.textPlaceholder};
-                }
-              `}</style>
+            {/* Header */}
+            <div className="flex-shrink-0 pb-2">
+              <h3
+                className="text-base font-semibold text-center mb-3"
+                style={{ color: colors.text }}
+              >
+                Seleziona le date
+              </h3>
 
-              <DayPicker
-                className="travel-calendar"
-                mode="range"
-                selected={dateRange}
-                onSelect={onDateChange}
-                locale={it}
-                numberOfMonths={1}
-                disabled={{ before: new Date() }}
-              />
-
+              {/* Giorni della settimana - stesso layout del calendario */}
+              <div
+                className="grid grid-cols-7"
+                style={{ padding: '0 16px' }}
+              >
+                {['L', 'M', 'M', 'G', 'V', 'S', 'D'].map((day, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-center text-xs font-medium"
+                    style={{
+                      color: colors.textPlaceholder,
+                      height: '28px'
+                    }}
+                  >
+                    {day}
+                  </div>
+                ))}
+              </div>
             </div>
 
-            {/* Footer con info e conferma - fisso in basso */}
+            {/* Calendar */}
+            <div className="flex-1 overflow-y-auto overscroll-contain pb-2">
+              <style>{calendarStyles}</style>
+              <DayPicker
+                className="altrove-calendar"
+                mode="range"
+                selected={dateRange}
+                onSelect={handleDateSelect}
+                locale={it}
+                numberOfMonths={MONTHS_TO_SHOW}
+                startMonth={startMonth}
+                showOutsideDays={false}
+              />
+            </div>
+
+            {/* Footer */}
             <div
-              className="flex-shrink-0 px-4 pt-4 pb-6 flex items-center justify-between border-t"
+              className="flex-shrink-0 px-4 flex items-center justify-between"
               style={{
-                borderColor: colors.border,
                 backgroundColor: colors.bgCard,
-                paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))'
+                paddingTop: '12px',
+                paddingBottom: 'calc(36px + env(safe-area-inset-bottom, 0px))'
               }}
             >
-              <div className="text-sm" style={{ color: colors.textMuted }}>
+              <div style={{ color: colors.textMuted }}>
                 {daysDiff !== null ? (
-                  <span style={{ color: isValidRange ? colors.accent : colors.danger }}>
+                  <span
+                    className="text-sm font-semibold"
+                    style={{ color: isValidRange ? colors.accent : colors.danger }}
+                  >
                     {daysDiff} giorn{daysDiff === 1 ? 'o' : 'i'}
                     {daysDiff > 90 && ' (max 90)'}
                   </span>
+                ) : dateRange?.from ? (
+                  <span className="text-xs" style={{ color: colors.accent }}>
+                    Seleziona data fine
+                  </span>
                 ) : (
-                  <span>Seleziona partenza e ritorno</span>
+                  <span className="text-xs">Tocca per selezionare</span>
                 )}
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-3 items-center">
                 {dateRange?.from && (
                   <button
                     type="button"
                     onClick={() => onDateChange(undefined)}
-                    className="px-4 py-2.5 rounded-full text-sm font-medium transition-colors"
-                    style={{ color: colors.danger }}
+                    className="text-sm font-medium transition-colors"
+                    style={{ color: colors.textMuted }}
                   >
-                    Cancella
+                    Reset
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={handleConfirm}
-                  className="px-6 py-2.5 rounded-full text-sm font-semibold text-white transition-colors"
+                  className="px-5 py-2 rounded-xl text-sm font-semibold text-white transition-all active:scale-95"
                   style={{ backgroundColor: colors.accent }}
                 >
                   Conferma
