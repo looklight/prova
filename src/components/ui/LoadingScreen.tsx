@@ -14,7 +14,10 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
   message = "Caricamento..."
 }) => {
   return (
-    <div className="fixed inset-0 bg-gradient-to-br from-blue-500 to-purple-600 flex flex-col items-center justify-center">
+    <div
+      className="fixed inset-0 flex flex-col items-center justify-center"
+      style={{ background: 'linear-gradient(135deg, #4ECDC4 0%, #3DBDB5 100%)' }}
+    >
       
       {/* Logo Calendar Dots */}
       <div className="mb-8">

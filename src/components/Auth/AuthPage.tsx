@@ -6,22 +6,26 @@ import PrivacyConsent from '../Legal/PrivacyConsent';
 
 // Costanti
 const BRAND_CONFIG = {
-  name: 'Look Travel',
-  subtitle: 'Organizza i tuoi viaggi',
+  name: '_Altrove',
+  subtitle: 'Pianifica. Vivi. Ricorda.',
   copyright: '© 2025 Tutti i diritti riservati.'
 };
 
 const STYLES = {
-  input: "w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent",
-  inputWithRightIcon: "w-full pl-12 pr-12 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent",
-  button: "w-full py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-full font-semibold text-base hover:from-blue-600 hover:to-purple-600 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all",
+  input: "w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4ECDC4] focus:border-transparent transition-all",
+  inputWithRightIcon: "w-full pl-12 pr-12 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4ECDC4] focus:border-transparent transition-all",
+  button: "w-full py-3.5 bg-[#3B82F6] text-white rounded-full font-semibold text-base hover:bg-[#2563EB] disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98]",
+  buttonShadow: '0 4px 14px rgba(59, 130, 246, 0.4)',
   iconLeft: "absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400",
   iconRight: "absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600",
   label: "block text-sm font-medium text-gray-700 mb-2"
 };
 
 const BrandLogo = () => (
-  <div className="inline-block p-4 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full mb-4">
+  <div
+    className="inline-block p-4 rounded-full mb-4"
+    style={{ background: 'linear-gradient(135deg, #4ECDC4 0%, #3DBDB5 100%)' }}
+  >
     <MapPin size={40} className="text-white" />
   </div>
 );
@@ -225,9 +229,15 @@ const AuthPage = ({ onAuthSuccess }) => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center p-4">
+    <div
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{ background: 'linear-gradient(135deg, #4ECDC4 0%, #3DBDB5 100%)' }}
+    >
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-3xl shadow-2xl p-8">
+        <div
+          className="bg-white rounded-3xl p-8"
+          style={{ boxShadow: '0 10px 40px rgba(0, 0, 0, 0.15)' }}
+        >
           {/* Header */}
           <div className="text-center mb-8">
             <BrandLogo />
@@ -280,7 +290,7 @@ const AuthPage = ({ onAuthSuccess }) => {
                 <label className="flex items-center cursor-pointer">
                   <input
                     type="checkbox"
-                    className="w-4 h-4 text-blue-500 border-gray-300 rounded focus:ring-blue-500"
+                    className="w-4 h-4 border-gray-300 rounded focus:ring-[#4ECDC4] accent-[#4ECDC4]"
                   />
                   <span className="ml-2 text-sm text-gray-600">Ricordami</span>
                 </label>
@@ -288,7 +298,8 @@ const AuthPage = ({ onAuthSuccess }) => {
                   type="button"
                   onClick={handleForgotPassword}
                   disabled={isLoading}
-                  className="text-sm text-blue-500 hover:text-blue-600 font-medium disabled:opacity-50"
+                  className="text-sm font-medium disabled:opacity-50 hover:opacity-80 transition-opacity"
+                  style={{ color: '#4ECDC4' }}
                 >
                   Password dimenticata?
                 </button>
@@ -300,9 +311,10 @@ const AuthPage = ({ onAuthSuccess }) => {
               type="submit"
               disabled={isLoading}
               className={STYLES.button}
+              style={{ boxShadow: STYLES.buttonShadow }}
             >
-              {isLoading 
-                ? (mode === 'login' ? 'Accesso in corso...' : 'Registrazione in corso...') 
+              {isLoading
+                ? (mode === 'login' ? 'Accesso in corso...' : 'Registrazione in corso...')
                 : (mode === 'login' ? 'Accedi' : 'Registrati')
               }
             </button>
@@ -319,7 +331,8 @@ const AuthPage = ({ onAuthSuccess }) => {
                   setTermsError('');
                   setAcceptedTerms(false);
                 }}
-                className="text-blue-500 hover:text-blue-600 font-semibold"
+                className="font-semibold hover:opacity-80 transition-opacity"
+                style={{ color: '#4ECDC4' }}
               >
                 {mode === 'login' ? 'Registrati' : 'Accedi'}
               </button>
