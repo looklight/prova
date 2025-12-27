@@ -51,7 +51,7 @@ const DatePill: React.FC<DatePillProps> = ({
         border: 'none'
       }}
     >
-      <div className="px-4 py-3">
+      <div className="px-4 py-5">
         {hasDateRange ? (
           <div className="flex items-center gap-3">
             {/* Icona calendario */}

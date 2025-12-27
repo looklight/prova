@@ -27,7 +27,7 @@ const PackingListButton: React.FC<PackingListButtonProps> = ({
         border: 'none'
       }}
     >
-      <div className="px-4 py-3">
+      <div className="px-4 py-5">
         <div className="flex items-center gap-3">
           {/* Icon */}
           <div

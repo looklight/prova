@@ -139,7 +139,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                 />
 
                 {/* Content below hero - with padding */}
-                <div className="px-5 py-5 space-y-6">
+                <div className="px-5 py-5 space-y-4">
                   {/* Date Picker - only in create mode */}
                   {mode === 'create' && (
                     <DatePill
