@@ -31,21 +31,35 @@ interface TripDay {
   date: string;
 }
 
+interface MemberInfo {
+  odId: string;
+  displayName: string;
+  avatar?: string;
+}
+
 interface MediaRepositoryModalProps {
   isOpen: boolean;
   onClose: () => void;
   days: TripDay[];
   tripData: Record<string, any>;
+  members: MemberInfo[];
 }
 
 const MediaRepositoryModal: React.FC<MediaRepositoryModalProps> = ({
   isOpen,
   onClose,
   days,
-  tripData
+  tripData,
+  members
 }) => {
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
   const [viewerImageUrl, setViewerImageUrl] = useState<string | null>(null);
+
+  // Helper per trovare membro da odId
+  const getMemberByUserId = (odId?: string) => {
+    if (!odId) return null;
+    return members.find(m => m.odId === odId);
+  };
 
   // Reset when modal opens
   useEffect(() => {
@@ -352,27 +366,40 @@ const MediaRepositoryModal: React.FC<MediaRepositoryModalProps> = ({
                                   Foto ({dayImages.length})
                                 </p>
                                 <div className="grid grid-cols-3 gap-2">
-                                  {dayImages.map(item => (
-                                    <div key={item.id} className="flex flex-col">
-                                      <button
-                                        onClick={() => handleMediaClick(item)}
-                                        className="aspect-square rounded-lg overflow-hidden hover:opacity-80 transition-opacity"
-                                      >
-                                        <img
-                                          src={item.url}
-                                          alt=""
-                                          className="w-full h-full object-cover"
-                                        />
-                                      </button>
-                                      {/* Nome attività sotto la foto */}
-                                      <p
-                                        className="text-[10px] mt-1 truncate text-center"
-                                        style={{ color: colors.textMuted }}
-                                      >
-                                        {item.source}
-                                      </p>
-                                    </div>
-                                  ))}
+                                  {dayImages.map(item => {
+                                    const uploader = getMemberByUserId(item.uploaderId);
+                                    return (
+                                      <div key={item.id} className="flex flex-col">
+                                        <button
+                                          onClick={() => handleMediaClick(item)}
+                                          className="aspect-square rounded-lg overflow-hidden hover:opacity-80 transition-opacity relative"
+                                        >
+                                          <img
+                                            src={item.url}
+                                            alt=""
+                                            className="w-full h-full object-cover"
+                                          />
+                                          {/* Avatar uploader */}
+                                          {uploader?.avatar && (
+                                            <div className="absolute bottom-1 right-1">
+                                              <img
+                                                src={uploader.avatar}
+                                                alt=""
+                                                className="w-5 h-5 rounded-full border-2 border-white object-cover"
+                                              />
+                                            </div>
+                                          )}
+                                        </button>
+                                        {/* Nome attività sotto la foto */}
+                                        <p
+                                          className="text-[10px] mt-1 truncate text-center"
+                                          style={{ color: colors.textMuted }}
+                                        >
+                                          {item.source}
+                                        </p>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             )}
@@ -388,35 +415,46 @@ const MediaRepositoryModal: React.FC<MediaRepositoryModalProps> = ({
                                   Documenti ({dayDocs.length})
                                 </p>
                                 <div className="space-y-2">
-                                  {dayDocs.map(item => (
-                                    <button
-                                      key={item.id}
-                                      onClick={() => handleMediaClick(item)}
-                                      className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-white transition-colors"
-                                      style={{ backgroundColor: 'rgba(255,255,255,0.5)' }}
-                                    >
-                                      <div
-                                        className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                                        style={{ backgroundColor: '#FEE2E2' }}
+                                  {dayDocs.map(item => {
+                                    const uploader = getMemberByUserId(item.uploaderId);
+                                    return (
+                                      <button
+                                        key={item.id}
+                                        onClick={() => handleMediaClick(item)}
+                                        className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-white transition-colors"
+                                        style={{ backgroundColor: 'rgba(255,255,255,0.5)' }}
                                       >
-                                        <FileDown size={18} style={{ color: '#DC2626' }} />
-                                      </div>
-                                      <div className="flex-1 text-left min-w-0">
-                                        <p
-                                          className="text-sm font-medium truncate"
-                                          style={{ color: colors.text }}
+                                        <div
+                                          className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 relative"
+                                          style={{ backgroundColor: '#FEE2E2' }}
                                         >
-                                          {item.name || 'Documento'}
-                                        </p>
-                                        <p
-                                          className="text-xs truncate"
-                                          style={{ color: colors.textMuted }}
-                                        >
-                                          {item.source}
-                                        </p>
-                                      </div>
-                                    </button>
-                                  ))}
+                                          <FileDown size={18} style={{ color: '#DC2626' }} />
+                                          {/* Avatar uploader */}
+                                          {uploader?.avatar && (
+                                            <img
+                                              src={uploader.avatar}
+                                              alt=""
+                                              className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white object-cover"
+                                            />
+                                          )}
+                                        </div>
+                                        <div className="flex-1 text-left min-w-0">
+                                          <p
+                                            className="text-sm font-medium truncate"
+                                            style={{ color: colors.text }}
+                                          >
+                                            {item.name || 'Documento'}
+                                          </p>
+                                          <p
+                                            className="text-xs truncate"
+                                            style={{ color: colors.textMuted }}
+                                          >
+                                            {item.source}
+                                          </p>
+                                        </div>
+                                      </button>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             )}

@@ -311,6 +311,11 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
           onClose={() => setShowMediaRepositoryModal(false)}
           days={tripDays}
           tripData={tripData}
+          members={form.activeMembers.map(m => ({
+            odId: m.userId,
+            displayName: m.displayName,
+            avatar: m.avatar
+          }))}
         />
       )}
     </>
