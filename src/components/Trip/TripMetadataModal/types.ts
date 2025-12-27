@@ -90,6 +90,11 @@ export interface TripInitialData extends TripMetadata {
 
 // ============= PROPS COMPONENTI =============
 
+export interface TripDay {
+  id: string;
+  date: string;
+}
+
 export interface TripMetadataModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -98,6 +103,9 @@ export interface TripMetadataModalProps {
   currentUser: CurrentUser;
   mode: 'create' | 'edit';
   onInviteClick?: () => void;
+  // Per il repository media
+  tripDays?: TripDay[];
+  tripData?: Record<string, any>;
 }
 
 export interface HeroImageSectionProps {

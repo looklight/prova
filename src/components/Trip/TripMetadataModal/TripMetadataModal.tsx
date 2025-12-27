@@ -4,6 +4,7 @@ import { InviteOptionsModal } from '../../Sharing';
 import UserProfileModal from '../../Profile/UserProfileModal';
 import TripMembersModal from '../TripMembersModal';
 import { PackingListModal } from '../PackingListModal';
+import { MediaRepositoryModal } from '../MediaRepositoryModal';
 import { colors } from '../../../styles/theme';
 
 import { useTripMetadataForm } from './useTripMetadataForm';
@@ -14,6 +15,7 @@ import ParticipantsStack from './components/ParticipantsStack';
 import DestinationsSection from './components/DestinationsSection';
 import CurrenciesSection from './components/CurrenciesSection';
 import PackingListButton from './components/PackingListButton';
+import MediaRepositoryButton from './components/MediaRepositoryButton';
 import ModalFooter from './components/ModalFooter';
 
 import type { TripMetadataModalProps } from './types';
@@ -27,7 +29,9 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
   onSave,
   initialData,
   currentUser,
-  mode
+  mode,
+  tripDays,
+  tripData
 }) => {
   const form = useTripMetadataForm({
     isOpen,
@@ -41,6 +45,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
   const controls = useAnimation();
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [showPackingListModal, setShowPackingListModal] = useState(false);
+  const [showMediaRepositoryModal, setShowMediaRepositoryModal] = useState(false);
 
   // Compute packing list stats
   const packingStats = useMemo(() => {
@@ -50,6 +55,38 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
     ).length;
     return { itemCount: items.length, checkedCount };
   }, [form.packingList.items, currentUser.uid]);
+
+  // Compute media repository stats
+  const mediaStats = useMemo(() => {
+    if (!tripDays || !tripData) return { images: 0, documents: 0 };
+
+    let images = 0;
+    let documents = 0;
+
+    tripDays.forEach(day => {
+      const dayId = day.id;
+
+      // Attività
+      const activitiesKey = `${dayId}-attivita`;
+      const activitiesData = tripData[activitiesKey];
+      if (activitiesData?.activities && Array.isArray(activitiesData.activities)) {
+        activitiesData.activities.forEach((activity: any) => {
+          images += activity.images?.length || 0;
+          documents += activity.documents?.length || 0;
+        });
+      }
+
+      // Pernottamento
+      const accommodationKey = `${dayId}-pernottamento`;
+      const accommodationData = tripData[accommodationKey];
+      if (accommodationData) {
+        images += accommodationData.images?.length || 0;
+        documents += accommodationData.documents?.length || 0;
+      }
+    });
+
+    return { images, documents };
+  }, [tripDays, tripData]);
 
   // Avvia animazione apertura
   useEffect(() => {
@@ -170,6 +207,15 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                     onClick={() => setShowPackingListModal(true)}
                   />
 
+                  {/* Media Repository - solo in edit mode con dati disponibili */}
+                  {mode === 'edit' && tripDays && tripData && (
+                    <MediaRepositoryButton
+                      imageCount={mediaStats.images}
+                      documentCount={mediaStats.documents}
+                      onClick={() => setShowMediaRepositoryModal(true)}
+                    />
+                  )}
+
                   {/* Destinations - only in edit mode, at the bottom */}
                   {mode === 'edit' && (
                     <DestinationsSection
@@ -257,6 +303,16 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
         members={form.activeMembers}
         currentUserId={currentUser.uid}
       />
+
+      {/* Media Repository Modal */}
+      {tripDays && tripData && (
+        <MediaRepositoryModal
+          isOpen={showMediaRepositoryModal}
+          onClose={() => setShowMediaRepositoryModal(false)}
+          days={tripDays}
+          tripData={tripData}
+        />
+      )}
     </>
   );
 };

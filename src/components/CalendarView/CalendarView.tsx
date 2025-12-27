@@ -282,6 +282,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         }}
         currentUser={currentUser}
         mode="edit"
+        tripDays={trip.days}
+        tripData={trip.data}
       />
 
       {/* Header - fisso, non si muove */}
