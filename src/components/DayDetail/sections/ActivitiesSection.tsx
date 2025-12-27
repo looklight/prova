@@ -211,6 +211,25 @@ const ActivitiesSection: React.FC<ActivitiesSectionProps> = ({
         }
       }
 
+      // Elimina tutti i documenti/PDF dallo storage
+      if (activityToDelete?.documents && activityToDelete.documents.length > 0) {
+        console.log(`🧹 Eliminazione ${activityToDelete.documents.length} documenti dell'attività...`);
+        for (const doc of activityToDelete.documents) {
+          if (doc.path) {
+            try {
+              await deleteImage(doc.path);
+              console.log(`🗑️ Documento eliminato: ${doc.path}`);
+            } catch (error: any) {
+              if (error.code === 'storage/object-not-found') {
+                console.warn(`⚠️ Documento già eliminato: ${doc.path}`);
+              } else {
+                console.error(`❌ Errore eliminazione documento:`, error);
+              }
+            }
+          }
+        }
+      }
+
       // Rimuovi l'attività dalla lista
       onUpdateActivities(activities.filter(a => a.id !== activityId));
       setExpandedActivityId(null);

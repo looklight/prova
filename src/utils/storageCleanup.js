@@ -101,6 +101,14 @@ export const cleanupDaysImages = async (tripData, dayIds) => {
             }
           }
         }
+        // Elimina documenti/PDF dell'attività
+        if (activity.documents && Array.isArray(activity.documents)) {
+          for (const doc of activity.documents) {
+            if (await safeDeleteImage(doc.path, errors)) {
+              deletedCount++;
+            }
+          }
+        }
       }
     }
 
@@ -111,6 +119,14 @@ export const cleanupDaysImages = async (tripData, dayIds) => {
     if (accommodationData?.images && Array.isArray(accommodationData.images)) {
       for (const image of accommodationData.images) {
         if (await safeDeleteImage(image.path, errors)) {
+          deletedCount++;
+        }
+      }
+    }
+    // Elimina documenti/PDF del pernottamento
+    if (accommodationData?.documents && Array.isArray(accommodationData.documents)) {
+      for (const doc of accommodationData.documents) {
+        if (await safeDeleteImage(doc.path, errors)) {
           deletedCount++;
         }
       }

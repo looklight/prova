@@ -13,6 +13,7 @@ import ImageViewer from '../modals/ImageViewer';
 import ReminderModal from '../modals/ReminderModal';
 import CostBreakdownModal from '../modals/CostBreakdownModal';
 import { getGoogleMapsUrl } from '../../../services/geocodingService';
+import { deleteImage } from '../../../services/storageService';
 
 // ============================================
 // ALTROVE - AccommodationSection
@@ -220,8 +221,46 @@ const AccommodationSection: React.FC<AccommodationSectionProps> = ({
     setShowLocationModal(false);
   };
 
-  const handleDeleteAll = () => {
+  const handleDeleteAll = async () => {
     if (window.confirm('Eliminare tutti i dati del pernottamento?')) {
+      // Elimina immagini dallo storage
+      if (accommodation.images && accommodation.images.length > 0) {
+        console.log(`🧹 Eliminazione ${accommodation.images.length} immagini del pernottamento...`);
+        for (const image of accommodation.images) {
+          if (image.path) {
+            try {
+              await deleteImage(image.path);
+              console.log(`🗑️ Immagine eliminata: ${image.path}`);
+            } catch (error: any) {
+              if (error.code === 'storage/object-not-found') {
+                console.warn(`⚠️ Immagine già eliminata: ${image.path}`);
+              } else {
+                console.error(`❌ Errore eliminazione immagine:`, error);
+              }
+            }
+          }
+        }
+      }
+
+      // Elimina documenti/PDF dallo storage
+      if (accommodation.documents && accommodation.documents.length > 0) {
+        console.log(`🧹 Eliminazione ${accommodation.documents.length} documenti del pernottamento...`);
+        for (const doc of accommodation.documents) {
+          if (doc.path) {
+            try {
+              await deleteImage(doc.path);
+              console.log(`🗑️ Documento eliminato: ${doc.path}`);
+            } catch (error: any) {
+              if (error.code === 'storage/object-not-found') {
+                console.warn(`⚠️ Documento già eliminato: ${doc.path}`);
+              } else {
+                console.error(`❌ Errore eliminazione documento:`, error);
+              }
+            }
+          }
+        }
+      }
+
       onUpdateAccommodationMultiple({
         title: '',
         bookingStatus: 'na',
@@ -235,7 +274,8 @@ const AccommodationSection: React.FC<AccommodationSectionProps> = ({
         links: [],
         images: [],
         videos: [],
-        mediaNotes: []
+        mediaNotes: [],
+        documents: []
       });
       search.setInputValue('');
       setIsEditMode(false);
