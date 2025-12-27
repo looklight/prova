@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, Image, FileDown, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Image, FileDown, Calendar, ChevronDown, ChevronUp, Bed } from 'lucide-react';
 import { colors, rawColors } from '../../../styles/theme';
 import ImageViewer from '../../DayDetail/modals/ImageViewer';
+import { ActivityTypeIcon } from '../../../utils/activityTypes';
 
 // ============================================
 // ALTROVE - MediaRepositoryModal
@@ -16,7 +17,8 @@ interface MediaItem {
   name?: string;
   uploaderId?: string;
   type: 'image' | 'document';
-  source: string; // es: "Attività: Visita museo" o "Pernottamento"
+  source: string; // es: "Visita museo" o "Pernottamento"
+  activityType?: string; // es: "museum", "restaurant", "accommodation"
 }
 
 interface DayMedia {
@@ -100,6 +102,7 @@ const MediaRepositoryModal: React.FC<MediaRepositoryModalProps> = ({
       if (activitiesData?.activities && Array.isArray(activitiesData.activities)) {
         activitiesData.activities.forEach((activity: any) => {
           const activityName = activity.title || 'Attività';
+          const activityType = activity.type || 'generic';
 
           // Immagini
           if (activity.images && Array.isArray(activity.images)) {
@@ -110,7 +113,8 @@ const MediaRepositoryModal: React.FC<MediaRepositoryModalProps> = ({
                 path: img.path,
                 uploaderId: img.uploaderId,
                 type: 'image',
-                source: activityName
+                source: activityName,
+                activityType
               });
             });
           }
@@ -125,7 +129,8 @@ const MediaRepositoryModal: React.FC<MediaRepositoryModalProps> = ({
                 name: doc.name,
                 uploaderId: doc.uploaderId,
                 type: 'document',
-                source: activityName
+                source: activityName,
+                activityType
               });
             });
           }
@@ -148,7 +153,8 @@ const MediaRepositoryModal: React.FC<MediaRepositoryModalProps> = ({
               path: img.path,
               uploaderId: img.uploaderId,
               type: 'image',
-              source: accommodationName
+              source: accommodationName,
+              activityType: 'accommodation'
             });
           });
         }
@@ -163,7 +169,8 @@ const MediaRepositoryModal: React.FC<MediaRepositoryModalProps> = ({
               name: doc.name,
               uploaderId: doc.uploaderId,
               type: 'document',
-              source: accommodationName
+              source: accommodationName,
+              activityType: 'accommodation'
             });
           });
         }
@@ -367,19 +374,20 @@ const MediaRepositoryModal: React.FC<MediaRepositoryModalProps> = ({
                               {Array.from(mediaBySource.entries()).map(([source, items]) => {
                                 const images = items.filter(i => i.type === 'image');
                                 const docs = items.filter(i => i.type === 'document');
+                                const activityType = items[0]?.activityType;
 
                                 return (
                                   <div key={source}>
                                     {/* Header attività */}
-                                    <p
-                                      className="text-xs font-semibold mb-2 px-2 py-1 rounded-md inline-block"
-                                      style={{
-                                        color: colors.text,
-                                        backgroundColor: 'rgba(0,0,0,0.05)'
-                                      }}
-                                    >
-                                      {source}
-                                    </p>
+                                    <div className="flex items-center gap-1.5 mb-2">
+                                      <ActivityTypeIcon type={activityType} size={14} />
+                                      <span
+                                        className="text-xs"
+                                        style={{ color: colors.textMuted }}
+                                      >
+                                        {source}
+                                      </span>
+                                    </div>
 
                                     {/* Immagini dell'attività */}
                                     {images.length > 0 && (
