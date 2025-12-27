@@ -352,114 +352,108 @@ const MediaRepositoryModal: React.FC<MediaRepositoryModalProps> = ({
                           )}
                         </button>
 
-                        {/* Day Content */}
-                        {isExpanded && (
-                          <div className="px-4 pb-4 space-y-3">
-                            {/* Images Grid */}
-                            {dayImages.length > 0 && (
-                              <div>
-                                <p
-                                  className="text-xs font-medium mb-2 flex items-center gap-1"
-                                  style={{ color: colors.textMuted }}
-                                >
-                                  <Image size={12} />
-                                  Foto ({dayImages.length})
-                                </p>
-                                <div className="grid grid-cols-3 gap-2">
-                                  {dayImages.map(item => {
-                                    const uploader = getMemberByUserId(item.uploaderId);
-                                    return (
-                                      <div key={item.id} className="flex flex-col">
-                                        <button
-                                          onClick={() => handleMediaClick(item)}
-                                          className="aspect-square rounded-lg overflow-hidden hover:opacity-80 transition-opacity relative"
-                                        >
-                                          <img
-                                            src={item.url}
-                                            alt=""
-                                            className="w-full h-full object-cover"
-                                          />
-                                          {/* Avatar uploader */}
-                                          {uploader?.avatar && (
-                                            <div className="absolute bottom-1 right-1">
-                                              <img
-                                                src={uploader.avatar}
-                                                alt=""
-                                                className="w-5 h-5 rounded-full border-2 border-white object-cover"
-                                              />
-                                            </div>
-                                          )}
-                                        </button>
-                                        {/* Nome attività sotto la foto */}
-                                        <p
-                                          className="text-[10px] mt-1 truncate text-center"
-                                          style={{ color: colors.textMuted }}
-                                        >
-                                          {item.source}
-                                        </p>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
+                        {/* Day Content - raggruppato per attività */}
+                        {isExpanded && (() => {
+                          // Raggruppa i media per source (nome attività)
+                          const mediaBySource = new Map<string, MediaItem[]>();
+                          day.items.forEach(item => {
+                            const existing = mediaBySource.get(item.source) || [];
+                            existing.push(item);
+                            mediaBySource.set(item.source, existing);
+                          });
 
-                            {/* Documents List */}
-                            {dayDocs.length > 0 && (
-                              <div>
-                                <p
-                                  className="text-xs font-medium mb-2 flex items-center gap-1"
-                                  style={{ color: colors.textMuted }}
-                                >
-                                  <FileDown size={12} />
-                                  Documenti ({dayDocs.length})
-                                </p>
-                                <div className="space-y-2">
-                                  {dayDocs.map(item => {
-                                    const uploader = getMemberByUserId(item.uploaderId);
-                                    return (
-                                      <button
-                                        key={item.id}
-                                        onClick={() => handleMediaClick(item)}
-                                        className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-white transition-colors"
-                                        style={{ backgroundColor: 'rgba(255,255,255,0.5)' }}
-                                      >
-                                        <div
-                                          className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 relative"
-                                          style={{ backgroundColor: '#FEE2E2' }}
-                                        >
-                                          <FileDown size={18} style={{ color: '#DC2626' }} />
-                                          {/* Avatar uploader */}
-                                          {uploader?.avatar && (
-                                            <img
-                                              src={uploader.avatar}
-                                              alt=""
-                                              className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white object-cover"
-                                            />
-                                          )}
-                                        </div>
-                                        <div className="flex-1 text-left min-w-0">
-                                          <p
-                                            className="text-sm font-medium truncate"
-                                            style={{ color: colors.text }}
-                                          >
-                                            {item.name || 'Documento'}
-                                          </p>
-                                          <p
-                                            className="text-xs truncate"
-                                            style={{ color: colors.textMuted }}
-                                          >
-                                            {item.source}
-                                          </p>
-                                        </div>
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                          return (
+                            <div className="px-4 pb-4 space-y-4">
+                              {Array.from(mediaBySource.entries()).map(([source, items]) => {
+                                const images = items.filter(i => i.type === 'image');
+                                const docs = items.filter(i => i.type === 'document');
+
+                                return (
+                                  <div key={source}>
+                                    {/* Header attività */}
+                                    <p
+                                      className="text-xs font-semibold mb-2 px-2 py-1 rounded-md inline-block"
+                                      style={{
+                                        color: colors.text,
+                                        backgroundColor: 'rgba(0,0,0,0.05)'
+                                      }}
+                                    >
+                                      {source}
+                                    </p>
+
+                                    {/* Immagini dell'attività */}
+                                    {images.length > 0 && (
+                                      <div className="grid grid-cols-4 gap-2 mb-2">
+                                        {images.map(item => {
+                                          const uploader = getMemberByUserId(item.uploaderId);
+                                          return (
+                                            <button
+                                              key={item.id}
+                                              onClick={() => handleMediaClick(item)}
+                                              className="aspect-square rounded-lg overflow-hidden hover:opacity-80 transition-opacity relative"
+                                            >
+                                              <img
+                                                src={item.url}
+                                                alt=""
+                                                className="w-full h-full object-cover"
+                                              />
+                                              {uploader?.avatar && (
+                                                <div className="absolute bottom-1 right-1">
+                                                  <img
+                                                    src={uploader.avatar}
+                                                    alt=""
+                                                    className="w-4 h-4 rounded-full border border-white object-cover"
+                                                  />
+                                                </div>
+                                              )}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+
+                                    {/* Documenti dell'attività */}
+                                    {docs.length > 0 && (
+                                      <div className="space-y-1">
+                                        {docs.map(item => {
+                                          const uploader = getMemberByUserId(item.uploaderId);
+                                          return (
+                                            <button
+                                              key={item.id}
+                                              onClick={() => handleMediaClick(item)}
+                                              className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-white transition-colors"
+                                              style={{ backgroundColor: 'rgba(255,255,255,0.5)' }}
+                                            >
+                                              <div
+                                                className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 relative"
+                                                style={{ backgroundColor: '#FEE2E2' }}
+                                              >
+                                                <FileDown size={14} style={{ color: '#DC2626' }} />
+                                                {uploader?.avatar && (
+                                                  <img
+                                                    src={uploader.avatar}
+                                                    alt=""
+                                                    className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border border-white object-cover"
+                                                  />
+                                                )}
+                                              </div>
+                                              <p
+                                                className="text-xs font-medium truncate flex-1 text-left"
+                                                style={{ color: colors.text }}
+                                              >
+                                                {item.name || 'Documento'}
+                                              </p>
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
                       </div>
                     );
                   })
