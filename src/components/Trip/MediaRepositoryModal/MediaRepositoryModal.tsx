@@ -351,27 +351,27 @@ const MediaRepositoryModal: React.FC<MediaRepositoryModalProps> = ({
                                   <Image size={12} />
                                   Foto ({dayImages.length})
                                 </p>
-                                <div className="grid grid-cols-4 gap-2">
+                                <div className="grid grid-cols-3 gap-2">
                                   {dayImages.map(item => (
-                                    <button
-                                      key={item.id}
-                                      onClick={() => handleMediaClick(item)}
-                                      className="aspect-square rounded-lg overflow-hidden hover:opacity-80 transition-opacity relative group"
-                                      title={item.source}
-                                    >
-                                      <img
-                                        src={item.url}
-                                        alt=""
-                                        className="w-full h-full object-cover"
-                                      />
-                                      {/* Overlay con nome attività */}
-                                      <div
-                                        className="absolute bottom-0 left-0 right-0 p-1 text-white text-[10px] truncate opacity-0 group-hover:opacity-100 transition-opacity"
-                                        style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
+                                    <div key={item.id} className="flex flex-col">
+                                      <button
+                                        onClick={() => handleMediaClick(item)}
+                                        className="aspect-square rounded-lg overflow-hidden hover:opacity-80 transition-opacity"
+                                      >
+                                        <img
+                                          src={item.url}
+                                          alt=""
+                                          className="w-full h-full object-cover"
+                                        />
+                                      </button>
+                                      {/* Nome attività sotto la foto */}
+                                      <p
+                                        className="text-[10px] mt-1 truncate text-center"
+                                        style={{ color: colors.textMuted }}
                                       >
                                         {item.source}
-                                      </div>
-                                    </button>
+                                      </p>
+                                    </div>
                                   ))}
                                 </div>
                               </div>
