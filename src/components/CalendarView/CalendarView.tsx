@@ -129,13 +129,44 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   const handleMetadataSave = async (metadata: any) => {
     try {
-      await onUpdateTrip({
+      const updateData: any = {
         metadata: metadata,
         name: metadata.name,
         image: metadata.image,
         currency: metadata.currency || null,
         updatedAt: new Date()
-      });
+      };
+
+      // Se la data di inizio è cambiata, aggiorna tutte le date dei giorni
+      if (metadata.startDate) {
+        const currentStartDate = trip.days?.[0]?.date;
+        const newStartDate = new Date(metadata.startDate);
+        newStartDate.setHours(0, 0, 0, 0);
+
+        // Controlla se la data è effettivamente cambiata
+        const currentStartNormalized = currentStartDate ? new Date(currentStartDate) : null;
+        if (currentStartNormalized) {
+          currentStartNormalized.setHours(0, 0, 0, 0);
+        }
+
+        if (!currentStartNormalized || newStartDate.getTime() !== currentStartNormalized.getTime()) {
+          // Ricalcola le date di tutti i giorni a partire dalla nuova data di inizio
+          const updatedDays = trip.days.map((day: any, index: number) => {
+            const newDate = new Date(newStartDate);
+            newDate.setDate(newStartDate.getDate() + index);
+            return {
+              ...day,
+              date: newDate
+            };
+          });
+
+          updateData.days = updatedDays;
+          updateData.startDate = newStartDate;
+          console.log('📅 Date viaggio aggiornate:', newStartDate.toLocaleDateString());
+        }
+      }
+
+      await onUpdateTrip(updateData);
       setShowMetadataModal(false);
       console.log('✅ Metadata aggiornati');
     } catch (error) {
