@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin, Bed, Check, ArrowDownToLine } from 'lucide-react';
+import { MapPin, Bed, Check, ArrowDownToLine, Lightbulb } from 'lucide-react';
 import { ALTROVE_COLORS } from '../../utils/constants';
 import { ActivityTypeIcon } from '../../utils/activityTypes';
 import { EditTab } from './CalendarHeader';
@@ -276,7 +276,20 @@ const DayCard: React.FC<{
             className="flex items-center justify-center flex-1"
             style={{ color: ALTROVE_COLORS.textMuted }}
           >
-            <span className="text-lg">—</span>
+            {isSelected ? (
+              <div className="text-center px-2 space-y-1">
+                <div className="flex items-center justify-center gap-1">
+                  <MapPin size={12} style={{ color: ALTROVE_COLORS.accent }} />
+                  <Lightbulb size={12} style={{ color: ALTROVE_COLORS.accent }} />
+                  <Bed size={12} style={{ color: ALTROVE_COLORS.accent }} />
+                </div>
+                <p className="text-[11px] leading-tight">
+                  Aggiungi destinazioni, attività e pernottamento
+                </p>
+              </div>
+            ) : (
+              <span className="text-lg">—</span>
+            )}
           </div>
         ) : (
           <>
