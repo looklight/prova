@@ -14,9 +14,16 @@ import MediaDialog from '../modals/MediaDialog';
 
 interface MediaData {
   links?: Array<{ id: number; url: string; title?: string }>;
-  images?: Array<{ id: number; url: string; path?: string }>;
+  images?: Array<{ id: number; url: string; path?: string; uploaderId?: string }>;
   videos?: Array<{ id: number; url: string; note?: string }>;
   mediaNotes?: Array<{ id: number; text: string }>;
+  documents?: Array<{ id: number; url: string; path?: string; name: string; uploaderId?: string }>;
+}
+
+interface MemberInfo {
+  uid: string;
+  displayName: string;
+  avatar?: string;
 }
 
 interface EntityViewModeProps {
@@ -43,6 +50,7 @@ interface EntityViewModeProps {
 
   // Media
   mediaData: MediaData;
+  members?: MemberInfo[];
   onMediaNotesUpdate?: (updatedNotes: Array<{ id: number; text: string }>) => void;
 
   // Layout
@@ -61,6 +69,7 @@ const EntityViewMode: React.FC<EntityViewModeProps> = ({
   costBadge,
   infoContent,
   mediaData,
+  members = [],
   onMediaNotesUpdate,
   isDesktop,
   backgroundColor = colors.bgCard
@@ -75,7 +84,8 @@ const EntityViewMode: React.FC<EntityViewModeProps> = ({
   const hasMedia = (mediaData.links?.length || 0) +
     (mediaData.images?.length || 0) +
     (mediaData.videos?.length || 0) +
-    (mediaData.mediaNotes?.length || 0) > 0;
+    (mediaData.mediaNotes?.length || 0) +
+    (mediaData.documents?.length || 0) > 0;
 
   // Handler per nota
   const handleNoteClick = (note: { id: number; text: string }) => {
@@ -155,7 +165,9 @@ const EntityViewMode: React.FC<EntityViewModeProps> = ({
             images={mediaData.images || []}
             videos={mediaData.videos || []}
             mediaNotes={mediaData.mediaNotes || []}
+            documents={mediaData.documents || []}
             isEditMode={false}
+            members={members}
             onImageClick={(url) => setViewerImageUrl(url)}
             onNoteClick={handleNoteClick}
           />

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, Image, Video, FileText, X, Plus, ExternalLink } from 'lucide-react';
+import { Link, Image, Video, FileText, X, Plus, ExternalLink, FileDown } from 'lucide-react';
 import { colors } from '../../../styles/theme';
 
 // ============================================
@@ -8,13 +8,21 @@ import { colors } from '../../../styles/theme';
 // Da espandere/riprogettare in futuro
 // ============================================
 
+interface MemberInfo {
+  uid: string;
+  displayName: string;
+  avatar?: string;
+}
+
 interface MediaGridProps {
   links: Array<{ id: number; url: string; title?: string }>;
-  images: Array<{ id: number; url: string; path?: string }>;
+  images: Array<{ id: number; url: string; path?: string; uploaderId?: string }>;
   videos: Array<{ id: number; url: string; note?: string }>;
   mediaNotes: Array<{ id: number; text: string }>;
+  documents?: Array<{ id: number; url: string; path?: string; name: string; uploaderId?: string }>;
   isEditMode: boolean;
-  onRemoveMedia?: (type: 'links' | 'images' | 'videos' | 'mediaNotes', id: number) => void;
+  members?: MemberInfo[];
+  onRemoveMedia?: (type: 'links' | 'images' | 'videos' | 'mediaNotes' | 'documents', id: number) => void;
   onAddMedia?: () => void;
   onImageClick?: (imageUrl: string) => void;
   onNoteClick?: (note: { id: number; text: string }) => void;
@@ -79,11 +87,12 @@ const LinkCard: React.FC<{
 
 // Card singola immagine
 const ImageCard: React.FC<{
-  image: { id: number; url: string; path?: string };
+  image: { id: number; url: string; path?: string; uploaderId?: string };
   isEditMode: boolean;
+  uploader?: MemberInfo;
   onRemove?: () => void;
   onClick?: () => void;
-}> = ({ image, isEditMode, onRemove, onClick }) => {
+}> = ({ image, isEditMode, uploader, onRemove, onClick }) => {
   return (
     <div className="relative group">
       <div
@@ -98,6 +107,29 @@ const ImageCard: React.FC<{
           loading="lazy"
         />
       </div>
+
+      {/* Avatar uploader - in alto a sinistra */}
+      {uploader && (
+        <div
+          className="absolute top-1.5 left-1.5 w-6 h-6 rounded-full border-2 border-white shadow-sm overflow-hidden"
+          title={uploader.displayName}
+        >
+          {uploader.avatar ? (
+            <img
+              src={uploader.avatar}
+              alt={uploader.displayName}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div
+              className="w-full h-full flex items-center justify-center text-[10px] font-medium text-white"
+              style={{ backgroundColor: colors.accent }}
+            >
+              {uploader.displayName.charAt(0).toUpperCase()}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Remove button - sempre visibile in edit mode */}
       {isEditMode && onRemove && (
@@ -270,19 +302,101 @@ const NoteCard: React.FC<{
   );
 };
 
+// Card singola documento (PDF)
+const DocumentCard: React.FC<{
+  document: { id: number; url: string; path?: string; name: string; uploaderId?: string };
+  isEditMode: boolean;
+  uploader?: MemberInfo;
+  onRemove?: () => void;
+}> = ({ document, isEditMode, uploader, onRemove }) => {
+  // Estrai nome file senza estensione per display
+  const displayName = document.name.replace(/\.pdf$/i, '');
+
+  return (
+    <div className="relative group">
+      <a
+        href={document.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="aspect-square rounded-lg overflow-hidden flex flex-col items-center justify-center p-2 hover:opacity-90 transition-opacity"
+        style={{ backgroundColor: '#FEE2E2' }} // Rosso chiaro per PDF
+      >
+        <FileDown size={28} color="#DC2626" className="mb-1" />
+        <p
+          className="text-[10px] font-medium text-center line-clamp-2 w-full px-1"
+          style={{ color: colors.text }}
+        >
+          {displayName}
+        </p>
+        <p
+          className="text-[9px] text-center w-full mt-0.5"
+          style={{ color: '#DC2626' }}
+        >
+          PDF
+        </p>
+        <ExternalLink size={10} color={colors.textMuted} className="absolute bottom-1.5 right-1.5" />
+      </a>
+
+      {/* Avatar uploader - in alto a sinistra */}
+      {uploader && (
+        <div
+          className="absolute top-1.5 left-1.5 w-6 h-6 rounded-full border-2 border-white shadow-sm overflow-hidden"
+          title={uploader.displayName}
+        >
+          {uploader.avatar ? (
+            <img
+              src={uploader.avatar}
+              alt={uploader.displayName}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div
+              className="w-full h-full flex items-center justify-center text-[10px] font-medium text-white"
+              style={{ backgroundColor: colors.accent }}
+            >
+              {uploader.displayName.charAt(0).toUpperCase()}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Remove button - sempre visibile in edit mode */}
+      {isEditMode && onRemove && (
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onRemove();
+          }}
+          className="absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center bg-red-500 text-white"
+        >
+          <X size={12} />
+        </button>
+      )}
+    </div>
+  );
+};
+
 // Componente principale
 const MediaGrid: React.FC<MediaGridProps> = ({
   links,
   images,
   videos,
   mediaNotes,
+  documents = [],
   isEditMode,
+  members = [],
   onRemoveMedia,
   onAddMedia,
   onImageClick,
   onNoteClick
 }) => {
-  const totalMedia = links.length + images.length + videos.length + mediaNotes.length;
+  // Helper per trovare l'uploader di un file
+  const getUploader = (uploaderId?: string): MemberInfo | undefined => {
+    if (!uploaderId || members.length === 0) return undefined;
+    return members.find(m => m.uid === uploaderId);
+  };
+  const totalMedia = links.length + images.length + videos.length + mediaNotes.length + documents.length;
   const hasAnyMedia = totalMedia > 0;
 
   if (!hasAnyMedia && !isEditMode) {
@@ -310,6 +424,7 @@ const MediaGrid: React.FC<MediaGridProps> = ({
               key={`image-${image.id}`}
               image={image}
               isEditMode={isEditMode}
+              uploader={getUploader(image.uploaderId)}
               onRemove={() => onRemoveMedia?.('images', image.id)}
               onClick={() => onImageClick?.(image.url)}
             />
@@ -333,6 +448,17 @@ const MediaGrid: React.FC<MediaGridProps> = ({
               isEditMode={isEditMode}
               onRemove={() => onRemoveMedia?.('mediaNotes', note.id)}
               onClick={() => onNoteClick?.(note)}
+            />
+          ))}
+
+          {/* Documents (PDF) */}
+          {documents.map(doc => (
+            <DocumentCard
+              key={`doc-${doc.id}`}
+              document={doc}
+              isEditMode={isEditMode}
+              uploader={getUploader(doc.uploaderId)}
+              onRemove={() => onRemoveMedia?.('documents', doc.id)}
             />
           ))}
 

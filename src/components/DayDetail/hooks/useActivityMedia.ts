@@ -144,7 +144,7 @@ export const useActivityMedia = ({
   }, [mediaDialogType, linkInput, linkTitle, videoInput, videoNote, noteInput, editingNote, activity, onUpdate, closeMediaDialog]);
 
   const handleRemoveMedia = useCallback(async (
-    type: 'links' | 'images' | 'videos' | 'mediaNotes',
+    type: 'links' | 'images' | 'videos' | 'mediaNotes' | 'documents',
     id: number
   ) => {
     // Conferma eliminazione
@@ -158,6 +158,18 @@ export const useActivityMedia = ({
           await deleteImage(image.path);
         } catch (error) {
           console.error('Errore eliminazione immagine:', error);
+        }
+      }
+    }
+
+    // Se è un documento, elimina anche da Storage
+    if (type === 'documents') {
+      const doc = activity.documents?.find(d => d.id === id);
+      if (doc?.path) {
+        try {
+          await deleteImage(doc.path); // Usa la stessa funzione per eliminare file da Storage
+        } catch (error) {
+          console.error('Errore eliminazione documento:', error);
         }
       }
     }

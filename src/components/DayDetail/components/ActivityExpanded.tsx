@@ -223,7 +223,8 @@ export const ActivityExpandedContent: React.FC<ActivityExpandedContentProps> = (
   const hasMedia = (activity.links?.length || 0) +
     (activity.images?.length || 0) +
     (activity.videos?.length || 0) +
-    (activity.mediaNotes?.length || 0) > 0;
+    (activity.mediaNotes?.length || 0) +
+    (activity.documents?.length || 0) > 0;
 
   // Handler per nota
   const handleNoteClick = (note: { id: number; text: string }) => {
@@ -384,7 +385,12 @@ export const ActivityExpandedContent: React.FC<ActivityExpandedContentProps> = (
             images={activity.images || []}
             videos={activity.videos || []}
             mediaNotes={activity.mediaNotes || []}
+            documents={activity.documents || []}
             isEditMode={false}
+            members={trip?.sharing?.members ? Object.entries(trip.sharing.members)
+              .filter(([_, m]: [string, any]) => m.status === 'active')
+              .map(([uid, m]: [string, any]) => ({ uid, displayName: m.displayName || 'Utente', avatar: m.avatar }))
+              : []}
             onImageClick={(url) => setViewerImageUrl(url)}
             onNoteClick={handleNoteClick}
           />

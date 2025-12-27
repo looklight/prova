@@ -87,8 +87,12 @@ const ActivityEditMode: React.FC<ActivityEditModeProps> = ({
   const imageUpload = useGenericImageUpload({
     tripId,
     entityId: activity.id,
+    uploaderId: currentUserId,
     onImageUploaded: (imageData) => {
       onUpdate({ images: [...(activity.images || []), imageData] });
+    },
+    onDocumentUploaded: (docData) => {
+      onUpdate({ documents: [...(activity.documents || []), docData] });
     }
   });
 
@@ -380,13 +384,18 @@ const ActivityEditMode: React.FC<ActivityEditModeProps> = ({
           <MediaSection
             data={activity}
             isUploadingImage={imageUpload.isUploadingImage}
+            isUploadingDocument={imageUpload.isUploadingDocument}
             fileInputRef={imageUpload.fileInputRef}
+            documentInputRef={imageUpload.documentInputRef}
+            members={activeMembers}
             onRemoveMedia={media.handleRemoveMedia}
             onImageClick={(url) => media.setViewerImageUrl(url)}
             onNoteClick={media.handleNoteClick}
             onOpenMediaDialog={media.openMediaDialog}
             onImageButtonClick={imageUpload.handleImageClick}
+            onDocumentButtonClick={imageUpload.handleDocumentClick}
             onImageUpload={imageUpload.handleImageUpload}
+            onDocumentUpload={imageUpload.handleDocumentUpload}
           />
         </div>
 

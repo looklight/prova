@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ChevronDown, ChevronUp, Plus, Lightbulb, ArrowUpDown, Check } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, Lightbulb, ArrowUpDown, Check, Paperclip } from 'lucide-react';
 import { colors } from '../../../styles/theme';
 import { durations, easings } from '../../../styles/animations';
 import ActivityRow from '../components/ActivityRow';
@@ -52,9 +52,10 @@ export interface Activity {
     minutesBefore?: number;
   };
   links?: Array<{ id: number; url: string; title?: string }>;
-  images?: Array<{ id: number; url: string; path?: string }>;
+  images?: Array<{ id: number; url: string; path?: string; uploaderId?: string }>;
   videos?: Array<{ id: number; url: string; note?: string }>;
   mediaNotes?: Array<{ id: number; text: string }>;
+  documents?: Array<{ id: number; url: string; path?: string; name: string; uploaderId?: string }>;
   showInCalendar?: boolean; // Per le prime 3 visibili nel calendario
 }
 
@@ -150,6 +151,15 @@ const ActivitiesSection: React.FC<ActivitiesSectionProps> = ({
 
   // Conteggio attività
   const activityCount = activities.length;
+
+  // Verifica se almeno una attività ha media allegati
+  const hasAnyMedia = activities.some(a =>
+    (a.images?.length || 0) > 0 ||
+    (a.links?.length || 0) > 0 ||
+    (a.videos?.length || 0) > 0 ||
+    (a.mediaNotes?.length || 0) > 0 ||
+    (a.documents?.length || 0) > 0
+  );
 
   // Conteggio attività visibili nel calendario (max 3)
   const calendarVisibleCount = activities.filter(a => a.showInCalendar === true).length;
@@ -315,6 +325,10 @@ const ActivitiesSection: React.FC<ActivitiesSectionProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Icona allegati (solo se chiusa e ha media) */}
+          {!isExpanded && hasAnyMedia && (
+            <Paperclip size={14} color={colors.textMuted} />
+          )}
           {/* Freccia espandi/comprimi */}
           {isExpanded ? (
             <ChevronUp size={20} color={colors.textMuted} />

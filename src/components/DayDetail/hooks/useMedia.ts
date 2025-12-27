@@ -14,6 +14,7 @@ interface WithMedia {
   images?: Array<{ id: number; url: string; path?: string }>;
   videos?: Array<{ id: number; url: string; note?: string }>;
   mediaNotes?: Array<{ id: number; text: string }>;
+  documents?: Array<{ id: number; url: string; path?: string; name: string }>;
 }
 
 interface UseMediaProps<T extends WithMedia> {
@@ -51,7 +52,7 @@ interface UseMediaReturn {
   closeMediaDialog: () => void;
   handleNoteClick: (note: { id: number; text: string }) => void;
   handleMediaSubmit: () => void;
-  handleRemoveMedia: (type: 'links' | 'images' | 'videos' | 'mediaNotes', id: number) => Promise<void>;
+  handleRemoveMedia: (type: 'links' | 'images' | 'videos' | 'mediaNotes' | 'documents', id: number) => Promise<void>;
 }
 
 export const useMedia = <T extends WithMedia>({
@@ -129,7 +130,7 @@ export const useMedia = <T extends WithMedia>({
   }, [mediaDialogType, linkInput, linkTitle, videoInput, videoNote, noteInput, editingNote, data, onUpdate, closeMediaDialog]);
 
   const handleRemoveMedia = useCallback(async (
-    type: 'links' | 'images' | 'videos' | 'mediaNotes',
+    type: 'links' | 'images' | 'videos' | 'mediaNotes' | 'documents',
     id: number
   ) => {
     const current = data[type] || [];
@@ -142,6 +143,18 @@ export const useMedia = <T extends WithMedia>({
           await deleteImage(image.path);
         } catch (error) {
           console.error('Errore eliminazione immagine:', error);
+        }
+      }
+    }
+
+    // Se è un documento, elimina anche da Storage
+    if (type === 'documents') {
+      const doc = current.find((item: any) => item.id === id);
+      if (doc?.path) {
+        try {
+          await deleteImage(doc.path);
+        } catch (error) {
+          console.error('Errore eliminazione documento:', error);
         }
       }
     }

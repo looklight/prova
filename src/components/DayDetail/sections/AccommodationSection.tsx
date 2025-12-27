@@ -32,9 +32,10 @@ interface AccommodationData {
     coordinates?: { lat: number; lng: number };
   };
   links?: Array<{ id: number; url: string; title?: string }>;
-  images?: Array<{ id: number; url: string; path?: string }>;
+  images?: Array<{ id: number; url: string; path?: string; uploaderId?: string }>;
   videos?: Array<{ id: number; url: string; note?: string }>;
   mediaNotes?: Array<{ id: number; text: string }>;
+  documents?: Array<{ id: number; url: string; path?: string; name: string; uploaderId?: string }>;
   startTime?: string;  // Check-in (unificato)
   endTime?: string;    // Check-out (unificato)
   reminder?: {
@@ -70,6 +71,7 @@ const AccommodationSection: React.FC<AccommodationSectionProps> = ({
   onUpdateAccommodationMultiple,
   currentUserId,
   tripMembers,
+  activeMembers,
   isDesktop,
   tripId,
   tripName,
@@ -124,9 +126,14 @@ const AccommodationSection: React.FC<AccommodationSectionProps> = ({
   const imageUpload = useGenericImageUpload({
     tripId,
     entityId: `accommodation-${dayId}`,
+    uploaderId: currentUserId,
     onImageUploaded: (imageData) => {
       const currentImages = accommodation.images || [];
       onUpdateAccommodation('images', [...currentImages, imageData]);
+    },
+    onDocumentUploaded: (docData) => {
+      const currentDocs = accommodation.documents || [];
+      onUpdateAccommodation('documents', [...currentDocs, docData]);
     }
   });
 
@@ -504,13 +511,18 @@ const AccommodationSection: React.FC<AccommodationSectionProps> = ({
                 <MediaSection
                   data={accommodation}
                   isUploadingImage={imageUpload.isUploadingImage}
+                  isUploadingDocument={imageUpload.isUploadingDocument}
                   fileInputRef={imageUpload.fileInputRef}
+                  documentInputRef={imageUpload.documentInputRef}
+                  members={activeMembers}
                   onRemoveMedia={media.handleRemoveMedia}
                   onImageClick={(url) => media.setViewerImageUrl(url)}
                   onNoteClick={media.handleNoteClick}
                   onOpenMediaDialog={media.openMediaDialog}
                   onImageButtonClick={imageUpload.handleImageClick}
+                  onDocumentButtonClick={imageUpload.handleDocumentClick}
                   onImageUpload={imageUpload.handleImageUpload}
+                  onDocumentUpload={imageUpload.handleDocumentUpload}
                 />
 
                 {/* Footer */}
@@ -649,6 +661,7 @@ const AccommodationSection: React.FC<AccommodationSectionProps> = ({
                     ) : undefined
                   }
                   mediaData={accommodation}
+                  members={activeMembers}
                   onMediaNotesUpdate={(updatedNotes) => onUpdateAccommodation('mediaNotes', updatedNotes)}
                   isDesktop={isDesktop}
                 />

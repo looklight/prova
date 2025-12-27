@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, Image, Video, FileText, Loader2 } from 'lucide-react';
+import { Link, Image, Video, FileText, Loader2, FileDown } from 'lucide-react';
 import { colors } from '../../../styles/theme';
 import MediaGrid from './MediaGrid';
 
@@ -10,34 +10,51 @@ import MediaGrid from './MediaGrid';
 
 interface MediaData {
   links?: Array<{ id: number; url: string; title?: string }>;
-  images?: Array<{ id: number; url: string; path?: string }>;
+  images?: Array<{ id: number; url: string; path?: string; uploaderId?: string }>;
   videos?: Array<{ id: number; url: string; note?: string }>;
   mediaNotes?: Array<{ id: number; text: string }>;
+  documents?: Array<{ id: number; url: string; path?: string; name: string; uploaderId?: string }>;
+}
+
+interface MemberInfo {
+  uid: string;
+  displayName: string;
+  avatar?: string;
 }
 
 interface MediaSectionProps {
   data: MediaData;
   isUploadingImage: boolean;
+  isUploadingDocument?: boolean;
   fileInputRef: React.RefObject<HTMLInputElement>;
-  onRemoveMedia: (type: 'links' | 'images' | 'videos' | 'mediaNotes', id: number) => void;
+  documentInputRef?: React.RefObject<HTMLInputElement>;
+  members?: MemberInfo[];
+  onRemoveMedia: (type: 'links' | 'images' | 'videos' | 'mediaNotes' | 'documents', id: number) => void;
   onImageClick: (url: string) => void;
   onNoteClick: (note: { id: number; text: string }) => void;
   onOpenMediaDialog: (type: 'link' | 'video' | 'note') => void;
   onImageButtonClick: () => void;
+  onDocumentButtonClick?: () => void;
   onImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onDocumentUpload?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   showLabel?: boolean;
 }
 
 const MediaSection: React.FC<MediaSectionProps> = ({
   data,
   isUploadingImage,
+  isUploadingDocument = false,
   fileInputRef,
+  documentInputRef,
+  members = [],
   onRemoveMedia,
   onImageClick,
   onNoteClick,
   onOpenMediaDialog,
   onImageButtonClick,
+  onDocumentButtonClick,
   onImageUpload,
+  onDocumentUpload,
   showLabel = true
 }) => {
   return (
@@ -57,7 +74,9 @@ const MediaSection: React.FC<MediaSectionProps> = ({
         images={data.images || []}
         videos={data.videos || []}
         mediaNotes={data.mediaNotes || []}
+        documents={data.documents || []}
         isEditMode={true}
+        members={members}
         onRemoveMedia={onRemoveMedia}
         onImageClick={onImageClick}
         onNoteClick={onNoteClick}
@@ -105,6 +124,23 @@ const MediaSection: React.FC<MediaSectionProps> = ({
           <FileText size={20} />
           <span className="text-xs">Nota</span>
         </button>
+
+        {/* Bottone PDF - solo se handler disponibile */}
+        {onDocumentButtonClick && (
+          <button
+            onClick={onDocumentButtonClick}
+            disabled={isUploadingDocument}
+            className="flex flex-col items-center gap-1 p-2.5 rounded-lg transition-colors hover:bg-gray-50 disabled:opacity-50"
+            style={{ color: '#DC2626' }}
+          >
+            {isUploadingDocument ? (
+              <Loader2 size={20} className="animate-spin" />
+            ) : (
+              <FileDown size={20} />
+            )}
+            <span className="text-xs">PDF</span>
+          </button>
+        )}
       </div>
 
       {/* Hidden file input per immagini */}
@@ -115,6 +151,17 @@ const MediaSection: React.FC<MediaSectionProps> = ({
         onChange={onImageUpload}
         className="hidden"
       />
+
+      {/* Hidden file input per documenti PDF */}
+      {documentInputRef && onDocumentUpload && (
+        <input
+          ref={documentInputRef}
+          type="file"
+          accept="application/pdf"
+          onChange={onDocumentUpload}
+          className="hidden"
+        />
+      )}
     </div>
   );
 };

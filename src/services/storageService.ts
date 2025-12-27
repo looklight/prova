@@ -125,6 +125,48 @@ export const uploadImage = async (
 };
 
 /**
+ * Carica un documento (PDF) su Firebase Storage
+ * Senza compressione, caricato così com'è
+ */
+export const uploadDocument = async (
+  file: File,
+  tripId: string,
+  categoryId: string
+): Promise<ImageData> => {
+  try {
+    // 1. Genera nome file unico
+    const timestamp = Date.now();
+    const fileName = `${timestamp}_${file.name}`;
+    const path = `trips/${tripId}/${categoryId}/docs/${fileName}`;
+
+    // 2. Crea riferimento Storage
+    const storageRef = ref(storage, path);
+
+    // 3. Upload diretto (senza compressione)
+    await uploadBytes(storageRef, file);
+
+    // 4. Registra come pending (per cleanup orfani)
+    const userId = auth.currentUser?.uid;
+    if (userId) {
+      await registerPendingMedia(path, userId, 'trip', tripId);
+    }
+
+    // 5. Ottieni URL pubblico
+    const downloadURL = await getDownloadURL(storageRef);
+
+    return {
+      url: downloadURL,
+      name: file.name,
+      path,
+      id: timestamp
+    };
+  } catch (error) {
+    console.error('Errore upload documento:', error);
+    throw error;
+  }
+};
+
+/**
  * Elimina un'immagine da Firebase Storage
  */
 export const deleteImage = async (imagePath: string): Promise<void> => {
