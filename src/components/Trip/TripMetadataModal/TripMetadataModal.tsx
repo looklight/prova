@@ -207,8 +207,8 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                     onClick={() => setShowPackingListModal(true)}
                   />
 
-                  {/* Media Repository - solo in edit mode con dati disponibili */}
-                  {mode === 'edit' && tripDays && tripData && (
+                  {/* Media Repository - solo se ci sono media caricati */}
+                  {mode === 'edit' && tripDays && tripData && (mediaStats.images + mediaStats.documents > 0) && (
                     <MediaRepositoryButton
                       imageCount={mediaStats.images}
                       documentCount={mediaStats.documents}
