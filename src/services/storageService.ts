@@ -137,7 +137,7 @@ export const uploadDocument = async (
     // 1. Genera nome file unico
     const timestamp = Date.now();
     const fileName = `${timestamp}_${file.name}`;
-    const path = `trips/${tripId}/${categoryId}/${fileName}`;
+    const path = `trips/${tripId}/${categoryId}/docs/${fileName}`;
 
     // 2. Crea riferimento Storage
     const storageRef = ref(storage, path);
