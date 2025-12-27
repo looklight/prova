@@ -140,14 +140,12 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
 
                 {/* Content below hero - with padding */}
                 <div className="px-5 py-5 space-y-4">
-                  {/* Date Picker - only in create mode */}
-                  {mode === 'create' && (
-                    <DatePill
-                      startDate={form.dateRange?.from}
-                      endDate={form.dateRange?.to}
-                      onClick={() => form.setShowDatePicker(true)}
-                    />
-                  )}
+                  {/* Date Picker */}
+                  <DatePill
+                    startDate={form.dateRange?.from}
+                    endDate={form.dateRange?.to}
+                    onClick={() => form.setShowDatePicker(true)}
+                  />
 
                   {/* Participants */}
                   <ParticipantsStack
@@ -196,14 +194,13 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
       </AnimatePresence>
 
       {/* Date Picker Bottom Sheet */}
-      {mode === 'create' && (
-        <DatePickerSheet
-          isOpen={form.showDatePicker}
-          onClose={() => form.setShowDatePicker(false)}
-          dateRange={form.dateRange}
-          onDateChange={form.setDateRange}
-        />
-      )}
+      <DatePickerSheet
+        isOpen={form.showDatePicker}
+        onClose={() => form.setShowDatePicker(false)}
+        dateRange={form.dateRange}
+        onDateChange={form.setDateRange}
+        mode={mode}
+      />
 
       {/* Invite Modal - only in edit mode */}
       {mode === 'edit' && form.tripForInvite && (

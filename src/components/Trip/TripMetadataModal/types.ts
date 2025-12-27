@@ -121,6 +121,7 @@ export interface DatePickerSheetProps {
   onClose: () => void;
   dateRange: DateRange | undefined;
   onDateChange: (range: DateRange | undefined) => void;
+  mode?: 'create' | 'edit';
 }
 
 export interface MemberWithId extends TripMember {

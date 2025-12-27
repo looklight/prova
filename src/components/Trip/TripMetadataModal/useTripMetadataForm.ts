@@ -59,7 +59,15 @@ export const useTripMetadataForm = ({
         setImage(initialData.image || null);
         setImagePath(initialData.imagePath || null);
         setDestinations(initialData.destinations || []);
-        setDateRange(undefined);
+        // In edit mode, inizializza con le date esistenti
+        if (mode === 'edit' && initialData.startDate && initialData.endDate) {
+          setDateRange({
+            from: new Date(initialData.startDate),
+            to: new Date(initialData.endDate)
+          });
+        } else {
+          setDateRange(undefined);
+        }
         setPreferredCurrencies(initialData.currency?.preferred || {});
         setPackingList(initialData.packingList || { items: [] });
       } else {
@@ -75,7 +83,7 @@ export const useTripMetadataForm = ({
       setShowInviteModal(false);
       setSelectedUserProfile(null);
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData, mode]);
 
   // ============= COMPUTED =============
   const activeMembers = useMemo<MemberWithId[]>(() => {
@@ -119,6 +127,31 @@ export const useTripMetadataForm = ({
     const diffTime = dateRange.to.getTime() - dateRange.from.getTime();
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
   }, [dateRange]);
+
+  // Durata originale del viaggio (per edit mode)
+  const originalDuration = useMemo(() => {
+    if (mode !== 'edit' || !initialData?.startDate || !initialData?.endDate) return null;
+    const start = new Date(initialData.startDate);
+    const end = new Date(initialData.endDate);
+    const diffTime = end.getTime() - start.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  }, [mode, initialData?.startDate, initialData?.endDate]);
+
+  // Handler per cambio date che mantiene la durata in edit mode
+  const handleDateRangeChange = (newRange: DateRange | undefined) => {
+    if (mode === 'edit' && originalDuration !== null && newRange?.from) {
+      // In edit mode, se cambia la data di inizio, mantieni la durata
+      const newEndDate = new Date(newRange.from);
+      newEndDate.setDate(newEndDate.getDate() + originalDuration);
+      setDateRange({
+        from: newRange.from,
+        to: newEndDate
+      });
+    } else {
+      // In create mode o se non c'è durata originale, comportamento normale
+      setDateRange(newRange);
+    }
+  };
 
   // ============= HANDLERS =============
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -202,8 +235,8 @@ export const useTripMetadataForm = ({
       image,
       imagePath,
       destinations,
-      ...(mode === 'create' && dateRange?.from && { startDate: dateRange.from }),
-      ...(mode === 'create' && dateRange?.to && { endDate: dateRange.to }),
+      ...(dateRange?.from && { startDate: dateRange.from }),
+      ...(dateRange?.to && { endDate: dateRange.to }),
       ...(Object.keys(preferredCurrencies).length > 0 && {
         currency: { preferred: preferredCurrencies }
       }),
@@ -258,7 +291,7 @@ export const useTripMetadataForm = ({
     addDestination,
     removeDestination,
     dateRange,
-    setDateRange,
+    setDateRange: handleDateRangeChange,
     preferredCurrencies,
     setPreferredCurrencies,
     packingList,

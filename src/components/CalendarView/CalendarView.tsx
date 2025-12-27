@@ -245,7 +245,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         initialData={{
           ...trip.metadata,
           tripId: trip.id,
-          sharing: trip.sharing
+          sharing: trip.sharing,
+          startDate: trip.days?.[0]?.date ? new Date(trip.days[0].date) : undefined,
+          endDate: trip.days?.[trip.days.length - 1]?.date ? new Date(trip.days[trip.days.length - 1].date) : undefined
         }}
         currentUser={currentUser}
         mode="edit"
