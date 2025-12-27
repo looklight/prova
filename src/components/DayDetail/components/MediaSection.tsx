@@ -107,6 +107,23 @@ const MediaSection: React.FC<MediaSectionProps> = ({
           <span className="text-xs">Foto</span>
         </button>
 
+        {/* Bottone PDF - subito dopo Foto */}
+        {onDocumentButtonClick && (
+          <button
+            onClick={onDocumentButtonClick}
+            disabled={isUploadingDocument}
+            className="flex flex-col items-center gap-1 p-2.5 rounded-lg transition-colors hover:bg-gray-50 disabled:opacity-50"
+            style={{ color: '#9CA3AF' }}
+          >
+            {isUploadingDocument ? (
+              <Loader2 size={20} className="animate-spin" />
+            ) : (
+              <FileDown size={20} />
+            )}
+            <span className="text-xs">PDF</span>
+          </button>
+        )}
+
         <button
           onClick={() => onOpenMediaDialog('video')}
           className="flex flex-col items-center gap-1 p-2.5 rounded-lg transition-colors hover:bg-gray-50"
@@ -124,23 +141,6 @@ const MediaSection: React.FC<MediaSectionProps> = ({
           <FileText size={20} />
           <span className="text-xs">Nota</span>
         </button>
-
-        {/* Bottone PDF - solo se handler disponibile */}
-        {onDocumentButtonClick && (
-          <button
-            onClick={onDocumentButtonClick}
-            disabled={isUploadingDocument}
-            className="flex flex-col items-center gap-1 p-2.5 rounded-lg transition-colors hover:bg-gray-50 disabled:opacity-50"
-            style={{ color: '#DC2626' }}
-          >
-            {isUploadingDocument ? (
-              <Loader2 size={20} className="animate-spin" />
-            ) : (
-              <FileDown size={20} />
-            )}
-            <span className="text-xs">PDF</span>
-          </button>
-        )}
       </div>
 
       {/* Hidden file input per immagini */}
