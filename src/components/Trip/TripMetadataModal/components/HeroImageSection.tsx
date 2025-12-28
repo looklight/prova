@@ -21,7 +21,7 @@ const HeroImageSection: React.FC<HeroImageSectionProps> = ({
   onNameChange
 }) => {
   return (
-    <div className="relative w-full aspect-[4/5] overflow-hidden">
+    <div className="relative w-full aspect-square overflow-hidden">
       {/* Background: Image or Gradient Placeholder */}
       {image ? (
         <img

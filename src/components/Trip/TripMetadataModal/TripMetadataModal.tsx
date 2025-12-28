@@ -58,10 +58,11 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
 
   // Compute media repository stats
   const mediaStats = useMemo(() => {
-    if (!tripDays || !tripData) return { images: 0, documents: 0 };
+    if (!tripDays || !tripData) return { images: 0, documents: 0, previews: [] as string[] };
 
     let images = 0;
     let documents = 0;
+    const previews: string[] = [];
 
     tripDays.forEach(day => {
       const dayId = day.id;
@@ -71,7 +72,15 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
       const activitiesData = tripData[activitiesKey];
       if (activitiesData?.activities && Array.isArray(activitiesData.activities)) {
         activitiesData.activities.forEach((activity: any) => {
-          images += activity.images?.length || 0;
+          if (activity.images?.length) {
+            images += activity.images.length;
+            // Raccogli URL per anteprime (max 6)
+            activity.images.forEach((img: any) => {
+              if (previews.length < 6 && img.url) {
+                previews.push(img.url);
+              }
+            });
+          }
           documents += activity.documents?.length || 0;
         });
       }
@@ -80,12 +89,19 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
       const accommodationKey = `${dayId}-pernottamento`;
       const accommodationData = tripData[accommodationKey];
       if (accommodationData) {
-        images += accommodationData.images?.length || 0;
+        if (accommodationData.images?.length) {
+          images += accommodationData.images.length;
+          accommodationData.images.forEach((img: any) => {
+            if (previews.length < 6 && img.url) {
+              previews.push(img.url);
+            }
+          });
+        }
         documents += accommodationData.documents?.length || 0;
       }
     });
 
-    return { images, documents };
+    return { images, documents, previews };
   }, [tripDays, tripData]);
 
   // Avvia animazione apertura
@@ -212,6 +228,7 @@ const TripMetadataModal: React.FC<TripMetadataModalProps> = ({
                     <MediaRepositoryButton
                       imageCount={mediaStats.images}
                       documentCount={mediaStats.documents}
+                      previews={mediaStats.previews}
                       onClick={() => setShowMediaRepositoryModal(true)}
                     />
                   )}
