@@ -67,7 +67,7 @@ const ActivityRow: React.FC<ActivityRowProps> = ({
       )}
 
       {/* Media indicator */}
-      {!!(activity.images?.length || activity.videos?.length || activity.links?.length || activity.mediaNotes?.length) && (
+      {!!(activity.images?.length || activity.videos?.length || activity.links?.length || activity.mediaNotes?.length || activity.documents?.length) && (
         <Paperclip size={12} color={colors.textMuted} className="flex-shrink-0" />
       )}
 

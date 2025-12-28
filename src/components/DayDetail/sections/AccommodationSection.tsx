@@ -613,7 +613,7 @@ const AccommodationSection: React.FC<AccommodationSectionProps> = ({
                       )}
 
                       {/* Media indicator */}
-                      {!!(accommodation.images?.length || accommodation.videos?.length || accommodation.links?.length || accommodation.mediaNotes?.length) && (
+                      {!!(accommodation.images?.length || accommodation.videos?.length || accommodation.links?.length || accommodation.mediaNotes?.length || accommodation.documents?.length) && (
                         <Paperclip size={12} color={colors.textMuted} className="flex-shrink-0" />
                       )}
 
