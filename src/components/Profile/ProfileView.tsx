@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { ChevronLeft, User, Camera, Loader } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, User, Camera, Loader, HardDrive } from 'lucide-react';
 import { auth } from '../../firebase';
 import { signOut } from 'firebase/auth';
 import { loadUserProfile, updateUserProfile, updateUserProfileInTrips } from "../../services/profileService";
@@ -8,12 +8,14 @@ import { confirmMedia } from "../../services/pendingMediaService";
 import { IMAGE_COMPRESSION } from '../../config/imageConfig';
 import { Avatar } from '../ui';
 import ProfileEditModal from './ProfileEditModal';
+import UserStorageModal from './UserStorageModal';
 
 const ProfileView = ({ onBack, user, trips = [] }) => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showStorageModal, setShowStorageModal] = useState(false);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -132,6 +134,84 @@ const ProfileView = ({ onBack, user, trips = [] }) => {
 
   const stats = calculateStats();
 
+  // Calcola spazio file caricati dall'utente (immagini + documenti)
+  const storageUsed = useMemo(() => {
+    if (!user?.uid || !trips.length) return 0;
+
+    let totalBytes = 0;
+
+    trips.forEach((trip: any) => {
+      if (!trip.data) return;
+
+      // Itera su tutti i giorni
+      trip.days?.forEach((day: any) => {
+        const dayId = day.id;
+
+        // Attività
+        const activitiesKey = `${dayId}-attivita`;
+        const activitiesData = trip.data[activitiesKey];
+        if (activitiesData?.activities && Array.isArray(activitiesData.activities)) {
+          activitiesData.activities.forEach((activity: any) => {
+            // Immagini attività
+            if (activity.images && Array.isArray(activity.images)) {
+              activity.images.forEach((img: any) => {
+                if (img.uploaderId === user.uid && img.size) {
+                  totalBytes += img.size;
+                }
+              });
+            }
+            // Documenti attività
+            if (activity.documents && Array.isArray(activity.documents)) {
+              activity.documents.forEach((doc: any) => {
+                if (doc.uploaderId === user.uid && doc.size) {
+                  totalBytes += doc.size;
+                }
+              });
+            }
+          });
+        }
+
+        // Pernottamento
+        const accommodationKey = `${dayId}-pernottamento`;
+        const accommodationData = trip.data[accommodationKey];
+        if (accommodationData) {
+          // Immagini pernottamento
+          if (accommodationData.images && Array.isArray(accommodationData.images)) {
+            accommodationData.images.forEach((img: any) => {
+              if (img.uploaderId === user.uid && img.size) {
+                totalBytes += img.size;
+              }
+            });
+          }
+          // Documenti pernottamento
+          if (accommodationData.documents && Array.isArray(accommodationData.documents)) {
+            accommodationData.documents.forEach((doc: any) => {
+              if (doc.uploaderId === user.uid && doc.size) {
+                totalBytes += doc.size;
+              }
+            });
+          }
+        }
+      });
+    });
+
+    return totalBytes;
+  }, [trips, user?.uid]);
+
+  // Formatta bytes in formato leggibile
+  const formatBytes = (bytes: number): string => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
+  // Limite storage (es. 100 MB per utenti free)
+  const STORAGE_LIMIT_MB = 100;
+  const STORAGE_LIMIT_BYTES = STORAGE_LIMIT_MB * 1024 * 1024;
+  const storagePercentage = Math.min((storageUsed / STORAGE_LIMIT_BYTES) * 100, 100);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center" style={{ maxWidth: '430px', margin: '0 auto' }}>
@@ -238,6 +318,42 @@ const ProfileView = ({ onBack, user, trips = [] }) => {
           </div>
         </div>
 
+        {/* Storage */}
+        <button
+          onClick={() => setShowStorageModal(true)}
+          className="w-full bg-white rounded-2xl shadow-sm p-6 mb-4 text-left hover:bg-gray-50 transition-colors"
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">
+              <HardDrive size={20} className="text-blue-500" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-gray-900">Spazio di archiviazione</h3>
+              <p className="text-xs text-gray-500">
+                {formatBytes(storageUsed)} di {STORAGE_LIMIT_MB} MB utilizzati
+              </p>
+            </div>
+            <ChevronRight size={20} className="text-gray-400" />
+          </div>
+
+          {/* Progress bar */}
+          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-300"
+              style={{
+                width: `${storagePercentage}%`,
+                backgroundColor: storagePercentage > 90 ? '#EF4444' : storagePercentage > 70 ? '#F59E0B' : '#3B82F6'
+              }}
+            />
+          </div>
+
+          {storagePercentage > 90 && (
+            <p className="text-xs text-red-500 mt-2">
+              Stai esaurendo lo spazio disponibile
+            </p>
+          )}
+        </button>
+
         {/* Info App */}
         <div className="bg-white rounded-2xl shadow-sm p-6 mb-4">
           <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
@@ -275,6 +391,18 @@ const ProfileView = ({ onBack, user, trips = [] }) => {
           onRemoveAvatar={handleRemoveAvatar}
         />
       )}
+
+      {/* Storage Modal */}
+      <UserStorageModal
+        isOpen={showStorageModal}
+        onClose={() => setShowStorageModal(false)}
+        trips={trips}
+        userId={user?.uid}
+        onFileDeleted={() => {
+          // I trips si aggiorneranno automaticamente dal listener realtime
+          console.log('📁 File eliminato, storage aggiornato');
+        }}
+      />
     </div>
   );
 };

@@ -39,7 +39,7 @@ const CurrentTripCard: React.FC<CurrentTripCardProps> = ({
   onOpenTrip,
   onShowMembers
 }) => {
-  const { trip, currentDayIndex, destination, expensesToDate, totalDays, transports } = tripInfo;
+  const { trip, currentDayIndex, destination, todayExpenses, totalDays, transports } = tripInfo;
 
   const handleCardClick = () => {
     onOpenTrip(trip.id, { dayIndex: currentDayIndex });
@@ -182,13 +182,13 @@ const CurrentTripCard: React.FC<CurrentTripCardProps> = ({
             className="text-sm font-medium"
             style={{ color: rawColors.accentDark }}
           >
-            Spese finora
+            Spese oggi
           </span>
           <span
             className="ml-auto font-bold text-base"
             style={{ color: rawColors.accent }}
           >
-            {expensesToDate.toFixed(2)} €
+            {todayExpenses.toFixed(2)} €
           </span>
           <ChevronRight size={18} style={{ color: rawColors.accent }} />
         </button>

@@ -4,6 +4,7 @@ import { X, Image, FileDown, Calendar, ChevronDown, ChevronUp, Bed } from 'lucid
 import { colors, rawColors } from '../../../styles/theme';
 import ImageViewer from '../../DayDetail/modals/ImageViewer';
 import { ActivityTypeIcon } from '../../../utils/activityTypes';
+import Avatar from '../../ui/Avatar';
 
 // ============================================
 // ALTROVE - MediaRepositoryModal
@@ -405,12 +406,13 @@ const MediaRepositoryModal: React.FC<MediaRepositoryModalProps> = ({
                                                 alt=""
                                                 className="w-full h-full object-cover"
                                               />
-                                              {uploader?.avatar && (
+                                              {uploader && (
                                                 <div className="absolute bottom-1 right-1">
-                                                  <img
+                                                  <Avatar
                                                     src={uploader.avatar}
-                                                    alt=""
-                                                    className="w-4 h-4 rounded-full border border-white object-cover"
+                                                    name={uploader.displayName || '?'}
+                                                    size="xs"
+                                                    className="!w-4 !h-4 !text-[8px] border border-white"
                                                   />
                                                 </div>
                                               )}
@@ -437,12 +439,15 @@ const MediaRepositoryModal: React.FC<MediaRepositoryModalProps> = ({
                                                 style={{ backgroundColor: '#FEE2E2' }}
                                               >
                                                 <FileDown size={14} style={{ color: '#DC2626' }} />
-                                                {uploader?.avatar && (
-                                                  <img
-                                                    src={uploader.avatar}
-                                                    alt=""
-                                                    className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border border-white object-cover"
-                                                  />
+                                                {uploader && (
+                                                  <div className="absolute -bottom-1 -right-1">
+                                                    <Avatar
+                                                      src={uploader.avatar}
+                                                      name={uploader.displayName || '?'}
+                                                      size="xs"
+                                                      className="!w-4 !h-4 !text-[8px] border border-white"
+                                                    />
+                                                  </div>
                                                 )}
                                               </div>
                                               <p

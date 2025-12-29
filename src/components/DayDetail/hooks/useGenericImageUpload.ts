@@ -10,8 +10,8 @@ interface UseGenericImageUploadProps {
   tripId: string;
   entityId: string; // es. 'accommodation-1', 'activity-abc'
   uploaderId: string; // userId di chi carica il file
-  onImageUploaded: (imageData: { id: number; url: string; path: string; uploaderId: string }) => void;
-  onDocumentUploaded?: (docData: { id: number; url: string; path: string; name: string; uploaderId: string }) => void;
+  onImageUploaded: (imageData: { id: number; url: string; path: string; uploaderId: string; size: number }) => void;
+  onDocumentUploaded?: (docData: { id: number; url: string; path: string; name: string; uploaderId: string; size: number }) => void;
 }
 
 interface UseGenericImageUploadReturn {
@@ -67,7 +67,8 @@ export const useGenericImageUpload = ({
         id: Date.now(),
         url: result.url,
         path: result.path,
-        uploaderId
+        uploaderId,
+        size: result.size || 0
       });
     } catch (error) {
       console.error('Errore upload immagine:', error);
@@ -108,7 +109,8 @@ export const useGenericImageUpload = ({
         url: result.url,
         path: result.path,
         name: result.name,
-        uploaderId
+        uploaderId,
+        size: result.size || file.size
       });
     } catch (error) {
       console.error('Errore upload documento:', error);

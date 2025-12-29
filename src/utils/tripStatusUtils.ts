@@ -51,7 +51,7 @@ export interface CurrentTripInfo {
   currentDayIndex: number;
   currentDay: TripDay;
   destination: string;
-  expensesToDate: number;
+  todayExpenses: number;
   totalDays: number;
   transports: TransportActivity[];
 }
@@ -166,12 +166,14 @@ export const getCurrentTripInfo = (trip: Trip): CurrentTripInfo | null => {
 
   const currentDay = trip.days[currentDayIndex];
 
+  const tripMembers = trip.sharing?.members || null;
+
   return {
     trip,
     currentDayIndex,
     currentDay,
     destination: getCurrentDayDestination(trip, currentDay.id),
-    expensesToDate: calculateExpensesToDate(trip, currentDayIndex),
+    todayExpenses: calculateDayCost(currentDay, trip.data, tripMembers),
     totalDays: trip.days.length,
     transports: getCurrentDayTransports(trip, currentDay.id)
   };

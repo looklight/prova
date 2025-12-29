@@ -13,6 +13,7 @@ export interface ImageData {
   name: string;
   path: string;
   id: number;
+  size?: number; // dimensione in bytes (per documenti)
 }
 
 /**
@@ -116,7 +117,8 @@ export const uploadImage = async (
       url: downloadURL,
       name: file.name,
       path,
-      id: timestamp
+      id: timestamp,
+      size: compressedBlob.size
     };
   } catch (error) {
     console.error('Errore upload immagine:', error);
@@ -158,7 +160,8 @@ export const uploadDocument = async (
       url: downloadURL,
       name: file.name,
       path,
-      id: timestamp
+      id: timestamp,
+      size: file.size
     };
   } catch (error) {
     console.error('Errore upload documento:', error);
