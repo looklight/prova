@@ -126,8 +126,11 @@ const EntityViewMode: React.FC<EntityViewModeProps> = ({
 
       {/* Contenuto */}
       <div className="px-3 pb-3 pt-0 space-y-3 border-t" style={{ borderColor: colors.border }}>
+        {/* Info row - slot per contenuto variabile */}
+        {infoContent && <div className="pt-3">{infoContent}</div>}
+
         {/* Riga azioni: BookingToggle + Campanella a sx | Costi a dx */}
-        <div className="flex items-center justify-between pt-3">
+        <div className={`flex items-center justify-between ${!infoContent ? 'pt-3' : ''}`}>
           {/* Booking Toggle + Campanella a sinistra */}
           <div className="flex items-center gap-2">
             <BookingToggle
@@ -154,9 +157,6 @@ const EntityViewMode: React.FC<EntityViewModeProps> = ({
           {/* Costi a destra */}
           {costBadge}
         </div>
-
-        {/* Info row - slot per contenuto variabile */}
-        {infoContent}
 
         {/* Media grid */}
         {hasMedia && (
