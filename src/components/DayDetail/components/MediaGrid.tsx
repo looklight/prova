@@ -1,11 +1,12 @@
 import React from 'react';
-import { Link, Image, Video, FileText, X, Plus, ExternalLink, FileDown } from 'lucide-react';
+import { Link, FileText, X, Plus, ExternalLink, FileDown } from 'lucide-react';
+import { BrandIcon, isBrandIcon } from '../../ui/BrandIcons';
 import { colors } from '../../../styles/theme';
+import { getDomain, getLinkPlatformInfo, getYouTubeThumbnail } from '../../../utils/linkUtils';
 
 // ============================================
 // ALTROVE - MediaGrid
 // Griglia compatta per media cards
-// Da espandere/riprogettare in futuro
 // ============================================
 
 interface MemberInfo {
@@ -28,47 +29,78 @@ interface MediaGridProps {
   onNoteClick?: (note: { id: number; text: string }) => void;
 }
 
-// Card singola link
+// Link Card — struttura unificata per link e video
 const LinkCard: React.FC<{
-  link: { id: number; url: string; title?: string };
+  url: string;
+  label?: string;
   isEditMode: boolean;
   onRemove?: () => void;
-}> = ({ link, isEditMode, onRemove }) => {
-  // Estrai dominio per display
-  const getDomain = (url: string) => {
-    try {
-      return new URL(url).hostname.replace('www.', '');
-    } catch {
-      return url;
-    }
-  };
+}> = ({ url, label, isEditMode, onRemove }) => {
+  const platform = getLinkPlatformInfo(url);
+  const thumbnail = getYouTubeThumbnail(url);
+  const hasBrand = isBrandIcon(platform.icon);
 
   return (
     <div className="relative group">
       <a
-        href={link.url}
+        href={url}
         target="_blank"
         rel="noopener noreferrer"
-        className="aspect-square rounded-lg overflow-hidden flex flex-col items-center justify-center p-2 hover:opacity-90 transition-opacity"
-        style={{ backgroundColor: colors.accentSoft }}
+        className="block aspect-square rounded-lg overflow-hidden relative hover:opacity-90 transition-opacity"
+        style={{ backgroundColor: `${platform.color}15` }}
       >
-        <Link size={24} color={colors.accent} className="mb-2" />
-        <p
-          className="text-[11px] font-medium text-center line-clamp-2 w-full px-1"
-          style={{ color: colors.text }}
-        >
-          {link.title || getDomain(link.url)}
-        </p>
-        <p
-          className="text-[9px] text-center truncate w-full px-1 mt-0.5"
-          style={{ color: colors.textMuted }}
-        >
-          {getDomain(link.url)}
-        </p>
-        <ExternalLink size={10} color={colors.textMuted} className="absolute bottom-1.5 right-1.5" />
+        {thumbnail ? (
+          <>
+            <img
+              src={thumbnail}
+              alt=""
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+            {/* Banner absolute sopra la thumbnail */}
+            {label && (
+              <div className="absolute bottom-0 left-0 right-0 bg-black/55 px-1.5 py-1 pointer-events-none">
+                <p className="text-[9px] font-medium text-white line-clamp-2 leading-tight">
+                  {label}
+                </p>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="w-full h-full flex flex-col">
+            {/* Contenuto centrato — flex-1 si adatta allo spazio residuo */}
+            <div className="flex-1 flex flex-col items-center justify-center px-1.5 pt-7 pb-2">
+              {hasBrand ? (
+                <BrandIcon name={platform.icon} size={32} />
+              ) : (
+                <Link size={32} color={platform.color} />
+              )}
+              <p
+                className="text-[9px] font-medium text-center truncate w-full mt-1.5"
+                style={{ color: platform.color }}
+              >
+                {getDomain(url)}
+              </p>
+            </div>
+            {/* Banner in flow — altezza naturale, mai sovrapposto al dominio */}
+            {label && (
+              <div className="bg-black/55 px-1.5 py-1">
+                <p className="text-[9px] font-medium text-white line-clamp-2 leading-tight">
+                  {label}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Badge brand in alto a sinistra */}
+        {hasBrand && (
+          <div className="absolute top-1.5 left-1.5 w-6 h-6 rounded-full bg-white/90 flex items-center justify-center shadow-sm pointer-events-none">
+            <BrandIcon name={platform.icon} size={14} />
+          </div>
+        )}
       </a>
 
-      {/* Remove button - sempre visibile in edit mode */}
       {isEditMode && onRemove && (
         <button
           onClick={(e) => {
@@ -135,110 +167,6 @@ const ImageCard: React.FC<{
       {isEditMode && onRemove && (
         <button
           onClick={(e) => {
-            e.stopPropagation();
-            onRemove();
-          }}
-          className="absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center bg-red-500 text-white"
-        >
-          <X size={12} />
-        </button>
-      )}
-    </div>
-  );
-};
-
-// Card singola video
-const VideoCard: React.FC<{
-  video: { id: number; url: string; note?: string };
-  isEditMode: boolean;
-  onRemove?: () => void;
-}> = ({ video, isEditMode, onRemove }) => {
-  // Estrai thumbnail YouTube se possibile
-  const getYouTubeThumbnail = (url: string) => {
-    const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/);
-    if (match) {
-      return `https://img.youtube.com/vi/${match[1]}/mqdefault.jpg`;
-    }
-    return null;
-  };
-
-  // Detecta piattaforma per icona/colore
-  const getPlatformInfo = (url: string) => {
-    if (url.includes('youtube.com') || url.includes('youtu.be')) {
-      return { name: 'YouTube', color: '#FF0000' };
-    }
-    if (url.includes('instagram.com')) {
-      return { name: 'Instagram', color: '#E4405F' };
-    }
-    if (url.includes('tiktok.com')) {
-      return { name: 'TikTok', color: '#000000' };
-    }
-    return { name: 'Video', color: colors.textMuted };
-  };
-
-  const thumbnail = getYouTubeThumbnail(video.url);
-  const platform = getPlatformInfo(video.url);
-
-  return (
-    <div className="relative group">
-      <a
-        href={video.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="block aspect-square rounded-lg overflow-hidden"
-        style={{ backgroundColor: colors.bgSubtle }}
-      >
-        {thumbnail ? (
-          <img
-            src={thumbnail}
-            alt=""
-            className="w-full h-full object-cover"
-            loading="lazy"
-          />
-        ) : (
-          <div
-            className="w-full h-full flex flex-col items-center justify-center"
-            style={{ backgroundColor: `${platform.color}15` }}
-          >
-            <Video size={28} color={platform.color} />
-            <span
-              className="text-[10px] font-medium mt-1"
-              style={{ color: platform.color }}
-            >
-              {platform.name}
-            </span>
-          </div>
-        )}
-
-        {/* Play overlay */}
-        <div className="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none">
-          <div className="w-8 h-8 rounded-full bg-white/90 flex items-center justify-center">
-            <div
-              className="w-0 h-0 ml-0.5"
-              style={{
-                borderTop: '5px solid transparent',
-                borderBottom: '5px solid transparent',
-                borderLeft: `8px solid ${platform.color}`
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Nota del video se presente */}
-        {video.note && (
-          <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1.5 py-1 pointer-events-none">
-            <p className="text-[9px] text-white truncate">
-              {video.note}
-            </p>
-          </div>
-        )}
-      </a>
-
-      {/* Remove button - sempre visibile in edit mode */}
-      {isEditMode && onRemove && (
-        <button
-          onClick={(e) => {
-            e.preventDefault();
             e.stopPropagation();
             onRemove();
           }}
@@ -412,7 +340,8 @@ const MediaGrid: React.FC<MediaGridProps> = ({
           {links.map(link => (
             <LinkCard
               key={`link-${link.id}`}
-              link={link}
+              url={link.url}
+              label={link.title}
               isEditMode={isEditMode}
               onRemove={() => onRemoveMedia?.('links', link.id)}
             />
@@ -432,9 +361,10 @@ const MediaGrid: React.FC<MediaGridProps> = ({
 
           {/* Videos */}
           {videos.map(video => (
-            <VideoCard
+            <LinkCard
               key={`video-${video.id}`}
-              video={video}
+              url={video.url}
+              label={video.note}
               isEditMode={isEditMode}
               onRemove={() => onRemoveMedia?.('videos', video.id)}
             />
